@@ -52,6 +52,23 @@ python scripts/visualize_hand.py --mjcf assets/mjcf/linkerhand_l20_right/model.x
 python scripts/retarget_webcam.py --config configs/retargeting/linkerhand_l20.yaml
 ```
 
+如果想同时看 MediaPipe 的 3D 关键点浏览器视图：
+
+```bash
+python scripts/retarget_webcam.py \
+    --config configs/retargeting/linkerhand_l20.yaml \
+    --viser
+```
+
+默认 `viser` 显示的是 `preprocess_landmarks()` 之后的手局部坐标系 3D 点。如果想看原始 MediaPipe 世界坐标，可以显式指定：
+
+```bash
+python scripts/retarget_webcam.py \
+    --config configs/retargeting/linkerhand_l20.yaml \
+    --viser \
+    --viser-space raw
+```
+
 按 `q` 退出。
 
 ### 4. 自动录制验收视频（摄像头）
@@ -81,6 +98,15 @@ python scripts/retarget_video.py \
     --config configs/retargeting/linkerhand_l20.yaml \
     --output trajectory.pickle \
     --visualize
+```
+
+也可以只打开 `viser` 里的 3D landmarks 调试视图：
+
+```bash
+python scripts/retarget_video.py \
+    --video input.mp4 \
+    --config configs/retargeting/linkerhand_l20.yaml \
+    --viser
 ```
 
 ### 6. 跑验收脚本
