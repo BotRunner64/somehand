@@ -58,22 +58,7 @@ python scripts/visualize_hand.py --mjcf assets/mjcf/linkerhand_l20_right/model.x
 dex-retarget webcam --visualize
 ```
 
-如果想同时看 MediaPipe 的 3D 关键点浏览器视图：
-
-```bash
-dex-retarget webcam \
-    --visualize \
-    --viser
-```
-
-默认 `viser` 显示的是 `preprocess_landmarks()` 之后的手局部坐标系 3D 点。如果想看原始 MediaPipe 世界坐标，可以显式指定：
-
-```bash
-dex-retarget webcam \
-    --visualize \
-    --viser \
-    --viser-space raw
-```
+`--visualize` 现在会打开两个独立的 `MuJoCo` viewer：一个看输入手势 / mocap landmarks，一个看 retarget 后的机器人手。为避免双 viewer 在同一进程下闪退，输入手势窗口会由单独子进程承载。
 
 按 `q` 退出。
 
@@ -113,8 +98,7 @@ dex-retarget video \
 dex-retarget hc-mocap bvh \
     --bvh assets/ref_with_toe.bvh \
     --hand Right \
-    --visualize \
-    --viser
+    --visualize
 ```
 
 实时 UDP 模式：
@@ -131,22 +115,49 @@ dex-retarget hc-mocap udp \
 ```bash
 dex-retarget hc-mocap udp \
     --hand Left \
-    --viser \
-    --viser-port 8090 \
     --visualize
 ```
 
 UDP 模式不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 UDP 包都是一行 BVH motion floats，并且 joint 顺序与 `--reference-bvh` 一致。只有离线 `--bvh` 模式在未安装 `teleopit` 时才需要 `--teleopit-root /path/to/Teleopit`。
 `hc_mocap` 输入会自动使用 wrist 真局部坐标做 retarget，因此即使配置文件里是 `wrist_local`，脚本也会切到更适合 `hc_mocap` 的处理方式。
 如果要检查 UDP 是否正常进入，可以看终端的 `UDP stats` 输出，确认 `recv` / `valid` 是否持续增长，以及 `floats` 是否等于参考 BVH 的通道数。
-如果 `viser-space` 用的是 `local`，wrist 的整体平移和转动会被去掉，所以这时看到的是“手指相对手腕”的运动；要先确认 UDP 原始输入是否在变化，建议切到 `--viser-space raw`。
+输入手势窗口里显示的是参与 retarget 的输入 landmarks，因此看到的是已经对齐到机器人坐标系的手部骨架；机器人窗口单独显示 retarget 后的手模型。
 
-也可以只打开 `viser` 里的 3D landmarks 调试视图：
+### 5.2 PICO 4 手部输入
+
+先确保 `xrobotoolkit_sdk` 可导入；如果没装，可以运行：
 
 ```bash
-dex-retarget video \
-    --video input.mp4 \
-    --viser
+bash scripts/setup_xrobotoolkit.sh
+```
+
+然后先探测 PICO / XRoboToolkit 链路是否正常：
+
+```bash
+python scripts/probe_pico_xrobotoolkit.py --hand Right
+```
+
+探测正常后，直接运行实时 retargeting：
+
+```bash
+dex-retarget pico \
+    --hand Right \
+    --visualize
+```
+
+常见前提：
+
+- 头显里已打开 Hand Tracking 权限
+- 当前在 gesture / hand tracking 模式，而不是 controller mode
+- XRoboToolkit / RobotLinuxDemo 在头显前台，并已连接 PC service
+
+如果长时间收不到手数据，可以把等待时间调长：
+
+```bash
+dex-retarget pico \
+    --hand Right \
+    --pico-timeout 90 \
+    --visualize
 ```
 
 ### 6. 跑验收脚本

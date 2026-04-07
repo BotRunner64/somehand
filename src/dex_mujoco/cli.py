@@ -25,15 +25,10 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Operator hand to retarget",
     )
     parser.add_argument("-o", "--output", default=None, help="Output pickle file for joint trajectory")
-    parser.add_argument("--visualize", action="store_true", help="Show MuJoCo viewer")
-    parser.add_argument("--viser", action="store_true", help="Show 3D landmarks in a browser via viser")
-    parser.add_argument("--viser-host", default="127.0.0.1", help="Host address for the viser server")
-    parser.add_argument("--viser-port", type=int, default=8080, help="Port for the viser server")
     parser.add_argument(
-        "--viser-space",
-        choices=["local", "raw"],
-        default="local",
-        help="Which landmark coordinates to render in viser",
+        "--visualize",
+        action="store_true",
+        help="Show two MuJoCo viewers: input hand landmarks and retargeted robot hand",
     )
 
 
@@ -57,6 +52,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--swap-hands",
         action="store_true",
         help="Swap MediaPipe Left/Right labels if this video reports the opposite hand",
+    )
+
+    pico = subparsers.add_parser("pico", help="Retarget from live PICO hand tracking via XRoboToolkit")
+    _add_common_args(pico)
+    pico.add_argument(
+        "--pico-timeout",
+        type=float,
+        default=60.0,
+        help="Timeout in seconds while waiting for PICO hand-tracking frames",
     )
 
     hc_mocap = subparsers.add_parser("hc-mocap", help="Retarget from Teleopit hc_mocap data")
@@ -103,10 +107,6 @@ def _runtime_from_args(args: argparse.Namespace, *, input_type: str):
     options = RuntimeOptions(
         config_path=args.config,
         visualize=args.visualize,
-        viser=args.viser,
-        viser_host=args.viser_host,
-        viser_port=args.viser_port,
-        viser_space=args.viser_space,
         output_path=args.output,
     )
     return RetargetRuntime(options, input_type=input_type)
@@ -233,6 +233,29 @@ def _run_video(args: argparse.Namespace) -> None:
     _run_source(source, runtime, handedness=args.hand)
 
 
+def _run_pico(args: argparse.Namespace) -> None:
+    from .input_sources import HCMocapInputSource
+    from .pico_input import create_pico_provider
+
+    provider = create_pico_provider(
+        handedness=args.hand,
+        timeout=args.pico_timeout,
+    )
+    source = HCMocapInputSource(
+        provider,
+        source_desc=f"pico://{args.hand.lower()}",
+    )
+    runtime = _runtime_from_args(args, input_type="pico")
+    runtime.print_startup(
+        source_desc=source.source_desc,
+        tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
+        extra_lines=[
+            "Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode.",
+        ],
+    )
+    _run_source(source, runtime, handedness=args.hand)
+
+
 def _run_hc_mocap_bvh(args: argparse.Namespace) -> None:
     from .hc_mocap_input import create_hc_mocap_bvh_provider
     from .input_sources import HCMocapInputSource
@@ -303,6 +326,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "video":
         _run_video(args)
+        return
+    if args.command == "pico":
+        _run_pico(args)
         return
     if args.command == "hc-mocap" and args.hc_command == "bvh":
         _run_hc_mocap_bvh(args)

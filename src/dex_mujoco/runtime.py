@@ -9,20 +9,15 @@ from pathlib import Path
 import numpy as np
 
 from .hand_model import HandModel
-from .landmark_visualization import MediaPipe3DVisualizer
 from .retargeting_config import RetargetingConfig
 from .vector_retargeting import VectorRetargeter, preprocess_landmarks
-from .visualization import HandVisualizer
+from .visualization import AsyncLandmarkVisualizer, HandVisualizer
 
 
 @dataclass(frozen=True)
 class RuntimeOptions:
     config_path: str
     visualize: bool = False
-    viser: bool = False
-    viser_host: str = "127.0.0.1"
-    viser_port: int = 8080
-    viser_space: str = "local"
     output_path: str | None = None
 
 
@@ -41,19 +36,19 @@ class RetargetRuntime:
         self.hand_model = HandModel(self.config.hand.mjcf_path)
         self.retargeter = VectorRetargeter(self.hand_model, self.config)
         self.visualizer = HandVisualizer(self.hand_model) if options.visualize else None
-        self.mp_visualizer = None
-        if options.viser:
-            self.mp_visualizer = MediaPipe3DVisualizer(
-                host=options.viser_host,
-                port=options.viser_port,
-                space=options.viser_space,
-            )
+        self.landmark_visualizer = AsyncLandmarkVisualizer() if options.visualize else None
 
         self.trajectory: list[np.ndarray] = []
 
     @property
     def is_running(self) -> bool:
-        return self.visualizer.is_running if self.visualizer is not None else True
+        if self.visualizer is None and self.landmark_visualizer is None:
+            return True
+        return all(
+            viewer.is_running
+            for viewer in (self.visualizer, self.landmark_visualizer)
+            if viewer is not None
+        )
 
     def print_startup(
         self,
@@ -66,8 +61,8 @@ class RetargetRuntime:
         print(f"Retargeting: {len(self.config.human_vector_pairs)} vector pairs")
         print(f"Input source: {source_desc}")
         print(tracking_desc)
-        if self.mp_visualizer is not None:
-            print(f"3D viewer ({self.options.viser_space}): {self.mp_visualizer.url}")
+        if self.visualizer is not None:
+            print("MuJoCo viewers: one for retargeted robot hand, one for input hand mocap")
         if extra_lines:
             for line in extra_lines:
                 print(line)
@@ -82,18 +77,14 @@ class RetargetRuntime:
         self.trajectory.append(qpos.copy())
 
         if self.visualizer is not None:
+            landmarks_for_vis = preprocess_landmarks(
+                retarget_landmarks,
+                handedness=detection.handedness,
+                frame=self.config.preprocess.frame,
+            )
             self.visualizer.update(qpos)
-
-        if self.mp_visualizer is not None:
-            if self.options.viser_space == "local":
-                landmarks_for_vis = preprocess_landmarks(
-                    retarget_landmarks,
-                    handedness=detection.handedness,
-                    frame=self.config.preprocess.frame,
-                )
-            else:
-                landmarks_for_vis = detection.landmarks_3d
-            self.mp_visualizer.update(landmarks_for_vis)
+            if self.landmark_visualizer is not None:
+                self.landmark_visualizer.update(landmarks_for_vis)
 
         return qpos
 
@@ -134,7 +125,7 @@ class RetargetRuntime:
         print(f"Saved trajectory ({len(self.trajectory)} frames) to {output_path}")
 
     def close(self) -> None:
-        if self.mp_visualizer is not None:
-            self.mp_visualizer.close()
+        if self.landmark_visualizer is not None:
+            self.landmark_visualizer.close()
         if self.visualizer is not None:
             self.visualizer.close()
