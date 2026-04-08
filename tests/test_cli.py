@@ -28,6 +28,16 @@ def test_video_command_requires_video_path():
     assert args.hand == "Left"
 
 
+def test_recording_command_accepts_replay_flags():
+    parser = build_parser()
+    args = parser.parse_args(["recording", "--recording", "session.pkl", "--realtime", "--loop"])
+
+    assert args.command == "recording"
+    assert args.recording == "session.pkl"
+    assert args.realtime is True
+    assert args.loop is True
+
+
 def test_pico_command_uses_default_timeout():
     parser = build_parser()
     args = parser.parse_args(["pico", "--hand", "Left"])
@@ -46,7 +56,7 @@ def test_webcam_command_uses_current_common_args():
         "command",
         "config",
         "hand",
-        "output",
+        "record_output",
         "swap_hands",
     }
 

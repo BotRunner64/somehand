@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import cv2
 import numpy as np
 
 from dex_mujoco.domain import HandFrame, SourceFrame
 from dex_mujoco.hand_detector import HandDetection, HandDetector
-from dex_mujoco.hc_mocap_input import HCMocapHandProvider, create_hc_mocap_bvh_provider, create_hc_mocap_udp_provider
+from dex_mujoco.hc_mocap_input import create_hc_mocap_bvh_provider, create_hc_mocap_udp_provider
 from dex_mujoco.pico_input import create_pico_provider
+
+from .artifacts import load_hand_recording_artifact
 
 _HAND_CONNECTIONS = (
     (0, 1), (1, 2), (2, 3), (3, 4),
@@ -46,6 +46,16 @@ def _annotate_preview(frame: np.ndarray, detection: HandFrame) -> np.ndarray:
         p2 = tuple(detection.landmarks_2d[end_idx].astype(int))
         cv2.line(annotated, p1, p2, (0, 200, 0), 1)
     return annotated
+
+
+def _copy_hand_frame(frame: HandFrame) -> HandFrame:
+    return HandFrame(
+        landmarks_3d=np.array(frame.landmarks_3d, copy=True),
+        landmarks_2d=None if frame.landmarks_2d is None else np.array(frame.landmarks_2d, copy=True),
+        handedness=frame.handedness,
+        landmarks_3d_local=None if frame.landmarks_3d_local is None else np.array(frame.landmarks_3d_local, copy=True),
+        metadata=dict(frame.metadata),
+    )
 
 
 class MediaPipeInputSource:
@@ -100,6 +110,47 @@ class MediaPipeInputSource:
         return {}
 
 
+class RecordingHandTrackingSource:
+    def __init__(self, wrapped_source: object):
+        self._wrapped_source = wrapped_source
+        self.recorded_frames: list[HandFrame] = []
+
+    def __getattr__(self, name: str):
+        return getattr(self._wrapped_source, name)
+
+    @property
+    def source_desc(self) -> str:
+        return str(getattr(self._wrapped_source, "source_desc"))
+
+    @property
+    def fps(self) -> int:
+        return int(getattr(self._wrapped_source, "fps"))
+
+    def is_available(self) -> bool:
+        return bool(self._wrapped_source.is_available())
+
+    def get_frame(self) -> SourceFrame:
+        frame = self._wrapped_source.get_frame()
+        if frame.detection is not None:
+            self.recorded_frames.append(_copy_hand_frame(frame.detection))
+        return frame
+
+    def latest_hand_frame_snapshot(self) -> tuple[int, HandFrame] | None:
+        snapshot_fn = getattr(self._wrapped_source, "latest_hand_frame_snapshot", None)
+        if not callable(snapshot_fn):
+            return None
+        return snapshot_fn()
+
+    def reset(self) -> bool:
+        return bool(self._wrapped_source.reset())
+
+    def close(self) -> None:
+        self._wrapped_source.close()
+
+    def stats_snapshot(self) -> dict[str, object]:
+        return dict(self._wrapped_source.stats_snapshot())
+
+
 class HCMocapInputSource:
     def __init__(self, provider: object, *, source_desc: str, use_local_frame: bool = True):
         self.source_desc = source_desc
@@ -148,6 +199,49 @@ class HCMocapInputSource:
         return {}
 
 
+class RecordedHandDataSource:
+    def __init__(self, recording_path: str):
+        recording = load_hand_recording_artifact(recording_path)
+        self._frames: list[HandFrame] = list(recording["frames"])
+        self._fps = int(recording["fps"])
+        self._index = 0
+        self.recording_path = recording_path
+        self.source_desc = recording_path
+        self.recording_metadata = {
+            "input_source": recording["input_source"],
+            "input_type": recording["input_type"],
+            "handedness": recording.get("handedness"),
+            "num_frames": recording["num_frames"],
+            "num_detected": recording["num_detected"],
+        }
+
+    @property
+    def fps(self) -> int:
+        return self._fps
+
+    def is_available(self) -> bool:
+        return self._index < len(self._frames)
+
+    def get_frame(self) -> SourceFrame:
+        if not self.is_available():
+            raise StopIteration
+        frame = self._frames[self._index]
+        self._index += 1
+        return SourceFrame(detection=_copy_hand_frame(frame))
+
+    def reset(self) -> bool:
+        if not self._frames:
+            return False
+        self._index = 0
+        return True
+
+    def close(self) -> None:
+        return None
+
+    def stats_snapshot(self) -> dict[str, object]:
+        return {}
+
+
 def create_hc_mocap_bvh_source(
     *,
     bvh_path: str,
@@ -189,3 +283,7 @@ def create_pico_source(*, handedness: str, timeout: float) -> HCMocapInputSource
         provider,
         source_desc=f"pico://{handedness.lower()}",
     )
+
+
+def create_recording_source(*, recording_path: str) -> RecordedHandDataSource:
+    return RecordedHandDataSource(recording_path)

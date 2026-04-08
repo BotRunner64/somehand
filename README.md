@@ -63,6 +63,13 @@ dex-retarget webcam
 
 按 `q` 退出。
 
+如果想把当前输入直接录成可回放的离线数据：
+
+```bash
+dex-retarget webcam \
+    --record-output recordings/webcam_hand.pkl
+```
+
 ### 4. 自动录制验收视频（摄像头）
 
 ```bash
@@ -86,12 +93,27 @@ python scripts/acceptance_check.py \
 
 ```bash
 dex-retarget video \
-    --video input.mp4 \
-    --output trajectory.pickle \
-    --visualize
+    --video input.mp4
 ```
 
-### 5.1 hc_mocap 手部输入
+### 5.1 离线 Retargeting（已录制手部数据）
+
+如果你想绕过摄像头 / PICO / UDP 输入，直接复现某次采集到的手部 landmarks：
+
+```bash
+dex-retarget recording \
+    --recording recordings/webcam_hand.pkl
+```
+
+如果希望按录制时的 fps 回放：
+
+```bash
+dex-retarget recording \
+    --recording recordings/webcam_hand.pkl \
+    --realtime
+```
+
+### 5.2 hc_mocap 手部输入
 
 如果你已经有 Teleopit 的 `hc_mocap` BVH 或 UDP 流，可以跳过 MediaPipe，直接把手骨架转成 21 点后喂给当前 retargeting：
 
@@ -121,7 +143,7 @@ UDP 模式不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 
 如果要检查 UDP 是否正常进入，可以看终端的 `UDP stats` 输出，确认 `recv` / `valid` 是否持续增长，以及 `floats` 是否等于参考 BVH 的通道数。
 输入手势窗口里显示的是参与 retarget 的输入 landmarks，因此看到的是已经对齐到机器人坐标系的手部骨架；机器人窗口单独显示 retarget 后的手模型。
 
-### 5.2 PICO 4 手部输入
+### 5.3 PICO 4 手部输入
 
 先确保 `xrobotoolkit_sdk` 可导入；如果没装，可以运行：
 
@@ -140,6 +162,14 @@ python scripts/probe_pico_xrobotoolkit.py --hand Right
 ```bash
 dex-retarget pico \
     --hand Right
+```
+
+如果想把 PICO 输入录下来，供之后离线复现：
+
+```bash
+dex-retarget pico \
+    --hand Right \
+    --record-output recordings/pico_hand.pkl
 ```
 
 常见前提：
