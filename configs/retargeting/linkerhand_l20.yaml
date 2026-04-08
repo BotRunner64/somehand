@@ -1,9 +1,10 @@
 # Retargeting config: MediaPipe -> Linkerhand L20 Right Hand
 #
 # The palm-base vectors, pinch loss, and thumb position constraints were making
-# the optimizer fight itself on recorded PICO data. This version keeps the
-# informative non-palm vectors and only uses the angle constraints that still
-# add clear value after fixing the wrist-frame preprocessing.
+# the optimizer fight itself on recorded PICO data. This version now keeps the
+# informative non-palm vectors but matches them with vector residuals (like
+# dex-retargeting) instead of direction-only cosine loss, which makes distal
+# joints much more observable.
 
 hand:
   name: "linkerhand_l20_right"
@@ -142,6 +143,14 @@ retargeting:
     - 1.0
     - 1.0
     - 0.8
+
+  vector_loss:
+    type: "residual"
+    huber_delta: 0.02
+    scaling: 1.0
+    scale_landmarks: [0, 9]
+    scale_bodies: ["world", "middle_proximal"]
+    scale_body_types: ["body", "body"]
 
   angle_constraints:
     - landmarks: [4, 0, 8]

@@ -15,6 +15,18 @@ _FINGER_TIP_INDICES = [8, 12, 16, 20]
 _THUMB_LANDMARKS = {0, 1, 2, 3, 4}
 
 
+def _huber_loss(distance: float, delta: float) -> float:
+    if distance <= delta:
+        return 0.5 * distance * distance
+    return delta * (distance - 0.5 * delta)
+
+
+def _huber_grad(distance: float, delta: float) -> float:
+    if distance <= delta:
+        return distance
+    return delta
+
+
 class TemporalFilter:
     """Exponential moving average filter for smooth landmark tracking."""
 
@@ -74,8 +86,11 @@ class VectorRetargeter:
         self._max_iterations = config.solver.max_iterations
         self._output_alpha = config.solver.output_alpha
         self._weights = np.array(config.vector_weights, dtype=np.float64)
+        self._vector_loss_type = config.vector_loss.type
+        self._vector_huber_delta = config.vector_loss.huber_delta
 
         self._target_directions: np.ndarray | None = None
+        self._target_vectors: np.ndarray | None = None
         self._target_angles: np.ndarray | None = None
         self._last_qpos: np.ndarray | None = None
 
@@ -118,6 +133,17 @@ class VectorRetargeter:
         self._scale_landmark_idx = 0
         self._wrist_body_id = 0
         self._wrist_is_site = False
+        self._vector_scale_landmark_idx = config.vector_loss.scale_landmarks[1]
+        self._robot_vector_scale = 0.0
+
+        vector_scale_ids: list[tuple[int, bool]] = []
+        for index, name in enumerate(config.vector_loss.scale_bodies):
+            is_site = config.vector_loss.scale_body_types[index] == "site"
+            object_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
+            body_id = mujoco.mj_name2id(self.model, object_type, name)
+            if body_id < 0:
+                raise ValueError(f"Vector scale body '{name}' not found")
+            vector_scale_ids.append((body_id, is_site))
 
         if self._pos_enabled:
             position_config = config.position
@@ -149,6 +175,13 @@ class VectorRetargeter:
                     raise ValueError(f"Position constraint body '{constraint.body}' not found")
                 self._pos_body_ids.append(body_id)
                 self._pos_per_weights.append(constraint.weight)
+
+        self._forward()
+        vector_scale_p0 = self._get_pos(vector_scale_ids[0][0], vector_scale_ids[0][1])
+        vector_scale_p1 = self._get_pos(vector_scale_ids[1][0], vector_scale_ids[1][1])
+        self._robot_vector_scale = (
+            float(np.linalg.norm(vector_scale_p1 - vector_scale_p0)) * config.vector_loss.scaling
+        )
 
         self._angle_landmarks: list[tuple[int, int, int]] = []
         self._angle_qpos_ids: list[int] = []
@@ -185,6 +218,7 @@ class VectorRetargeter:
                 if low < high:
                     self.data.qpos[joint_index] = (low + high) / 2.0
                 break
+
         self._forward()
 
     def _forward(self, qpos: np.ndarray | None = None) -> None:
@@ -243,13 +277,18 @@ class VectorRetargeter:
         robot_vecs = self._get_robot_vectors()
         loss = 0.0
         for index in range(len(robot_vecs)):
-            robot_norm = np.linalg.norm(robot_vecs[index])
             weight = self._get_effective_weight(index)
-            if robot_norm < 1e-8:
-                loss += weight
-                continue
-            cos_sim = np.dot(robot_vecs[index] / robot_norm, self._target_directions[index])
-            loss += weight * (1.0 - cos_sim)
+            if self._vector_loss_type == "residual":
+                diff = robot_vecs[index] - self._target_vectors[index]
+                dist = float(np.linalg.norm(diff))
+                loss += weight * _huber_loss(dist, self._vector_huber_delta)
+            else:
+                robot_norm = np.linalg.norm(robot_vecs[index])
+                if robot_norm < 1e-8:
+                    loss += weight
+                    continue
+                cos_sim = np.dot(robot_vecs[index] / robot_norm, self._target_directions[index])
+                loss += weight * (1.0 - cos_sim)
         if self._last_qpos is not None:
             loss += self._norm_delta * np.sum((qpos - self._last_qpos) ** 2)
         if self._target_angles is not None:
@@ -270,18 +309,7 @@ class VectorRetargeter:
 
         for index in range(len(self.origin_ids)):
             robot_vec = robot_vecs[index]
-            robot_norm = np.linalg.norm(robot_vec)
             weight = self._get_effective_weight(index)
-            if robot_norm < 1e-8:
-                loss += weight
-                continue
-
-            robot_dir = robot_vec / robot_norm
-            target_dir = self._target_directions[index]
-            cos_sim = np.dot(robot_dir, target_dir)
-            loss += weight * (1.0 - cos_sim)
-
-            grad_vec = -(target_dir - cos_sim * robot_dir) / robot_norm
             jac_task = np.zeros((3, num_velocities))
             jac_origin = np.zeros((3, num_velocities))
 
@@ -295,7 +323,27 @@ class VectorRetargeter:
             else:
                 mujoco.mj_jacBody(self.model, self.data, jac_origin, None, self.origin_ids[index])
 
-            grad += weight * (grad_vec @ (jac_task - jac_origin))
+            jac_diff = jac_task - jac_origin
+            if self._vector_loss_type == "residual":
+                diff = robot_vec - self._target_vectors[index]
+                dist = float(np.linalg.norm(diff))
+                loss += weight * _huber_loss(dist, self._vector_huber_delta)
+                if dist > 1e-8:
+                    grad_coeff = _huber_grad(dist, self._vector_huber_delta) / dist
+                    grad += weight * grad_coeff * (diff @ jac_diff)
+            else:
+                robot_norm = np.linalg.norm(robot_vec)
+                if robot_norm < 1e-8:
+                    loss += weight
+                    continue
+
+                robot_dir = robot_vec / robot_norm
+                target_dir = self._target_directions[index]
+                cos_sim = np.dot(robot_dir, target_dir)
+                loss += weight * (1.0 - cos_sim)
+
+                grad_vec = -(target_dir - cos_sim * robot_dir) / robot_norm
+                grad += weight * (grad_vec @ jac_diff)
 
         if self._last_qpos is not None:
             delta_q = qpos - self._last_qpos
@@ -362,14 +410,21 @@ class VectorRetargeter:
         landmarks = self.landmark_filter.filter(landmarks)
 
         directions = np.empty((len(self.human_vector_pairs), 3), dtype=np.float64)
+        target_vectors = np.empty((len(self.human_vector_pairs), 3), dtype=np.float64)
+        vector_scale = self._robot_vector_scale / max(
+            float(np.linalg.norm(landmarks[self._vector_scale_landmark_idx])),
+            1e-6,
+        )
         for index, (origin_idx, target_idx) in enumerate(self.human_vector_pairs):
             vector = landmarks[target_idx] - landmarks[origin_idx]
             norm = np.linalg.norm(vector)
+            target_vectors[index] = vector_scale * vector
             if norm < 1e-8:
                 directions[index] = 0.0
             else:
                 directions[index] = vector / norm
         self._target_directions = directions
+        self._target_vectors = target_vectors
 
         if self._pos_enabled:
             human_palm_size = np.linalg.norm(landmarks[self._scale_landmark_idx])

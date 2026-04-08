@@ -15,6 +15,7 @@ from dex_mujoco.domain.config import (
     PreprocessConfig,
     RetargetingConfig,
     SolverConfig,
+    VectorLossConfig,
 )
 
 
@@ -56,6 +57,15 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
     config.vector_weights = retargeting_data.get(
         "vector_weights",
         [1.0] * len(config.human_vector_pairs),
+    )
+    vector_loss_data = retargeting_data.get("vector_loss", {})
+    config.vector_loss = VectorLossConfig(
+        type=vector_loss_data.get("type", "direction"),
+        huber_delta=vector_loss_data.get("huber_delta", 0.02),
+        scaling=vector_loss_data.get("scaling", 1.0),
+        scale_landmarks=vector_loss_data.get("scale_landmarks", [0, 9]),
+        scale_bodies=vector_loss_data.get("scale_bodies", ["world", "middle_proximal"]),
+        scale_body_types=vector_loss_data.get("scale_body_types", ["body", "body"]),
     )
 
     config.angle_constraints = [

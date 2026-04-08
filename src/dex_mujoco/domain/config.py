@@ -54,6 +54,16 @@ class PositionConfig:
 
 
 @dataclass
+class VectorLossConfig:
+    type: str = "direction"
+    huber_delta: float = 0.02
+    scaling: float = 1.0
+    scale_landmarks: list[int] = field(default_factory=lambda: [0, 9])
+    scale_bodies: list[str] = field(default_factory=lambda: ["world", "middle_proximal"])
+    scale_body_types: list[str] = field(default_factory=lambda: ["body", "body"])
+
+
+@dataclass
 class AngleConstraint:
     landmarks: list[int] = field(default_factory=list)
     joint: str = ""
@@ -71,6 +81,7 @@ class RetargetingConfig:
     origin_link_types: list[str] = field(default_factory=list)
     task_link_types: list[str] = field(default_factory=list)
     vector_weights: list[float] = field(default_factory=list)
+    vector_loss: VectorLossConfig = field(default_factory=VectorLossConfig)
     angle_constraints: list[AngleConstraint] = field(default_factory=list)
     pinch: PinchConfig = field(default_factory=PinchConfig)
     position: PositionConfig = field(default_factory=PositionConfig)
@@ -114,6 +125,20 @@ class RetargetingConfig:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
             raise ValueError("solver.output_alpha must be in (0, 1]")
+        if self.vector_loss.type not in {"direction", "residual"}:
+            raise ValueError("vector_loss.type must be 'direction' or 'residual'")
+        if self.vector_loss.huber_delta <= 0.0:
+            raise ValueError("vector_loss.huber_delta must be > 0")
+        if self.vector_loss.scaling <= 0.0:
+            raise ValueError("vector_loss.scaling must be > 0")
+        if len(self.vector_loss.scale_landmarks) != 2:
+            raise ValueError("vector_loss.scale_landmarks must have length 2")
+        if len(self.vector_loss.scale_bodies) != 2:
+            raise ValueError("vector_loss.scale_bodies must have length 2")
+        if len(self.vector_loss.scale_body_types) != 2:
+            raise ValueError("vector_loss.scale_body_types must have length 2")
+        if any(link_type not in {"body", "site"} for link_type in self.vector_loss.scale_body_types):
+            raise ValueError("vector_loss.scale_body_types must only contain 'body' or 'site'")
         for constraint in self.angle_constraints:
             if constraint.scale <= 0.0:
                 raise ValueError("angle constraint scale must be > 0")

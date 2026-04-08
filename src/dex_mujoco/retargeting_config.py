@@ -9,6 +9,7 @@ from dex_mujoco.domain.config import (
     PreprocessConfig,
     RetargetingConfig,
     SolverConfig,
+    VectorLossConfig,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "PreprocessConfig",
     "RetargetingConfig",
     "SolverConfig",
+    "VectorLossConfig",
 ]

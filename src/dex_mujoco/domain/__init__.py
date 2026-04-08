@@ -9,6 +9,7 @@ from .config import (
     PreprocessConfig,
     RetargetingConfig,
     SolverConfig,
+    VectorLossConfig,
 )
 from .models import HandFrame, HandFrameSink, HandTrackingSource, OutputSink, PreviewWindow, RetargetingStepResult, SessionSummary, SourceFrame
 from .preprocessing import compute_target_directions, preprocess_landmarks
@@ -32,4 +33,5 @@ __all__ = [
     "SourceFrame",
     "compute_target_directions",
     "preprocess_landmarks",
+    "VectorLossConfig",
 ]
