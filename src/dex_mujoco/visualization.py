@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import queue
+import signal
+import sys
+import threading
 import time
 
 import mujoco
@@ -49,16 +52,70 @@ _LANDMARK_VIEWER_XML = """
 """
 
 
+def _mujoco_key_callback(handler):
+    if handler is None:
+        return None
+
+    def _callback(keycode: int) -> None:
+        if keycode < 0 or keycode > 255:
+            return
+        handler(chr(keycode))
+
+    return _callback
+
+
+class _ManagedPassiveViewer:
+    """Wrap MuJoCo's passive viewer and wait for its render thread to exit."""
+
+    def __init__(self, model, data, *, key_callback=None, show_left_ui=False, show_right_ui=False):
+        if sys.platform == "darwin":
+            self._handle = mujoco.viewer.launch_passive(
+                model=model,
+                data=data,
+                key_callback=key_callback,
+                show_left_ui=show_left_ui,
+                show_right_ui=show_right_ui,
+            )
+            self._thread = None
+            return
+
+        handle_return = queue.Queue(1)
+        self._thread = threading.Thread(
+            target=mujoco.viewer._launch_internal,
+            args=(model, data),
+            kwargs=dict(
+                run_physics_thread=False,
+                handle_return=handle_return,
+                key_callback=key_callback,
+                show_left_ui=show_left_ui,
+                show_right_ui=show_right_ui,
+            ),
+            name="dex-mujoco-passive-viewer",
+            daemon=True,
+        )
+        self._thread.start()
+        self._handle = handle_return.get()
+
+    def __getattr__(self, name: str):
+        return getattr(self._handle, name)
+
+    def close(self, *, timeout: float = 2.0) -> None:
+        self._handle.close()
+        if self._thread is not None and self._thread.is_alive() and self._thread is not threading.current_thread():
+            self._thread.join(timeout=timeout)
+
+
 class HandVisualizer:
     """Real-time MuJoCo visualization of the retargeted robot hand."""
 
-    def __init__(self, hand_model: HandModel):
+    def __init__(self, hand_model: HandModel, *, key_callback=None):
         self.hand_model = hand_model
         self.model = hand_model.model
         self.data = hand_model.data
-        self.viewer = mujoco.viewer.launch_passive(
+        self.viewer = _ManagedPassiveViewer(
             model=self.model,
             data=self.data,
+            key_callback=_mujoco_key_callback(key_callback),
             show_left_ui=False,
             show_right_ui=False,
         )
@@ -102,7 +159,7 @@ class LandmarkVisualizer:
     def __init__(self):
         self.model = mujoco.MjModel.from_xml_string(_LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
-        self.viewer = mujoco.viewer.launch_passive(
+        self.viewer = _ManagedPassiveViewer(
             model=self.model,
             data=self.data,
             show_left_ui=False,
@@ -191,6 +248,7 @@ class LandmarkVisualizer:
 
 
 def _landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     visualizer = LandmarkVisualizer()
     latest_landmarks = np.zeros((21, 3), dtype=np.float64)
 
@@ -213,6 +271,8 @@ def _landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
             else:
                 visualizer.update(latest_landmarks)
                 time.sleep(1.0 / 120.0)
+    except KeyboardInterrupt:
+        return
     finally:
         visualizer.close()
 

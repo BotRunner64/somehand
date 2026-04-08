@@ -101,17 +101,11 @@ dex-retarget video \
 如果你想绕过摄像头 / PICO / UDP 输入，直接复现某次采集到的手部 landmarks：
 
 ```bash
-dex-retarget recording \
+dex-retarget replay \
     --recording recordings/webcam_hand.pkl
 ```
 
-如果希望按录制时的 fps 回放：
-
-```bash
-dex-retarget recording \
-    --recording recordings/webcam_hand.pkl \
-    --realtime
-```
+`replay` 默认就会按录制时的 fps 实时回放。
 
 ### 5.2 hc_mocap 手部输入
 
@@ -171,6 +165,12 @@ dex-retarget pico \
     --hand Right \
     --record-output recordings/pico_hand.pkl
 ```
+
+运行后：
+
+- 在终端或 robot-hand MuJoCo 窗口按 `r` 开始录制
+- 在终端或 robot-hand MuJoCo 窗口按 `s` 结束录制，并自动保存到 `--record-output` 指定路径
+- 如果中途直接 `Ctrl+C`，也会保存已经录到的内容
 
 常见前提：
 

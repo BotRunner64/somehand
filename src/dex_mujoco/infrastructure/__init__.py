@@ -15,6 +15,7 @@ from .sources import (
     create_pico_source,
     create_recording_source,
 )
+from .terminal_controls import TerminalRecordingController
 from .vector_solver import VectorRetargeter
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "RecordingHandTrackingSource",
     "RobotHandOutputSink",
     "TrajectoryRecorder",
+    "TerminalRecordingController",
     "VectorRetargeter",
     "create_hc_mocap_bvh_source",
     "create_hc_mocap_udp_source",

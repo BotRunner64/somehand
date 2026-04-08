@@ -190,3 +190,43 @@ def test_session_decouples_frame_sinks_with_live_snapshot_source():
     assert len(result_sink.results) == 1
     assert len(frame_sink.frames) >= 2
     assert frame_sink.closed is True
+
+
+def test_session_stops_when_stop_condition_is_triggered():
+    source = _FakeSource(
+        [
+            SourceFrame(detection=_detection("Right")),
+            SourceFrame(detection=_detection("Left")),
+        ]
+    )
+    sink = _FakeSink()
+    session = RetargetingSession(_FakeEngine(), sinks=[sink])
+
+    summary = session.run(
+        source,
+        input_type="test",
+        stop_condition=lambda: len(sink.results) >= 1,
+    )
+
+    assert summary.num_frames == 1
+    assert summary.num_detected == 1
+    assert len(sink.results) == 1
+
+
+def test_session_ignores_interrupts_raised_while_closing_resources():
+    class _InterruptingSource(_FakeSource):
+        def close(self) -> None:
+            raise KeyboardInterrupt
+
+    class _InterruptingSink(_FakeSink):
+        def close(self) -> None:
+            raise KeyboardInterrupt
+
+    source = _InterruptingSource([SourceFrame(detection=_detection("Right"))])
+    sink = _InterruptingSink()
+    session = RetargetingSession(_FakeEngine(), sinks=[sink])
+
+    summary = session.run(source, input_type="test")
+
+    assert summary.num_frames == 1
+    assert summary.num_detected == 1

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import signal
 import time
 from threading import Event, Thread
 from collections.abc import Sequence
+from typing import Callable
 
 from dex_mujoco.domain import HandFrameSink, HandTrackingSource, OutputSink, PreviewWindow, SessionSummary
 
@@ -39,6 +41,7 @@ class RetargetingSession:
         realtime: bool = False,
         loop: bool = False,
         stats_every: int = 0,
+        stop_condition: Callable[[], bool] | None = None,
     ) -> SessionSummary:
         frame_count = 0
         detected_count = 0
@@ -48,6 +51,9 @@ class RetargetingSession:
 
         try:
             while True:
+                if stop_condition is not None and stop_condition():
+                    break
+
                 if not source.is_available():
                     if loop and source.reset():
                         continue
@@ -87,6 +93,9 @@ class RetargetingSession:
                             f" sender={stats.get('last_sender')}"
                         )
 
+                if stop_condition is not None and stop_condition():
+                    break
+
                 if not self.is_running:
                     break
 
@@ -98,16 +107,19 @@ class RetargetingSession:
         except KeyboardInterrupt:
             print("\nStopped.")
         finally:
+            previous_sigint_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
             frame_sink_stop.set()
             if frame_sink_thread is not None:
                 frame_sink_thread.join(timeout=1.0)
-            source.close()
+            _close_resource(source)
             if self.preview_window is not None:
-                self.preview_window.close()
+                _close_resource(self.preview_window)
             for sink in reversed(self.frame_sinks):
-                sink.close()
+                _close_resource(sink)
             for sink in reversed(self.sinks):
-                sink.close()
+                _close_resource(sink)
+            signal.signal(signal.SIGINT, previous_sigint_handler)
 
         return SessionSummary(
             num_frames=frame_count,
@@ -148,3 +160,13 @@ class RetargetingSession:
         thread = Thread(target=_worker, name="dex-mujoco-frame-sink", daemon=True)
         thread.start()
         return thread
+
+
+def _close_resource(resource: object) -> None:
+    close_fn = getattr(resource, "close", None)
+    if not callable(close_fn):
+        return
+    try:
+        close_fn()
+    except BaseException as exc:
+        print(f"Warning: failed to close {type(resource).__name__}: {exc}")

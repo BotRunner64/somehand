@@ -10,6 +10,7 @@ from dex_mujoco.infrastructure import (
     OpenCvPreviewWindow,
     RecordingHandTrackingSource,
     RobotHandOutputSink,
+    TerminalRecordingController,
     create_hc_mocap_bvh_source,
     create_hc_mocap_udp_source,
     create_pico_source,
@@ -63,15 +64,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Swap MediaPipe Left/Right labels if this video reports the opposite hand",
     )
 
-    recording = subparsers.add_parser("recording", help="Retarget from a saved hand-tracking recording")
-    _add_common_args(recording)
-    recording.add_argument("--recording", required=True, help="Path to a saved hand-tracking recording")
-    recording.add_argument(
-        "--realtime",
-        action="store_true",
-        help="Sleep between recorded frames using the stored source fps",
-    )
-    recording.add_argument("--loop", action="store_true", help="Loop the saved recording indefinitely")
+    replay = subparsers.add_parser("replay", help="Replay a saved hand-tracking recording")
+    _add_common_args(replay)
+    replay.add_argument("--recording", required=True, help="Path to a saved hand-tracking recording")
+    replay.add_argument("--loop", action="store_true", help="Loop the saved recording indefinitely")
 
     pico = subparsers.add_parser("pico", help="Retarget from live PICO hand tracking via XRoboToolkit")
     _add_common_args(pico)
@@ -124,14 +120,14 @@ def _build_engine(args: argparse.Namespace, *, input_type: str) -> RetargetingEn
     return RetargetingEngine.from_config_path(args.config, input_type=input_type)
 
 
-def _build_session(engine: RetargetingEngine, *, visualize: bool, show_preview: bool) -> RetargetingSession:
+def _build_session(engine: RetargetingEngine, *, visualize: bool, show_preview: bool, key_callback=None) -> RetargetingSession:
     sinks = []
     frame_sinks = []
     if visualize:
         frame_sinks.append(AsyncLandmarkOutputSink(default_preprocess_frame=engine.config.preprocess.frame))
         sinks.extend(
             [
-                RobotHandOutputSink(engine.hand_model),
+                RobotHandOutputSink(engine.hand_model, key_callback=key_callback),
             ]
         )
     preview_window = OpenCvPreviewWindow() if show_preview else None
@@ -173,6 +169,13 @@ def _wrap_source_for_recording(source, *, record_output_path: str | None):
     if not record_output_path:
         return source
     return RecordingHandTrackingSource(source)
+
+
+def _wrap_source_for_interactive_recording(source, *, record_output_path: str | None):
+    if not record_output_path:
+        return source, None
+    recording_source = RecordingHandTrackingSource(source, recording_enabled=False)
+    return recording_source, TerminalRecordingController(recording_source)
 
 
 def _run_webcam(args: argparse.Namespace) -> None:
@@ -218,12 +221,12 @@ def _run_video(args: argparse.Namespace) -> None:
     _finalize_run(args, summary=summary, source=source)
 
 
-def _run_recording(args: argparse.Namespace) -> None:
+def _run_replay(args: argparse.Namespace) -> None:
     source = _wrap_source_for_recording(
         create_recording_source(recording_path=args.recording),
         record_output_path=args.record_output,
     )
-    engine = _build_engine(args, input_type="recording")
+    engine = _build_engine(args, input_type="replay")
     session = _build_session(engine, visualize=True, show_preview=False)
     metadata = getattr(source, "recording_metadata", {})
     extra_lines = [
@@ -236,24 +239,43 @@ def _run_recording(args: argparse.Namespace) -> None:
         tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
         extra_lines=extra_lines,
     )
-    summary = session.run(source, input_type="recording", realtime=args.realtime, loop=args.loop)
+    summary = session.run(source, input_type="replay", realtime=True, loop=args.loop)
     _finalize_run(args, summary=summary, source=source)
 
 
 def _run_pico(args: argparse.Namespace) -> None:
-    source = _wrap_source_for_recording(
+    source, recording_controller = _wrap_source_for_interactive_recording(
         create_pico_source(handedness=args.hand, timeout=args.pico_timeout),
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="pico")
-    session = _build_session(engine, visualize=True, show_preview=False)
+    session = _build_session(
+        engine,
+        visualize=True,
+        show_preview=False,
+        key_callback=None if recording_controller is None else recording_controller.handle_keypress,
+    )
+    extra_lines = ["Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode."]
+    if recording_controller is not None:
+        extra_lines.append("Press 'r' in the terminal or robot-hand viewer to start recording.")
+        extra_lines.append("Press 's' in the terminal or robot-hand viewer to stop recording, save, and exit.")
     _print_startup(
         engine,
         source_desc=source.source_desc,
         tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
-        extra_lines=["Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode."],
+        extra_lines=extra_lines,
     )
-    summary = session.run(source, input_type="pico")
+    if recording_controller is not None:
+        recording_controller.start()
+    try:
+        summary = session.run(
+            source,
+            input_type="pico",
+            stop_condition=None if recording_controller is None else (lambda: recording_controller.stop_requested),
+        )
+    finally:
+        if recording_controller is not None:
+            recording_controller.close()
     _finalize_run(args, summary=summary, source=source)
 
 
@@ -318,8 +340,8 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "video":
         _run_video(args)
         return
-    if args.command == "recording":
-        _run_recording(args)
+    if args.command == "replay":
+        _run_replay(args)
         return
     if args.command == "pico":
         _run_pico(args)

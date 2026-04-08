@@ -173,10 +173,12 @@ class PicoHandProvider:
 
     def close(self) -> None:
         self._running = False
+        with self._cond:
+            self._cond.notify_all()
         self._thread.join(timeout=2.0)
         try:
             self._xrt.close()
-        except Exception:
+        except BaseException:
             pass
 
     def stats_snapshot(self) -> dict[str, object]:

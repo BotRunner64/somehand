@@ -28,13 +28,12 @@ def test_video_command_requires_video_path():
     assert args.hand == "Left"
 
 
-def test_recording_command_accepts_replay_flags():
+def test_replay_command_uses_realtime_replay_by_default():
     parser = build_parser()
-    args = parser.parse_args(["recording", "--recording", "session.pkl", "--realtime", "--loop"])
+    args = parser.parse_args(["replay", "--recording", "session.pkl", "--loop"])
 
-    assert args.command == "recording"
+    assert args.command == "replay"
     assert args.recording == "session.pkl"
-    assert args.realtime is True
     assert args.loop is True
 
 

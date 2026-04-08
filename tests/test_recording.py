@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from dex_mujoco.domain.models import HandFrame, SourceFrame
 from dex_mujoco.infrastructure.artifacts import load_hand_recording_artifact, save_hand_recording_artifact
 from dex_mujoco.infrastructure.sources import RecordingHandTrackingSource, create_recording_source
+from dex_mujoco.infrastructure.terminal_controls import TerminalRecordingController
 
 
 def _frame(handedness: str = "Right", *, with_local: bool = False) -> HandFrame:
@@ -71,6 +72,51 @@ def test_recording_wrapper_captures_detected_frames_only():
     assert wrapped.recorded_frames[0].handedness == "Right"
     assert wrapped.recorded_frames[1].handedness == "Left"
     assert wrapped.recorded_frames[1].preprocess_frame_override == "camera_aligned"
+
+
+def test_recording_wrapper_can_gate_recording_with_explicit_start_stop():
+    wrapped = RecordingHandTrackingSource(
+        _FakeSource(
+            [
+                SourceFrame(detection=_frame("Right")),
+                SourceFrame(detection=_frame("Left")),
+                SourceFrame(detection=_frame("Right", with_local=True)),
+            ]
+        ),
+        recording_enabled=False,
+    )
+
+    wrapped.get_frame()
+    wrapped.start_recording()
+    wrapped.get_frame()
+    wrapped.stop_recording()
+    wrapped.get_frame()
+
+    assert len(wrapped.recorded_frames) == 1
+    assert wrapped.recorded_frames[0].handedness == "Left"
+
+
+def test_terminal_recording_controller_responds_to_start_and_stop_keys():
+    wrapped = RecordingHandTrackingSource(_FakeSource([]), recording_enabled=False)
+    controller = TerminalRecordingController(wrapped)
+
+    controller.handle_keypress("r")
+    assert wrapped.is_recording is True
+    assert controller.stop_requested is False
+
+    controller.handle_keypress("s")
+    assert wrapped.is_recording is False
+    assert controller.stop_requested is True
+
+
+def test_terminal_recording_controller_stop_requested_is_callable_for_session():
+    wrapped = RecordingHandTrackingSource(_FakeSource([]), recording_enabled=False)
+    controller = TerminalRecordingController(wrapped)
+    stop_condition = lambda: controller.stop_requested
+
+    assert stop_condition() is False
+    controller.handle_keypress("s")
+    assert stop_condition() is True
 
 
 def test_hand_recording_artifact_roundtrip(tmp_path):

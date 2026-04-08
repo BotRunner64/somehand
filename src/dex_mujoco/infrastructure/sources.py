@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+from threading import Lock
 
 from dex_mujoco.domain import HandFrame, SourceFrame
 from dex_mujoco.hand_detector import HandDetection, HandDetector
@@ -111,9 +112,11 @@ class MediaPipeInputSource:
 
 
 class RecordingHandTrackingSource:
-    def __init__(self, wrapped_source: object):
+    def __init__(self, wrapped_source: object, *, recording_enabled: bool = True):
         self._wrapped_source = wrapped_source
         self.recorded_frames: list[HandFrame] = []
+        self._recording_lock = Lock()
+        self._recording_enabled = recording_enabled
 
     def __getattr__(self, name: str):
         return getattr(self._wrapped_source, name)
@@ -131,7 +134,7 @@ class RecordingHandTrackingSource:
 
     def get_frame(self) -> SourceFrame:
         frame = self._wrapped_source.get_frame()
-        if frame.detection is not None:
+        if frame.detection is not None and self.is_recording:
             self.recorded_frames.append(_copy_hand_frame(frame.detection))
         return frame
 
@@ -149,6 +152,19 @@ class RecordingHandTrackingSource:
 
     def stats_snapshot(self) -> dict[str, object]:
         return dict(self._wrapped_source.stats_snapshot())
+
+    @property
+    def is_recording(self) -> bool:
+        with self._recording_lock:
+            return self._recording_enabled
+
+    def start_recording(self) -> None:
+        with self._recording_lock:
+            self._recording_enabled = True
+
+    def stop_recording(self) -> None:
+        with self._recording_lock:
+            self._recording_enabled = False
 
 
 class HCMocapInputSource:

@@ -26,8 +26,8 @@ class TrajectoryRecorder(OutputSink):
 
 
 class RobotHandOutputSink(OutputSink):
-    def __init__(self, hand_model: HandModel):
-        self._visualizer = HandVisualizer(hand_model)
+    def __init__(self, hand_model: HandModel, *, key_callback=None):
+        self._visualizer = HandVisualizer(hand_model, key_callback=key_callback)
 
     @property
     def is_running(self) -> bool:
