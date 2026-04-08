@@ -124,7 +124,7 @@ def _build_session(engine: RetargetingEngine, *, visualize: bool, show_preview: 
     sinks = []
     frame_sinks = []
     if visualize:
-        frame_sinks.append(AsyncLandmarkOutputSink(default_preprocess_frame=engine.config.preprocess.frame))
+        frame_sinks.append(AsyncLandmarkOutputSink())
         sinks.extend(
             [
                 RobotHandOutputSink(engine.hand_model, key_callback=key_callback),

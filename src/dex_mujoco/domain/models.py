@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Mapping, Protocol
 
 import numpy as np
@@ -15,21 +15,6 @@ class HandFrame:
     landmarks_3d: np.ndarray
     landmarks_2d: np.ndarray | None
     handedness: str
-    landmarks_3d_local: np.ndarray | None = None
-    metadata: dict[str, object] = field(default_factory=dict)
-
-    @property
-    def retarget_landmarks(self) -> np.ndarray:
-        if self.metadata.get("retarget_from_local") is True and self.landmarks_3d_local is not None:
-            return self.landmarks_3d_local
-        return self.landmarks_3d
-
-    @property
-    def preprocess_frame_override(self) -> str | None:
-        value = self.metadata.get("preprocess_frame_override")
-        if isinstance(value, str):
-            return value
-        return None
 
 
 @dataclass(slots=True)

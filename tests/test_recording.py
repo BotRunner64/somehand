@@ -11,17 +11,13 @@ from dex_mujoco.infrastructure.sources import RecordingHandTrackingSource, creat
 from dex_mujoco.infrastructure.terminal_controls import TerminalRecordingController
 
 
-def _frame(handedness: str = "Right", *, with_local: bool = False) -> HandFrame:
+def _frame(handedness: str = "Right") -> HandFrame:
     landmarks = np.arange(63, dtype=np.float64).reshape(21, 3)
     landmarks_2d = np.arange(42, dtype=np.float64).reshape(21, 2)
-    landmarks_3d_local = landmarks * 0.1 if with_local else None
-    metadata = {"preprocess_frame_override": "camera_aligned"} if with_local else {}
     return HandFrame(
         landmarks_3d=landmarks,
         landmarks_2d=landmarks_2d,
         handedness=handedness,
-        landmarks_3d_local=landmarks_3d_local,
-        metadata=metadata,
     )
 
 
@@ -60,7 +56,7 @@ def test_recording_wrapper_captures_detected_frames_only():
             [
                 SourceFrame(detection=_frame("Right")),
                 SourceFrame(detection=None),
-                SourceFrame(detection=_frame("Left", with_local=True)),
+                SourceFrame(detection=_frame("Left")),
             ]
         )
     )
@@ -71,7 +67,6 @@ def test_recording_wrapper_captures_detected_frames_only():
     assert len(wrapped.recorded_frames) == 2
     assert wrapped.recorded_frames[0].handedness == "Right"
     assert wrapped.recorded_frames[1].handedness == "Left"
-    assert wrapped.recorded_frames[1].preprocess_frame_override == "camera_aligned"
 
 
 def test_recording_wrapper_can_gate_recording_with_explicit_start_stop():
@@ -80,7 +75,7 @@ def test_recording_wrapper_can_gate_recording_with_explicit_start_stop():
             [
                 SourceFrame(detection=_frame("Right")),
                 SourceFrame(detection=_frame("Left")),
-                SourceFrame(detection=_frame("Right", with_local=True)),
+                SourceFrame(detection=_frame("Right")),
             ]
         ),
         recording_enabled=False,
@@ -121,7 +116,7 @@ def test_terminal_recording_controller_stop_requested_is_callable_for_session():
 
 def test_hand_recording_artifact_roundtrip(tmp_path):
     recording_path = tmp_path / "session.pkl"
-    frames = [_frame("Right"), _frame("Left", with_local=True)]
+    frames = [_frame("Right"), _frame("Left")]
 
     save_hand_recording_artifact(
         str(recording_path),
@@ -142,13 +137,6 @@ def test_hand_recording_artifact_roundtrip(tmp_path):
     assert payload["num_frames"] == 3
     assert payload["num_detected"] == 2
     assert len(payload["frames"]) == 2
-    assert np.array_equal(payload["frames"][1].landmarks_3d_local, frames[1].landmarks_3d_local)
-    assert payload["frames"][1].preprocess_frame_override is None
-
-
-def test_hand_frame_defaults_to_global_landmarks_even_when_local_exists():
-    frame = _frame("Right", with_local=True)
-    assert np.array_equal(frame.retarget_landmarks, frame.landmarks_3d)
 
 
 def test_recording_source_replays_saved_frames(tmp_path):

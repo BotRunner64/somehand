@@ -41,9 +41,8 @@ class RobotHandOutputSink(OutputSink):
 
 
 class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
-    def __init__(self, *, default_preprocess_frame: str = "wrist_local"):
+    def __init__(self):
         self._visualizer = AsyncLandmarkVisualizer()
-        self._default_preprocess_frame = default_preprocess_frame
 
     @property
     def is_running(self) -> bool:
@@ -53,12 +52,10 @@ class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
         self._visualizer.update(result.processed_landmarks)
 
     def on_frame(self, frame: HandFrame) -> None:
-        preprocess_frame = frame.preprocess_frame_override or self._default_preprocess_frame
         self._visualizer.update(
             preprocess_landmarks(
-                frame.retarget_landmarks,
+                frame.landmarks_3d,
                 handedness=frame.handedness,
-                frame=preprocess_frame,
             )
         )
 

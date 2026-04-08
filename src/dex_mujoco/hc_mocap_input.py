@@ -57,17 +57,6 @@ def _point(frame: dict[str, tuple[np.ndarray, np.ndarray]], joint_name: str) -> 
     return np.asarray(frame[joint_name][0], dtype=np.float64)
 
 
-def _rotation(frame: dict[str, tuple[np.ndarray, np.ndarray]], joint_name: str) -> R:
-    if joint_name not in frame:
-        raise KeyError(f"hc_mocap frame is missing joint '{joint_name}'")
-    quat_wxyz = np.asarray(frame[joint_name][1], dtype=np.float64)
-    quat_xyzw = np.array(
-        [quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]],
-        dtype=np.float64,
-    )
-    return R.from_quat(quat_xyzw)
-
-
 def hc_mocap_frame_to_landmarks(
     frame: dict[str, tuple[np.ndarray, np.ndarray]],
     handedness: str,
@@ -125,22 +114,6 @@ def hc_mocap_frame_to_landmarks(
     return landmarks
 
 
-def hc_mocap_frame_to_local_landmarks(
-    frame: dict[str, tuple[np.ndarray, np.ndarray]],
-    handedness: str,
-) -> np.ndarray:
-    """Convert hc_mocap landmarks into the wrist's true local coordinate frame."""
-    side = "L" if handedness == "Left" else "R"
-    wrist_name = f"hc_Hand_{side}"
-    wrist_position = _point(frame, wrist_name)
-    wrist_rotation = _rotation(frame, wrist_name)
-
-    landmarks = hc_mocap_frame_to_landmarks(frame, handedness)
-    local_landmarks = wrist_rotation.inv().apply(landmarks - wrist_position)
-    local_landmarks[0] = 0.0
-    return local_landmarks
-
-
 class HCMocapHandProvider:
     """Adapter that exposes hc_mocap hand data like a hand landmark detector."""
 
@@ -158,13 +131,11 @@ class HCMocapHandProvider:
     def get_detection(self) -> HandDetection:
         frame = self._provider.get_frame()
         landmarks_3d = hc_mocap_frame_to_landmarks(frame, self.handedness)
-        landmarks_3d_local = hc_mocap_frame_to_local_landmarks(frame, self.handedness)
         landmarks_2d = np.zeros((21, 2), dtype=np.float64)
         return HandDetection(
             landmarks_3d=landmarks_3d,
             landmarks_2d=landmarks_2d,
             handedness=self.handedness,
-            landmarks_3d_local=landmarks_3d_local,
         )
 
     def close(self) -> None:

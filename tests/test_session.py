@@ -16,7 +16,7 @@ class _FakeEngine:
         return RetargetingStepResult(
             qpos=np.array([1.0, 2.0], dtype=np.float64),
             target_directions=None,
-            processed_landmarks=frame.retarget_landmarks.copy(),
+            processed_landmarks=frame.landmarks_3d.copy(),
             handedness=frame.handedness,
         )
 

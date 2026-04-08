@@ -17,7 +17,6 @@ class HandDetection:
     landmarks_3d: np.ndarray  # (21, 3)
     landmarks_2d: np.ndarray  # (21, 2)
     handedness: str  # "Left" or "Right"
-    landmarks_3d_local: np.ndarray | None = None  # Optional hand-local landmarks
 
 
 class HandDetector:

@@ -74,7 +74,6 @@ class VectorRetargeter:
         self._max_iterations = config.solver.max_iterations
         self._output_alpha = config.solver.output_alpha
         self._weights = np.array(config.vector_weights, dtype=np.float64)
-        self._default_preprocess_frame = config.preprocess.frame
 
         self._target_directions: np.ndarray | None = None
         self._target_angles: np.ndarray | None = None
@@ -355,14 +354,10 @@ class VectorRetargeter:
         self,
         landmarks_3d: np.ndarray,
         handedness: str = "Right",
-        *,
-        frame_override: str | None = None,
     ) -> None:
-        preprocess_frame = frame_override or self._default_preprocess_frame
         landmarks = preprocess_landmarks(
             landmarks_3d,
             handedness=handedness,
-            frame=preprocess_frame,
         )
         landmarks = self.landmark_filter.filter(landmarks)
 

@@ -25,14 +25,12 @@ def test_wrist_local_preprocess_is_rotation_invariant():
         base_pose,
         vector_pairs,
         handedness="Right",
-        frame=config.preprocess.frame,
     )
     rotated_pose = base_pose @ rotation_matrix("z", 70.0).T
     rotated_dirs = compute_target_directions(
         rotated_pose,
         vector_pairs,
         handedness="Right",
-        frame=config.preprocess.frame,
     )
     cosine = float(np.mean(np.sum(base_dirs * rotated_dirs, axis=1)))
     assert cosine > 0.98
@@ -47,13 +45,11 @@ def test_left_and_right_inputs_match_after_mirroring():
         right_pose,
         vector_pairs,
         handedness="Right",
-        frame=config.preprocess.frame,
     )
     left_dirs = compute_target_directions(
         left_pose,
         vector_pairs,
         handedness="Left",
-        frame=config.preprocess.frame,
     )
     cosine = float(np.mean(np.sum(right_dirs * left_dirs, axis=1)))
     assert cosine > 0.98
@@ -83,5 +79,5 @@ def test_wrist_local_preprocess_matches_reference_operator_frame():
         ]
     )
     expected = centered @ np.stack([x_axis, normal, z_axis], axis=1) @ operator2robot
-    actual = preprocess_landmarks(pose, handedness="Right", frame="wrist_local")
+    actual = preprocess_landmarks(pose, handedness="Right")
     assert np.allclose(actual, expected)

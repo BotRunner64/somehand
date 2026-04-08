@@ -15,7 +15,6 @@ class SolverConfig:
 
 @dataclass
 class PreprocessConfig:
-    frame: str = "wrist_local"
     temporal_filter_alpha: float = 0.35
 
 
@@ -111,8 +110,6 @@ class RetargetingConfig:
                 f"vector_weights length ({len(self.vector_weights)}) "
                 f"must match human_vector_pairs length ({n})"
             )
-        if self.preprocess.frame not in {"camera_aligned", "wrist_local"}:
-            raise ValueError(f"Unsupported preprocess.frame: {self.preprocess.frame}")
         if not 0.0 < self.preprocess.temporal_filter_alpha <= 1.0:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:

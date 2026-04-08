@@ -61,8 +61,6 @@ class RetargetRuntime:
             landmarks_3d=detection.landmarks_3d,
             landmarks_2d=detection.landmarks_2d,
             handedness=detection.handedness,
-            landmarks_3d_local=detection.landmarks_3d_local,
-            metadata={},
         )
         result = self.engine.process(frame)
         self.trajectory_recorder.on_result(result)

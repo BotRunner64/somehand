@@ -2,8 +2,8 @@
 #
 # The palm-base vectors, pinch loss, and thumb position constraints were making
 # the optimizer fight itself on recorded PICO data. This version keeps the
-# informative non-palm vectors and uses scaled angle constraints to explicitly
-# drive the middle/distal joints that otherwise stay near zero.
+# informative non-palm vectors and only uses the angle constraints that still
+# add clear value after fixing the wrist-frame preprocessing.
 
 hand:
   name: "linkerhand_l20_right"
@@ -148,10 +148,6 @@ retargeting:
       joint: "thumb_cmc_yaw"
       weight: 1.0
       scale: 1.0
-    - landmarks: [4, 1, 0]
-      joint: "thumb_cmc_roll"
-      weight: 6.0
-      scale: 1.5
     - landmarks: [1, 2, 3]
       joint: "thumb_mcp"
       weight: 1.4
@@ -194,7 +190,6 @@ retargeting:
       scale: 2.4
 
   preprocess:
-    frame: "wrist_local"
     temporal_filter_alpha: 0.65
 
   solver:

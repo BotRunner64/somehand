@@ -23,13 +23,11 @@ _HAND_CONNECTIONS = (
 )
 
 
-def _to_hand_frame(detection: HandDetection, *, local_frame_override: bool = False) -> HandFrame:
+def _to_hand_frame(detection: HandDetection) -> HandFrame:
     return HandFrame(
         landmarks_3d=detection.landmarks_3d,
         landmarks_2d=detection.landmarks_2d,
         handedness=detection.handedness,
-        landmarks_3d_local=detection.landmarks_3d_local,
-        metadata={},
     )
 
 
@@ -51,8 +49,6 @@ def _copy_hand_frame(frame: HandFrame) -> HandFrame:
         landmarks_3d=np.array(frame.landmarks_3d, copy=True),
         landmarks_2d=None if frame.landmarks_2d is None else np.array(frame.landmarks_2d, copy=True),
         handedness=frame.handedness,
-        landmarks_3d_local=None if frame.landmarks_3d_local is None else np.array(frame.landmarks_3d_local, copy=True),
-        metadata=dict(frame.metadata),
     )
 
 
@@ -165,10 +161,9 @@ class RecordingHandTrackingSource:
 
 
 class HCMocapInputSource:
-    def __init__(self, provider: object, *, source_desc: str, use_local_frame: bool = True):
+    def __init__(self, provider: object, *, source_desc: str):
         self.source_desc = source_desc
         self._provider = provider
-        self._use_local_frame = use_local_frame
 
     @property
     def fps(self) -> int:
@@ -180,7 +175,7 @@ class HCMocapInputSource:
     def get_frame(self) -> SourceFrame:
         detection = self._provider.get_detection()
         return SourceFrame(
-            detection=_to_hand_frame(detection, local_frame_override=self._use_local_frame),
+            detection=_to_hand_frame(detection),
         )
 
     def latest_hand_frame_snapshot(self) -> tuple[int, HandFrame] | None:
@@ -193,7 +188,7 @@ class HCMocapInputSource:
             return None
 
         frame_index, detection = snapshot
-        return frame_index, _to_hand_frame(detection, local_frame_override=self._use_local_frame)
+        return frame_index, _to_hand_frame(detection)
 
     def reset(self) -> bool:
         reset_fn = getattr(getattr(self._provider, "_provider", None), "reset", None)

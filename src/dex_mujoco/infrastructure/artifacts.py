@@ -18,23 +18,14 @@ def _serialize_hand_frame(frame: HandFrame) -> dict[str, object]:
         "landmarks_3d": np.array(frame.landmarks_3d, copy=True),
         "landmarks_2d": None if frame.landmarks_2d is None else np.array(frame.landmarks_2d, copy=True),
         "handedness": frame.handedness,
-        "landmarks_3d_local": None if frame.landmarks_3d_local is None else np.array(frame.landmarks_3d_local, copy=True),
-        "metadata": dict(frame.metadata),
     }
 
 
 def _deserialize_hand_frame(payload: dict[str, object]) -> HandFrame:
-    metadata = dict(payload.get("metadata", {}))
-    if payload["landmarks_3d_local"] is not None and metadata.get("preprocess_frame_override") == "camera_aligned":
-        metadata.pop("preprocess_frame_override", None)
     return HandFrame(
         landmarks_3d=np.array(payload["landmarks_3d"], copy=True),
         landmarks_2d=None if payload["landmarks_2d"] is None else np.array(payload["landmarks_2d"], copy=True),
         handedness=str(payload["handedness"]),
-        landmarks_3d_local=None
-        if payload["landmarks_3d_local"] is None
-        else np.array(payload["landmarks_3d_local"], copy=True),
-        metadata=metadata,
     )
 
 

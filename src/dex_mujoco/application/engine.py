@@ -28,18 +28,15 @@ class RetargetingEngine:
         }
 
     def process(self, frame: HandFrame) -> RetargetingStepResult:
-        preprocess_frame = frame.preprocess_frame_override or self.config.preprocess.frame
-        landmarks = frame.retarget_landmarks
+        landmarks = frame.landmarks_3d
         self.retargeter.update_targets(
             landmarks,
             handedness=frame.handedness,
-            frame_override=preprocess_frame,
         )
         qpos = self.retargeter.solve()
         processed_landmarks = preprocess_landmarks(
             landmarks,
             handedness=frame.handedness,
-            frame=preprocess_frame,
         )
         return RetargetingStepResult(
             qpos=qpos.copy(),

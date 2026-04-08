@@ -6,7 +6,6 @@ import threading
 import time
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 from .hand_detector import HandDetection
 
@@ -50,18 +49,11 @@ _UNITY_TO_RH = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
     dtype=np.float64,
 )
-_UNITY_TO_RH_ROT = R.from_matrix(_UNITY_TO_RH)
 
 
 def _transform_positions(positions: np.ndarray) -> np.ndarray:
     """Transform (N,3) positions from Unity to right-hand coordinate system."""
     return positions @ _UNITY_TO_RH.T
-
-
-def _transform_quaternion(quat_xyzw: np.ndarray) -> R:
-    """Transform a single xyzw quaternion from Unity to right-hand coordinates."""
-    joint_rot = R.from_quat(quat_xyzw)
-    return _UNITY_TO_RH_ROT * joint_rot
 
 
 def pico_hand_to_landmarks(hand_state: np.ndarray) -> np.ndarray:
@@ -75,22 +67,6 @@ def pico_hand_to_landmarks(hand_state: np.ndarray) -> np.ndarray:
     for mp_idx, pico_idx in enumerate(_PICO_TO_MEDIAPIPE):
         landmarks[mp_idx] = positions[pico_idx]
     return landmarks
-
-
-def pico_hand_to_local_landmarks(hand_state: np.ndarray) -> np.ndarray:
-    """Convert PICO landmarks to the wrist's local coordinate frame.
-
-    Uses the Wrist joint quaternion to rotate all landmarks into wrist-local
-    coordinates, matching the pattern of hc_mocap_frame_to_local_landmarks.
-    """
-    landmarks = pico_hand_to_landmarks(hand_state)
-    wrist_pos = landmarks[0].copy()
-    # Wrist quaternion: SDK gives [x,y,z,qx,qy,qz,qw]
-    wrist_quat_xyzw = hand_state[0, 3:7]
-    wrist_rot = _transform_quaternion(wrist_quat_xyzw)
-    local_landmarks = wrist_rot.inv().apply(landmarks - wrist_pos)
-    local_landmarks[0] = 0.0
-    return local_landmarks
 
 
 class PicoHandProvider:
@@ -187,13 +163,11 @@ class PicoHandProvider:
 
     def _state_to_detection(self, state: np.ndarray) -> HandDetection:
         landmarks_3d = pico_hand_to_landmarks(state)
-        landmarks_3d_local = pico_hand_to_local_landmarks(state)
         landmarks_2d = np.zeros((21, 2), dtype=np.float64)
         return HandDetection(
             landmarks_3d=landmarks_3d,
             landmarks_2d=landmarks_2d,
             handedness=self.handedness,
-            landmarks_3d_local=landmarks_3d_local,
         )
 
     def _poll_loop(self) -> None:

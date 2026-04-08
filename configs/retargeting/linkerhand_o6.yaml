@@ -150,7 +150,6 @@ retargeting:
       weight: 2.0
 
   preprocess:
-    frame: "wrist_local"
     temporal_filter_alpha: 0.65
 
   solver:

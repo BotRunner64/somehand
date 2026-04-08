@@ -63,17 +63,11 @@ def _estimate_wrist_frame(landmarks_3d: np.ndarray) -> np.ndarray:
 def preprocess_landmarks(
     landmarks_3d: np.ndarray,
     handedness: str = "Right",
-    frame: str = "wrist_local",
 ) -> np.ndarray:
     if handedness == "Left":
         landmarks_3d = _mirror_left_to_right(landmarks_3d)
 
     centered = landmarks_3d - landmarks_3d[0:1, :]
-    if frame == "camera_aligned":
-        return _mediapipe_to_mujoco(centered)
-    if frame != "wrist_local":
-        raise ValueError(f"Unsupported preprocess frame: {frame}")
-
     try:
         wrist_frame = _estimate_wrist_frame(centered)
         return centered @ wrist_frame @ _OPERATOR2ROBOT_RIGHT
@@ -85,9 +79,8 @@ def compute_target_directions(
     landmarks_3d: np.ndarray,
     human_vector_pairs: list[tuple[int, int]],
     handedness: str = "Right",
-    frame: str = "wrist_local",
 ) -> np.ndarray:
-    landmarks = preprocess_landmarks(landmarks_3d, handedness=handedness, frame=frame)
+    landmarks = preprocess_landmarks(landmarks_3d, handedness=handedness)
     directions = np.empty((len(human_vector_pairs), 3), dtype=np.float64)
     for i, (origin_idx, target_idx) in enumerate(human_vector_pairs):
         vector = landmarks[target_idx] - landmarks[origin_idx]

@@ -114,7 +114,6 @@ def rotation_invariance_score(config, vector_pairs: list[tuple[int, int]]) -> fl
             pose,
             vector_pairs,
             handedness="Right",
-            frame=config.preprocess.frame,
         )
         for axis, angle in (("x", 50.0), ("y", 35.0), ("z", 70.0)):
             rotated = pose @ rotation_matrix(axis, angle).T
@@ -122,7 +121,6 @@ def rotation_invariance_score(config, vector_pairs: list[tuple[int, int]]) -> fl
                 rotated,
                 vector_pairs,
                 handedness="Right",
-                frame=config.preprocess.frame,
             )
             scores.append(mean_direction_cosine(base_dirs, dirs))
     return float(min(scores))
@@ -134,13 +132,11 @@ def mirror_consistency_score(config, vector_pairs: list[tuple[int, int]]) -> flo
         pose,
         vector_pairs,
         handedness="Right",
-        frame=config.preprocess.frame,
     )
     left_dirs = compute_target_directions(
         mirror_pose_to_left(pose),
         vector_pairs,
         handedness="Left",
-        frame=config.preprocess.frame,
     )
     return mean_direction_cosine(right_dirs, left_dirs)
 

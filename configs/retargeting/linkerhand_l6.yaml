@@ -181,7 +181,6 @@ retargeting:
       - "rh_pinky_distal_tip"
 
   preprocess:
-    frame: "wrist_local"
     temporal_filter_alpha: 0.65
 
   solver:
