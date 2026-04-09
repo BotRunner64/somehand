@@ -1,0 +1,15 @@
+left:
+  config: "../left/linkerhand_l20_left.yaml"
+
+right:
+  config: "../right/linkerhand_l20_right.yaml"
+
+viewer:
+  panel_width: 640
+  panel_height: 720
+  window_name: "Bi-Hand Retargeting"
+  left_pos: [0.22, 0.04, 0.02]
+  right_pos: [-0.22, 0.04, 0.02]
+  camera_lookat: [0.0, 0.04, 0.02]
+  left_quat: [0.69288325, 0.01522078, -0.05862347, 0.71850151]
+  right_quat: [0.71846417, 0.05829359, -0.01490552, 0.69295665]

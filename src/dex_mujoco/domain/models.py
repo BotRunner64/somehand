@@ -100,3 +100,73 @@ class HandTrackingSource(Protocol):
     def close(self) -> None: ...
 
     def stats_snapshot(self) -> Mapping[str, object]: ...
+
+
+@dataclass(slots=True)
+class BiHandFrame:
+    left: HandFrame | None = None
+    right: HandFrame | None = None
+
+    @property
+    def has_detection(self) -> bool:
+        return self.left is not None or self.right is not None
+
+
+@dataclass(slots=True)
+class BiHandSourceFrame:
+    detection: BiHandFrame | None
+    preview_frame: np.ndarray | None = None
+
+
+@dataclass(slots=True)
+class BiHandRetargetingResult:
+    left: RetargetingStepResult
+    right: RetargetingStepResult
+    left_detected: bool
+    right_detected: bool
+
+
+@dataclass(frozen=True, slots=True)
+class BiHandSessionSummary:
+    num_frames: int
+    num_detected: int
+    num_detected_left: int
+    num_detected_right: int
+    num_detected_both: int
+    source_desc: str
+    input_type: str
+
+
+class BiHandOutputSink(Protocol):
+    @property
+    def is_running(self) -> bool: ...
+
+    def on_result(self, result: BiHandRetargetingResult) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class BiHandFrameSink(Protocol):
+    @property
+    def is_running(self) -> bool: ...
+
+    def on_frame(self, frame: BiHandFrame) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class BiHandTrackingSource(Protocol):
+    source_desc: str
+
+    @property
+    def fps(self) -> int: ...
+
+    def is_available(self) -> bool: ...
+
+    def get_frame(self) -> BiHandSourceFrame: ...
+
+    def reset(self) -> bool: ...
+
+    def close(self) -> None: ...
+
+    def stats_snapshot(self) -> Mapping[str, object]: ...

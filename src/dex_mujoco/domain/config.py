@@ -156,3 +156,52 @@ class RetargetingConfig:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if not Path(self.hand.mjcf_path).exists():
             raise FileNotFoundError(f"MJCF file not found: {self.hand.mjcf_path}")
+
+
+@dataclass
+class BiHandViewerConfig:
+    panel_width: int = 640
+    panel_height: int = 720
+    window_name: str = "Bi-Hand Retargeting"
+    left_pos: tuple[float, float, float] = (0.22, 0.04, 0.02)
+    right_pos: tuple[float, float, float] = (-0.22, 0.04, 0.02)
+    camera_lookat: tuple[float, float, float] = (0.0, 0.04, 0.02)
+    left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151)
+    right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665)
+
+
+@dataclass
+class BiHandRetargetingConfig:
+    left_config_path: str = ""
+    right_config_path: str = ""
+    viewer: BiHandViewerConfig = field(default_factory=BiHandViewerConfig)
+
+    @classmethod
+    def load(cls, config_path: str) -> "BiHandRetargetingConfig":
+        from dex_mujoco.infrastructure.config_loader import load_bihand_config
+
+        return load_bihand_config(config_path)
+
+    def validate(self) -> None:
+        if not self.left_config_path:
+            raise ValueError("left_config_path must be set")
+        if not self.right_config_path:
+            raise ValueError("right_config_path must be set")
+        if not Path(self.left_config_path).exists():
+            raise FileNotFoundError(f"Left-hand config not found: {self.left_config_path}")
+        if not Path(self.right_config_path).exists():
+            raise FileNotFoundError(f"Right-hand config not found: {self.right_config_path}")
+        if self.viewer.panel_width <= 0:
+            raise ValueError("viewer.panel_width must be > 0")
+        if self.viewer.panel_height <= 0:
+            raise ValueError("viewer.panel_height must be > 0")
+        if len(self.viewer.left_pos) != 3:
+            raise ValueError("viewer.left_pos must have length 3")
+        if len(self.viewer.right_pos) != 3:
+            raise ValueError("viewer.right_pos must have length 3")
+        if len(self.viewer.camera_lookat) != 3:
+            raise ValueError("viewer.camera_lookat must have length 3")
+        if len(self.viewer.left_quat) != 4:
+            raise ValueError("viewer.left_quat must have length 4")
+        if len(self.viewer.right_quat) != 4:
+            raise ValueError("viewer.right_quat must have length 4")

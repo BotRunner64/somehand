@@ -8,6 +8,8 @@ import yaml
 
 from dex_mujoco.domain.config import (
     AngleConstraint,
+    BiHandRetargetingConfig,
+    BiHandViewerConfig,
     HandConfig,
     PinchConfig,
     PositionConfig,
@@ -158,5 +160,46 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         }
     )
 
+    config.validate()
+    return config
+
+
+def _resolve_relative_path(config_path_obj: Path, value: str) -> str:
+    resolved = Path(value)
+    if not resolved.is_absolute():
+        resolved = (config_path_obj.parent / resolved).resolve()
+    return str(resolved)
+
+
+def _extract_nested_config_path(config_path_obj: Path, payload: object, *, side: str) -> str:
+    if isinstance(payload, str):
+        return _resolve_relative_path(config_path_obj, payload)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{side} config entry must be a path or mapping")
+    nested_path = payload.get("config_path", payload.get("config"))
+    if not nested_path:
+        raise ValueError(f"{side} config entry must define 'config' or 'config_path'")
+    return _resolve_relative_path(config_path_obj, str(nested_path))
+
+
+def load_bihand_config(config_path: str) -> BiHandRetargetingConfig:
+    config_path_obj = Path(config_path)
+    data = _load_yaml_with_extends(config_path_obj)
+
+    viewer_data = data.get("viewer", {})
+    config = BiHandRetargetingConfig(
+        left_config_path=_extract_nested_config_path(config_path_obj, data.get("left", {}), side="left"),
+        right_config_path=_extract_nested_config_path(config_path_obj, data.get("right", {}), side="right"),
+        viewer=BiHandViewerConfig(
+            panel_width=int(viewer_data.get("panel_width", 640)),
+            panel_height=int(viewer_data.get("panel_height", 720)),
+            window_name=str(viewer_data.get("window_name", "Bi-Hand Retargeting")),
+            left_pos=tuple(float(value) for value in viewer_data.get("left_pos", (0.22, 0.04, 0.02))),
+            right_pos=tuple(float(value) for value in viewer_data.get("right_pos", (-0.22, 0.04, 0.02))),
+            camera_lookat=tuple(float(value) for value in viewer_data.get("camera_lookat", (0.0, 0.04, 0.02))),
+            left_quat=tuple(float(value) for value in viewer_data.get("left_quat", (0.69288325, 0.01522078, -0.05862347, 0.71850151))),
+            right_quat=tuple(float(value) for value in viewer_data.get("right_quat", (0.71846417, 0.05829359, -0.01490552, 0.69295665))),
+        ),
+    )
     config.validate()
     return config

@@ -10,7 +10,7 @@ import dex_mujoco.interfaces.cli as cli_module
 import dex_mujoco.infrastructure.sinks as sinks_module
 from dex_mujoco.cli import build_parser
 from dex_mujoco.infrastructure.sinks import _fit_video_size
-from dex_mujoco.paths import DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
+from dex_mujoco.paths import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 
 def test_hc_mocap_uses_repo_defaults():
@@ -33,6 +33,15 @@ def test_video_command_requires_video_path():
     assert args.hand == "left"
 
 
+def test_video_command_accepts_both_hand_selector():
+    parser = build_parser()
+    args = parser.parse_args(["video", "--video", "input.mp4", "--hand", "both"])
+
+    assert args.command == "video"
+    assert args.video == "input.mp4"
+    assert args.hand == "both"
+
+
 def test_replay_command_uses_realtime_replay_by_default():
     parser = build_parser()
     args = parser.parse_args(["replay", "--recording", "session.pkl", "--loop"])
@@ -48,6 +57,25 @@ def test_replay_command_accepts_dump_video_path():
 
     assert args.command == "replay"
     assert args.dump_video == "recordings/replay.mp4"
+
+
+def test_bihand_default_config_replaces_single_hand_default():
+    args = SimpleNamespace(config=str(DEFAULT_CONFIG_PATH))
+
+    cli_module._use_default_bihand_config_if_needed(args)
+
+    assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
+
+
+def test_webcam_both_dispatches_to_bihand(monkeypatch):
+    called = []
+
+    monkeypatch.setattr(cli_module, "_run_bihand_webcam", lambda args: called.append(("bihand", args.config, args.hand)))
+    monkeypatch.setattr(cli_module, "_run_webcam", lambda args: called.append(("single", args.config, args.hand)))
+
+    cli_module.main(["webcam", "--hand", "both"])
+
+    assert called == [("bihand", str(DEFAULT_BIHAND_CONFIG_PATH), "both")]
 
 
 def test_build_session_adds_replay_video_sink(monkeypatch):

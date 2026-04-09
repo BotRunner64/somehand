@@ -75,13 +75,33 @@ class HandDetector:
         return "left"
 
     def detect(self, frame_bgr: np.ndarray) -> Optional[HandDetection]:
+        detections = self.detect_all(frame_bgr)
+        if not detections:
+            return None
+
+        if self.target_hand is None:
+            return detections[0]
+
+        for detection in detections:
+            if detection.hand_side == self.target_hand:
+                return detection
+        if len(detections) == 1:
+            detection = detections[0]
+            return HandDetection(
+                landmarks_3d=detection.landmarks_3d,
+                landmarks_2d=detection.landmarks_2d,
+                hand_side=self.target_hand,
+            )
+        return None
+
+    def detect_all(self, frame_bgr: np.ndarray) -> list[HandDetection]:
         """Detect hand landmarks from a BGR frame.
 
         Args:
             frame_bgr: BGR image from OpenCV.
 
         Returns:
-            HandDetection or None if no hand detected.
+            Detected hands from the frame.
         """
         import mediapipe as mp
 
@@ -99,41 +119,25 @@ class HandDetector:
             for handedness_list in result.handedness
         ]
 
-        hand_idx = None
-        hand_side = None
-        if self.target_hand is None:
-            hand_idx = 0
-            hand_side = normalized_handedness[0]
-        else:
-            for i, actual_hand_side in enumerate(normalized_handedness):
-                if actual_hand_side == self.target_hand:
-                    hand_idx = i
-                    hand_side = actual_hand_side
-                    break
-
-            if hand_idx is None and len(result.hand_landmarks) == 1:
-                hand_idx = 0
-                hand_side = self.target_hand
-
-        if hand_idx is None:
-            return None
-
-        hand_landmarks = result.hand_landmarks[hand_idx]
-        hand_world_landmarks = result.hand_world_landmarks[hand_idx]
-
         h, w = frame_bgr.shape[:2]
-        landmarks_3d = np.array(
-            [[lm.x, lm.y, lm.z] for lm in hand_world_landmarks]
-        )
-        landmarks_2d = np.array(
-            [[lm.x, lm.y] for lm in hand_landmarks]
-        ) * np.array([w, h])
+        detections: list[HandDetection] = []
+        for hand_landmarks, hand_world_landmarks, hand_side in zip(
+            result.hand_landmarks,
+            result.hand_world_landmarks,
+            normalized_handedness,
+            strict=True,
+        ):
+            landmarks_3d = np.array([[lm.x, lm.y, lm.z] for lm in hand_world_landmarks])
+            landmarks_2d = np.array([[lm.x, lm.y] for lm in hand_landmarks]) * np.array([w, h])
+            detections.append(
+                HandDetection(
+                    landmarks_3d=landmarks_3d,
+                    landmarks_2d=landmarks_2d,
+                    hand_side=hand_side,
+                )
+            )
 
-        return HandDetection(
-            landmarks_3d=landmarks_3d,
-            landmarks_2d=landmarks_2d,
-            hand_side=hand_side,
-        )
+        return detections
 
     def draw_landmarks(self, frame_bgr: np.ndarray, detection: HandDetection) -> np.ndarray:
         """Draw hand landmarks on a frame."""

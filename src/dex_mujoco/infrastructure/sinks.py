@@ -11,10 +11,21 @@ import cv2
 import mujoco
 import numpy as np
 
-from dex_mujoco.domain import HandFrame, HandFrameSink, OutputSink, RetargetingStepResult, preprocess_landmarks
+from dex_mujoco.domain import (
+    BiHandOutputSink,
+    BiHandRetargetingResult,
+    HandFrame,
+    HandFrameSink,
+    OutputSink,
+    RetargetingStepResult,
+    preprocess_landmarks,
+)
 from dex_mujoco.visualization import (
     AsyncLandmarkVisualizer,
+    BiHandScene,
+    BiHandVisualizer,
     HandVisualizer,
+    configure_free_camera,
     configure_default_hand_camera,
     _try_frame_hand_camera,
 )
@@ -203,3 +214,174 @@ class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
 
     def close(self) -> None:
         self._visualizer.close()
+
+
+class _BiHandRenderHelper:
+    def __init__(
+        self,
+        left_hand_model: HandModel,
+        right_hand_model: HandModel,
+        *,
+        panel_width: int,
+        panel_height: int,
+        left_pos: tuple[float, float, float],
+        right_pos: tuple[float, float, float],
+        camera_lookat: tuple[float, float, float],
+        left_quat: tuple[float, float, float, float],
+        right_quat: tuple[float, float, float, float],
+    ):
+        self._scene = BiHandScene(
+            left_hand_model,
+            right_hand_model,
+            left_pos=left_pos,
+            right_pos=right_pos,
+            left_quat=left_quat,
+            right_quat=right_quat,
+        )
+        left_width, left_height = _fit_video_size(
+            requested_width=panel_width,
+            requested_height=panel_height,
+            max_width=max(int(self._scene.model.vis.global_.offwidth), 1),
+            max_height=max(int(self._scene.model.vis.global_.offheight), 1),
+        )
+        self._panel_width = left_width
+        self._panel_height = left_height
+        self._model = self._scene.model
+        self._data = self._scene.data
+        self._renderer = _create_offscreen_renderer(
+            self._model,
+            height=self._panel_height,
+            width=self._panel_width,
+        )
+        self._camera = mujoco.MjvCamera()
+        mujoco.mjv_defaultCamera(self._camera)
+        configure_free_camera(
+            self._camera,
+            distance=0.60,
+            azimuth=-90.0,
+            elevation=-5.0,
+            lookat=camera_lookat,
+        )
+        self._camera_initialized = False
+
+    @property
+    def frame_size(self) -> tuple[int, int]:
+        return self._panel_width, self._panel_height
+
+    def render(self, result: BiHandRetargetingResult) -> np.ndarray:
+        self._scene.update(result.left.qpos, result.right.qpos)
+        if not self._camera_initialized and _try_frame_hand_camera(
+            self._camera,
+            model=self._model,
+            data=self._data,
+            aspect_ratio=self._panel_width / max(self._panel_height, 1),
+            azimuth=-90.0,
+            elevation=-5.0,
+        ):
+            self._camera_initialized = True
+        self._renderer.update_scene(self._data, camera=self._camera)
+        return cv2.cvtColor(self._renderer.render(), cv2.COLOR_RGB2BGR)
+
+    def close(self) -> None:
+        self._renderer.close()
+
+
+class BiHandOutputWindowSink(BiHandOutputSink):
+    def __init__(
+        self,
+        left_hand_model: HandModel,
+        right_hand_model: HandModel,
+        *,
+        key_callback=None,
+        panel_width: int = 640,
+        panel_height: int = 720,
+        window_name: str = "Bi-Hand Retargeting",
+        left_pos: tuple[float, float, float] = (0.22, 0.04, 0.02),
+        right_pos: tuple[float, float, float] = (-0.22, 0.04, 0.02),
+        camera_lookat: tuple[float, float, float] = (0.0, 0.04, 0.02),
+        left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151),
+        right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665),
+    ):
+        self._visualizer = BiHandVisualizer(
+            left_hand_model,
+            right_hand_model,
+            key_callback=key_callback,
+            left_pos=left_pos,
+            right_pos=right_pos,
+            camera_lookat=camera_lookat,
+            left_quat=left_quat,
+            right_quat=right_quat,
+        )
+        self._window_name = window_name
+
+    @property
+    def is_running(self) -> bool:
+        return self._visualizer.is_running
+
+    def on_result(self, result: BiHandRetargetingResult) -> None:
+        self._visualizer.update(result.left.qpos, result.right.qpos)
+
+    def close(self) -> None:
+        self._visualizer.close()
+
+
+class BiHandVideoOutputSink(BiHandOutputSink):
+    def __init__(
+        self,
+        left_hand_model: HandModel,
+        right_hand_model: HandModel,
+        *,
+        output_path: str,
+        fps: int,
+        panel_width: int = 640,
+        panel_height: int = 720,
+        codec: str = "mp4v",
+        left_pos: tuple[float, float, float] = (0.22, 0.04, 0.02),
+        right_pos: tuple[float, float, float] = (-0.22, 0.04, 0.02),
+        camera_lookat: tuple[float, float, float] = (0.0, 0.04, 0.02),
+        left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151),
+        right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665),
+    ):
+        self._output_path = Path(output_path)
+        self._output_path.parent.mkdir(parents=True, exist_ok=True)
+        self._renderer = _BiHandRenderHelper(
+            left_hand_model,
+            right_hand_model,
+            panel_width=panel_width,
+            panel_height=panel_height,
+            left_pos=left_pos,
+            right_pos=right_pos,
+            camera_lookat=camera_lookat,
+            left_quat=left_quat,
+            right_quat=right_quat,
+        )
+        width, height = self._renderer.frame_size
+        self._writer = cv2.VideoWriter(
+            str(self._output_path),
+            cv2.VideoWriter_fourcc(*codec),
+            float(max(fps, 1)),
+            (width, height),
+        )
+        if not self._writer.isOpened():
+            self._renderer.close()
+            raise RuntimeError(f"Cannot open bi-hand replay video writer for: {self._output_path}")
+        self._frames_written = 0
+        self._is_closed = False
+
+    @property
+    def is_running(self) -> bool:
+        return not self._is_closed
+
+    def on_result(self, result: BiHandRetargetingResult) -> None:
+        if self._is_closed:
+            return
+        self._writer.write(self._renderer.render(result))
+        self._frames_written += 1
+
+    def close(self) -> None:
+        if self._is_closed:
+            return
+        self._writer.release()
+        self._renderer.close()
+        self._is_closed = True
+        print(f"Saved bi-hand replay video ({self._frames_written} frames) to {self._output_path}")

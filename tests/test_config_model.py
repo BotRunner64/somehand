@@ -118,7 +118,7 @@ def test_side_specific_configs_load_successfully():
     config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name == "base":
+        if config_path.parent.name in {"base", "bihand"}:
             continue
         config = RetargetingConfig.load(str(config_path))
         assert config.hand.name == config_path.stem
@@ -128,7 +128,7 @@ def test_side_specific_configs_instantiate_vector_retargeter():
     config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name == "base":
+        if config_path.parent.name in {"base", "bihand"}:
             continue
         config = RetargetingConfig.load(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
