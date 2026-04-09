@@ -17,12 +17,42 @@ from dex_mujoco.domain.config import (
     SolverConfig,
     VectorLossConfig,
 )
+from dex_mujoco.domain.hand_side import normalize_hand_side
+
+
+def _deep_merge(base: object, override: object) -> object:
+    if isinstance(base, dict) and isinstance(override, dict):
+        merged = dict(base)
+        for key, value in override.items():
+            if key in merged:
+                merged[key] = _deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
+    return override
+
+
+def _load_yaml_with_extends(config_path_obj: Path) -> dict:
+    with config_path_obj.open() as file_obj:
+        data = yaml.safe_load(file_obj) or {}
+
+    extends_path = data.pop("extends", None)
+    if extends_path is None:
+        return data
+
+    base_path = Path(extends_path)
+    if not base_path.is_absolute():
+        base_path = (config_path_obj.parent / base_path).resolve()
+    base_data = _load_yaml_with_extends(base_path)
+    merged = _deep_merge(base_data, data)
+    if not isinstance(merged, dict):
+        raise ValueError(f"Config root must be a mapping: {config_path_obj}")
+    return merged
 
 
 def load_retargeting_config(config_path: str) -> RetargetingConfig:
     config_path_obj = Path(config_path)
-    with config_path_obj.open() as file_obj:
-        data = yaml.safe_load(file_obj)
+    data = _load_yaml_with_extends(config_path_obj)
 
     config = RetargetingConfig()
 
@@ -38,6 +68,7 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
 
     config.hand = HandConfig(
         name=hand_data.get("name", ""),
+        side=normalize_hand_side(hand_data.get("side", "")),
         mjcf_path=str(mjcf_path),
         urdf_source=hand_data.get("urdf_source", ""),
     )

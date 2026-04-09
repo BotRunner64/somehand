@@ -197,7 +197,7 @@ class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
         self._visualizer.update(
             preprocess_landmarks(
                 frame.landmarks_3d,
-                handedness=frame.handedness,
+                hand_side=frame.hand_side,
             )
         )
 

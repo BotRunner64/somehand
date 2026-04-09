@@ -9,7 +9,8 @@
 
 hand:
   name: "linkerhand_t12_right"
-  mjcf_path: "../../assets/mjcf/linkerhand_t12_right/model.xml"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/linkerhand_t12_right/model.xml"
 
 retargeting:
   type: "vector"

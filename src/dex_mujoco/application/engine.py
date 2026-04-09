@@ -29,18 +29,22 @@ class RetargetingEngine:
 
     def process(self, frame: HandFrame) -> RetargetingStepResult:
         landmarks = frame.landmarks_3d
+        if frame.hand_side != self.config.hand.side:
+            raise ValueError(
+                f"input hand side {frame.hand_side!r} does not match config hand side {self.config.hand.side!r}"
+            )
         self.retargeter.update_targets(
             landmarks,
-            handedness=frame.handedness,
+            hand_side=frame.hand_side,
         )
         qpos = self.retargeter.solve()
         processed_landmarks = preprocess_landmarks(
             landmarks,
-            handedness=frame.handedness,
+            hand_side=frame.hand_side,
         )
         return RetargetingStepResult(
             qpos=qpos.copy(),
             target_directions=self.retargeter.get_target_directions(),
             processed_landmarks=processed_landmarks,
-            handedness=frame.handedness,
+            hand_side=frame.hand_side,
         )

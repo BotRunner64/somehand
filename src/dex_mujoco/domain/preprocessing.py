@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .hand_side import normalize_hand_side
+
 _OPERATOR2ROBOT_RIGHT = np.array(
     [
         [0.0, 0.0, -1.0],
@@ -20,12 +22,6 @@ def _mediapipe_to_mujoco(landmarks_3d: np.ndarray) -> np.ndarray:
     out[:, 1] = landmarks_3d[:, 0]
     out[:, 2] = -landmarks_3d[:, 1]
     return out
-
-
-def _mirror_left_to_right(landmarks_3d: np.ndarray) -> np.ndarray:
-    mirrored = landmarks_3d.copy()
-    mirrored[:, 0] = -mirrored[:, 0]
-    return mirrored
 
 
 def _estimate_wrist_frame(landmarks_3d: np.ndarray) -> np.ndarray:
@@ -62,10 +58,9 @@ def _estimate_wrist_frame(landmarks_3d: np.ndarray) -> np.ndarray:
 
 def preprocess_landmarks(
     landmarks_3d: np.ndarray,
-    handedness: str = "Right",
+    hand_side: str = "right",
 ) -> np.ndarray:
-    if handedness == "Left":
-        landmarks_3d = _mirror_left_to_right(landmarks_3d)
+    normalize_hand_side(hand_side)
 
     centered = landmarks_3d - landmarks_3d[0:1, :]
     try:
@@ -78,9 +73,9 @@ def preprocess_landmarks(
 def compute_target_directions(
     landmarks_3d: np.ndarray,
     human_vector_pairs: list[tuple[int, int]],
-    handedness: str = "Right",
+    hand_side: str = "right",
 ) -> np.ndarray:
-    landmarks = preprocess_landmarks(landmarks_3d, handedness=handedness)
+    landmarks = preprocess_landmarks(landmarks_3d, hand_side=hand_side)
     directions = np.empty((len(human_vector_pairs), 3), dtype=np.float64)
     for i, (origin_idx, target_idx) in enumerate(human_vector_pairs):
         vector = landmarks[target_idx] - landmarks[origin_idx]

@@ -6,6 +6,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dex_mujoco.retargeting_config import RetargetingConfig
+from dex_mujoco.infrastructure.hand_model import HandModel
+from dex_mujoco.infrastructure.vector_solver import VectorRetargeter
 
 
 def test_config_validation_rejects_mismatched_vector_lengths(tmp_path):
@@ -16,6 +18,7 @@ def test_config_validation_rejects_mismatched_vector_lengths(tmp_path):
             [
                 "hand:",
                 '  name: "bad"',
+                '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
                 "  human_vector_pairs:",
@@ -38,6 +41,7 @@ def test_angle_constraint_parses_scale_and_invert(tmp_path):
             [
                 "hand:",
                 '  name: "ok"',
+                '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
                 "  human_vector_pairs:",
@@ -71,6 +75,7 @@ def test_vector_loss_parses_residual_settings(tmp_path):
             [
                 "hand:",
                 '  name: "ok"',
+                '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
                 "  human_vector_pairs:",
@@ -96,3 +101,34 @@ def test_vector_loss_parses_residual_settings(tmp_path):
     assert config.vector_loss.type == "residual"
     assert config.vector_loss.huber_delta == pytest.approx(0.03)
     assert config.vector_loss.scaling == pytest.approx(1.2)
+
+
+def test_all_mjcf_assets_have_side_specific_configs():
+    mjcf_roots = Path("assets/mjcf")
+    config_roots = Path("configs/retargeting")
+    asset_names = sorted(path.parent.name for path in mjcf_roots.glob("*/model.xml"))
+    config_names = {path.stem for path in config_roots.glob("*/*.yaml")}
+    missing = [name for name in asset_names if name not in config_names]
+    assert missing == []
+
+
+def test_side_specific_configs_load_successfully():
+    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    assert config_paths
+    for config_path in config_paths:
+        if config_path.parent.name == "base":
+            continue
+        config = RetargetingConfig.load(str(config_path))
+        assert config.hand.name == config_path.stem
+
+
+def test_side_specific_configs_instantiate_vector_retargeter():
+    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    assert config_paths
+    for config_path in config_paths:
+        if config_path.parent.name == "base":
+            continue
+        config = RetargetingConfig.load(str(config_path))
+        hand_model = HandModel(config.hand.mjcf_path)
+        retargeter = VectorRetargeter(hand_model, config)
+        assert retargeter.config.hand.name == config.hand.name

@@ -9,15 +9,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dex_mujoco.acceptance import (
     AcceptanceResult,
+    bilateral_preprocess_consistency_score,
     current_alignment_metrics,
-    mirror_consistency_score,
     rotation_invariance_score,
     solver_quality_score,
     static_jitter_score,
     synthetic_hand_pose,
     throughput_score,
 )
-from dex_mujoco.domain import RetargetingConfig
+from dex_mujoco.domain import RetargetingConfig, normalize_hand_side
 from dex_mujoco.hand_detector import HandDetector
 from dex_mujoco.infrastructure.hand_model import HandModel
 from dex_mujoco.infrastructure.vector_solver import VectorRetargeter
@@ -56,7 +56,7 @@ def run_video_check(
                 continue
 
             detected_frames += 1
-            retargeter.update_targets(detection.landmarks_3d, detection.handedness)
+            retargeter.update_targets(detection.landmarks_3d, hand_side=detection.hand_side)
             retargeter.solve()
             metrics = current_alignment_metrics(retargeter)
             weighted_cosines.append(metrics["weighted_cosine"])
@@ -92,11 +92,11 @@ def main():
     parser = argparse.ArgumentParser(description="Run dex-mujoco acceptance checks")
     parser.add_argument(
         "--config",
-        default="configs/retargeting/linkerhand_l20.yaml",
+        default="configs/retargeting/right/linkerhand_l20_right.yaml",
         help="Path to retargeting config YAML",
     )
     parser.add_argument("--video", default=None, help="Optional input video for offline acceptance")
-    parser.add_argument("--hand", choices=["Left", "Right"], default="Right")
+    parser.add_argument("--hand", type=normalize_hand_side, choices=["left", "right"], default="right")
     parser.add_argument("--swap-hands", action="store_true")
     parser.add_argument("--json", default=None, help="Optional JSON report path")
     parser.add_argument("--min-rotation-cos", type=float, default=0.98)
@@ -126,13 +126,13 @@ def main():
         )
     )
 
-    mirror_cos = mirror_consistency_score(config, vector_pairs)
+    mirror_cos = bilateral_preprocess_consistency_score(config, vector_pairs)
     results.append(
         AcceptanceResult(
-            name="left_right_consistency",
+            name="bilateral_preprocess_consistency",
             passed=mirror_cos >= args.min_mirror_cos,
             metrics={"mean_direction_cosine": mirror_cos},
-            detail="Mirrored left-hand input should match right-hand targets after normalization.",
+            detail="Left/right operator inputs should remain self-consistent after side-specific preprocessing.",
         )
     )
 
@@ -185,7 +185,7 @@ def main():
     report = {
         "config": str(Path(args.config).resolve()),
         "hand": config.hand.name,
-        "preprocess_frame": config.preprocess.frame,
+        "hand_side": config.hand.side,
         "all_passed": passed,
         "results": [_result_to_dict(result) for result in results],
     }

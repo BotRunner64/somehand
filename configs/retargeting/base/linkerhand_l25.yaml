@@ -1,13 +1,12 @@
-# Retargeting config: MediaPipe -> Linkerhand O7 Right Hand
-# O7: 17 DOF total
+# Retargeting config: MediaPipe -> Linkerhand L25 Right Hand
+# L25: 21 DOF total
 #   Thumb: 5 DOF (cmc_roll, cmc_yaw, cmc_pitch, mcp, ip)
-#   Index/Middle/Ring/Pinky: 3 DOF each (mcp_pitch, pip, dip)
-#   NOTE: Fingers have no mcp_roll and no metacarpals body.
-#         Chain: proximal -> middle -> distal
+#   Index/Middle/Ring/Pinky: 4 DOF each (mcp_roll, mcp_pitch, pip, dip)
 
 hand:
-  name: "linkerhand_o7_right"
-  mjcf_path: "../../assets/mjcf/linkerhand_o7_right/model.xml"
+  name: "linkerhand_l25_right"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/linkerhand_l25_right/model.xml"
 
 retargeting:
   type: "vector"
@@ -18,30 +17,30 @@ retargeting:
     - [0, 9]    # wrist -> middle_mcp
     - [0, 13]   # wrist -> ring_mcp
     - [0, 17]   # wrist -> little_mcp
-    # Thumb: 5 vectors for 5 DOF
+    # Thumb: 7 vectors for 5 DOF (over-constrained for robustness)
     - [0, 4]    # wrist -> thumb_tip (opposition vector)
     - [1, 4]    # thumb_cmc -> thumb_tip (redundant thumb)
     - [1, 2]    # thumb_cmc -> thumb_mcp
     - [1, 3]    # thumb_cmc -> thumb_ip
     - [2, 3]    # thumb_mcp -> thumb_ip (mcp direction)
     - [2, 4]    # thumb_mcp -> thumb_tip
-    - [3, 4]    # thumb_ip -> thumb_tip
+    - [3, 4]    # thumb_ip -> thumb_tip (dip direction)
     # Index (3 vectors)
     - [5, 6]    # index_mcp -> index_pip
     - [6, 8]    # index_pip -> index_tip
-    - [7, 8]    # index_dip -> index_tip
-    # Middle (3 vectors)
+    - [7, 8]    # index_dip -> index_tip (fingertip direction)
+    # Middle
     - [9, 10]   # middle_mcp -> middle_pip
     - [10, 12]  # middle_pip -> middle_tip
-    - [11, 12]  # middle_dip -> middle_tip
-    # Ring (3 vectors)
+    - [11, 12]  # middle_dip -> middle_tip (fingertip direction)
+    # Ring
     - [13, 14]  # ring_mcp -> ring_pip
     - [14, 16]  # ring_pip -> ring_tip
-    - [15, 16]  # ring_dip -> ring_tip
-    # Little (3 vectors)
+    - [15, 16]  # ring_dip -> ring_tip (fingertip direction)
+    # Little
     - [17, 18]  # little_mcp -> little_pip
     - [18, 20]  # little_pip -> little_tip
-    - [19, 20]  # little_dip -> little_tip
+    - [19, 20]  # little_dip -> little_tip (fingertip direction)
 
   origin_link_names:
     - "world"
@@ -55,17 +54,17 @@ retargeting:
     - "thumb_metacarpals"
     - "thumb_metacarpals"
     - "thumb_distal"
+    - "index_metacarpals"
     - "index_proximal"
-    - "index_middle"
     - "index_distal"
+    - "middle_metacarpals"
     - "middle_proximal"
-    - "middle_middle"
     - "middle_distal"
+    - "ring_metacarpals"
     - "ring_proximal"
-    - "ring_middle"
     - "ring_distal"
+    - "pinky_metacarpals"
     - "pinky_proximal"
-    - "pinky_middle"
     - "pinky_distal"
 
   task_link_names:

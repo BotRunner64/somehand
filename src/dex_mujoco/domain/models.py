@@ -7,6 +7,8 @@ from typing import Mapping, Protocol
 
 import numpy as np
 
+from .hand_side import display_hand_side, normalize_hand_side
+
 
 @dataclass(slots=True)
 class HandFrame:
@@ -14,7 +16,14 @@ class HandFrame:
 
     landmarks_3d: np.ndarray
     landmarks_2d: np.ndarray | None
-    handedness: str
+    hand_side: str
+
+    def __post_init__(self) -> None:
+        self.hand_side = normalize_hand_side(self.hand_side)
+
+    @property
+    def handedness(self) -> str:
+        return display_hand_side(self.hand_side)
 
 
 @dataclass(slots=True)
@@ -32,7 +41,14 @@ class RetargetingStepResult:
     qpos: np.ndarray
     target_directions: np.ndarray | None
     processed_landmarks: np.ndarray
-    handedness: str
+    hand_side: str
+
+    def __post_init__(self) -> None:
+        self.hand_side = normalize_hand_side(self.hand_side)
+
+    @property
+    def handedness(self) -> str:
+        return display_hand_side(self.hand_side)
 
 
 @dataclass(frozen=True, slots=True)

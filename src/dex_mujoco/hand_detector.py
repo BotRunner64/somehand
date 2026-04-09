@@ -6,6 +6,7 @@ from typing import Iterator, Optional, Union
 import cv2
 import numpy as np
 
+from .domain.hand_side import display_hand_side, normalize_hand_side
 from .paths import DEFAULT_HAND_LANDMARKER_MODEL
 
 # Default model path relative to project root
@@ -16,7 +17,14 @@ _DEFAULT_MODEL_PATH = DEFAULT_HAND_LANDMARKER_MODEL
 class HandDetection:
     landmarks_3d: np.ndarray  # (21, 3)
     landmarks_2d: np.ndarray  # (21, 2)
-    handedness: str  # "Left" or "Right"
+    hand_side: str  # "left" or "right"
+
+    def __post_init__(self) -> None:
+        self.hand_side = normalize_hand_side(self.hand_side)
+
+    @property
+    def handedness(self) -> str:
+        return display_hand_side(self.hand_side)
 
 
 class HandDetector:
@@ -51,21 +59,20 @@ class HandDetector:
         )
         self.landmarker = HandLandmarker.create_from_options(options)
         self._timestamp_ms = 0
-        self.target_hand = target_hand
+        self.target_hand = None if target_hand is None else normalize_hand_side(target_hand)
         self.swap_handedness = swap_handedness
 
-        if self.target_hand not in (None, "Left", "Right"):
-            raise ValueError("target_hand must be None, 'Left', or 'Right'")
+        if self.target_hand not in (None, "left", "right"):
+            raise ValueError("target_hand must be None, 'left', or 'right'")
 
     def _normalize_handedness(self, handedness: str) -> str:
         """Convert MediaPipe handedness to actual left/right semantics."""
+        normalized = normalize_hand_side(handedness)
         if not self.swap_handedness:
-            return handedness
-        if handedness == "Left":
-            return "Right"
-        if handedness == "Right":
-            return "Left"
-        return handedness
+            return normalized
+        if normalized == "left":
+            return "right"
+        return "left"
 
     def detect(self, frame_bgr: np.ndarray) -> Optional[HandDetection]:
         """Detect hand landmarks from a BGR frame.
@@ -93,20 +100,20 @@ class HandDetector:
         ]
 
         hand_idx = None
-        handedness = None
+        hand_side = None
         if self.target_hand is None:
             hand_idx = 0
-            handedness = normalized_handedness[0]
+            hand_side = normalized_handedness[0]
         else:
-            for i, actual_handedness in enumerate(normalized_handedness):
-                if actual_handedness == self.target_hand:
+            for i, actual_hand_side in enumerate(normalized_handedness):
+                if actual_hand_side == self.target_hand:
                     hand_idx = i
-                    handedness = actual_handedness
+                    hand_side = actual_hand_side
                     break
 
             if hand_idx is None and len(result.hand_landmarks) == 1:
                 hand_idx = 0
-                handedness = self.target_hand
+                hand_side = self.target_hand
 
         if hand_idx is None:
             return None
@@ -125,7 +132,7 @@ class HandDetector:
         return HandDetection(
             landmarks_3d=landmarks_3d,
             landmarks_2d=landmarks_2d,
-            handedness=handedness,
+            hand_side=hand_side,
         )
 
     def draw_landmarks(self, frame_bgr: np.ndarray, detection: HandDetection) -> np.ndarray:

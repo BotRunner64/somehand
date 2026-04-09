@@ -34,7 +34,7 @@ def test_hc_mocap_frame_to_landmarks_maps_left_hand_joints():
         "hc_Pinky3_L": _joint([0.0, 3.0, 3.0]),
     }
 
-    landmarks = hc_mocap_frame_to_landmarks(frame, "Left")
+    landmarks = hc_mocap_frame_to_landmarks(frame, "left")
 
     assert landmarks.shape == (21, 3)
     np.testing.assert_allclose(landmarks[0], [0.0, 0.0, 0.0])
@@ -81,13 +81,13 @@ def test_hc_mocap_provider_exposes_latest_detection_snapshot():
         def close(self):
             return None
 
-    provider = HCMocapHandProvider(_StubProvider(), "Left")
+    provider = HCMocapHandProvider(_StubProvider(), "left")
     snapshot = provider.latest_detection_snapshot()
 
     assert snapshot is not None
     frame_index, detection = snapshot
     assert frame_index == 7
-    assert detection.handedness == "Left"
+    assert detection.hand_side == "left"
     assert detection.landmarks_3d.shape == (21, 3)
     np.testing.assert_allclose(detection.landmarks_3d[0], [0.0, 0.0, 0.0])
 

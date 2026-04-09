@@ -84,9 +84,9 @@ python scripts/record_webcam.py \
 
 ```bash
 python scripts/acceptance_check.py \
-    --config configs/retargeting/linkerhand_l20.yaml \
+    --config configs/retargeting/right/linkerhand_l20_right.yaml \
     --video recordings/acceptance.mp4 \
-    --hand Right
+    --hand right
 ```
 
 ### 5. 离线 Retargeting（视频）
@@ -120,7 +120,7 @@ dex-retarget replay \
 
 ```bash
 dex-retarget hc-mocap \
-    --hand Right \
+    --hand right \
     --udp-stats-every 120
 ```
 
@@ -128,7 +128,7 @@ dex-retarget hc-mocap \
 
 ```bash
 dex-retarget hc-mocap \
-    --hand Left
+    --hand left
 ```
 
 `hc-mocap` 现在只保留 UDP 模式，不再支持离线 `BVH` 输入。它也不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 UDP 包都是一行 BVH motion floats，并且 joint 顺序与 `--reference-bvh` 一致。
@@ -147,21 +147,21 @@ bash scripts/setup_xrobotoolkit.sh
 然后先探测 PICO / XRoboToolkit 链路是否正常：
 
 ```bash
-python scripts/probe_pico_xrobotoolkit.py --hand Right
+python scripts/probe_pico_xrobotoolkit.py --hand right
 ```
 
 探测正常后，直接运行实时 retargeting：
 
 ```bash
 dex-retarget pico \
-    --hand Right
+    --hand right
 ```
 
 如果想把 PICO 输入录下来，供之后离线复现：
 
 ```bash
 dex-retarget pico \
-    --hand Right \
+    --hand right \
     --record-output recordings/pico_hand.pkl
 ```
 
@@ -181,38 +181,39 @@ dex-retarget pico \
 
 ```bash
 dex-retarget pico \
-    --hand Right \
+    --hand right \
     --pico-timeout 90
 ```
 
 ### 6. 跑验收脚本
 
-先跑合成基线，确认当前配置的旋转不变性、镜像一致性、静态抖动、求解误差和吞吐量：
+先跑合成基线，确认当前配置的旋转不变性、双侧预处理一致性、静态抖动、求解误差和吞吐量：
 
 ```bash
-python scripts/acceptance_check.py --config configs/retargeting/linkerhand_l20.yaml
+python scripts/acceptance_check.py --config configs/retargeting/right/linkerhand_l20_right.yaml
 ```
 
 如果有真实视频，再追加离线验收：
 
 ```bash
 python scripts/acceptance_check.py \
-    --config configs/retargeting/linkerhand_l20.yaml \
+    --config configs/retargeting/right/linkerhand_l20_right.yaml \
     --video input.mp4 \
-    --hand Right
+    --hand right
 ```
 
 ## 适配新的机器人手
 
 1. **转换模型**：用 `convert_urdf_to_mjcf.py` 将 URDF 转换为 MJCF
-2. **编写配置**：在 `configs/retargeting/` 下创建 YAML 配置文件，定义 MediaPipe 关键点到机器人 body 的映射关系
+2. **编写配置**：在 `configs/retargeting/base/` 写共享模板，在 `configs/retargeting/left/` 或 `configs/retargeting/right/` 放可直接运行的侧别配置
 3. **运行测试**：指定新配置运行 `dex-retarget webcam --visualize` 验证效果
 
-配置文件格式参考 `configs/retargeting/linkerhand_l20.yaml`，核心字段：
+配置文件格式参考 `configs/retargeting/right/linkerhand_l20_right.yaml`，核心字段：
 
 ```yaml
 hand:
   name: "your_hand"
+  side: "right"
   mjcf_path: "path/to/model.xml"
 
 retargeting:
@@ -223,10 +224,8 @@ retargeting:
   task_link_names:       # 机器人向量终点 body 名称
     - "index_proximal"
   preprocess:
-    frame: "wrist_local"   # 推荐：先对齐到手腕局部坐标系
     temporal_filter_alpha: 0.35
   solver:
-    backend: "daqp"
     max_iterations: 20
 ```
 
@@ -257,6 +256,9 @@ dex-mujoco/
 │   ├── urdf_converter.py     # URDF → MJCF 转换
 │   └── visualization.py      # MuJoCo viewer
 ├── configs/retargeting/    # Retargeting 配置文件
+│   ├── base/              # 按型号复用的共享模板
+│   ├── left/              # 可直接运行的左手配置
+│   └── right/             # 可直接运行的右手配置
 ├── assets/mjcf/            # 转换后的 MJCF 模型（gitignored）
 ├── scripts/                # 薄工具脚本 / 诊断脚本
 │   ├── acceptance_check.py

@@ -1,0 +1,6 @@
+extends: "../base/linkerhand_l20.yaml"
+
+hand:
+  name: "linkerhand_l20_left"
+  side: "left"
+  mjcf_path: "../../../assets/mjcf/linkerhand_l20_left/model.xml"

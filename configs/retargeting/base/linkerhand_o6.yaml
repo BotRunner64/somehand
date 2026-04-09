@@ -1,14 +1,13 @@
-# Retargeting config: MediaPipe -> Linkerhand L6 Right Hand
-# L6 is a simplified hand with 11 DOF total:
-#   Thumb: 3 DOF (cmc_roll, cmc_pitch, dip)
+# Retargeting config: MediaPipe -> Linkerhand O6 Right Hand
+# O6: 11 DOF total
+#   Thumb: 3 DOF (cmc_yaw, cmc_pitch, ip) - no cmc_roll, no base1
 #   Index/Middle/Ring/Pinky: 2 DOF each (mcp_pitch, dip)
-#
-# Uses cosine similarity loss (frame-invariant) with analytical Jacobians + SLSQP
-# Fewer vectors than L20 since L6 has fewer joints to constrain.
+# The config uses semantic body/site/joint names; side prefixes are resolved at runtime.
 
 hand:
-  name: "linkerhand_l6_right"
-  mjcf_path: "../../assets/mjcf/linkerhand_l6_right/model.xml"
+  name: "linkerhand_o6_right"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/linkerhand_o6_right/model.xml"
 
 retargeting:
   type: "vector"
@@ -44,37 +43,37 @@ retargeting:
     - "world"
     - "world"
     - "world"
-    - "rh_thumb_metacarpals_base1"
-    - "rh_thumb_metacarpals_base1"
-    - "rh_thumb_metacarpals"
-    - "rh_thumb_distal"
-    - "rh_index_proximal"
-    - "rh_index_distal"
-    - "rh_middle_proximal"
-    - "rh_middle_distal"
-    - "rh_ring_proximal"
-    - "rh_ring_distal"
-    - "rh_pinky_proximal"
-    - "rh_pinky_distal"
+    - "thumb_metacarpals_base2"
+    - "thumb_metacarpals_base2"
+    - "thumb_metacarpals"
+    - "thumb_distal"
+    - "index_proximal"
+    - "index_distal"
+    - "middle_proximal"
+    - "middle_distal"
+    - "ring_proximal"
+    - "ring_distal"
+    - "pinky_proximal"
+    - "pinky_distal"
 
   task_link_names:
-    - "rh_index_proximal"
-    - "rh_middle_proximal"
-    - "rh_ring_proximal"
-    - "rh_pinky_proximal"
-    - "rh_thumb_distal_tip"
-    - "rh_thumb_distal_tip"
-    - "rh_thumb_metacarpals"
-    - "rh_thumb_distal_tip"
-    - "rh_thumb_distal_tip"
-    - "rh_index_distal"
-    - "rh_index_distal_tip"
-    - "rh_middle_distal"
-    - "rh_middle_distal_tip"
-    - "rh_ring_distal"
-    - "rh_ring_distal_tip"
-    - "rh_pinky_distal"
-    - "rh_pinky_distal_tip"
+    - "index_proximal"
+    - "middle_proximal"
+    - "ring_proximal"
+    - "pinky_proximal"
+    - "thumb_distal_tip"
+    - "thumb_distal_tip"
+    - "thumb_metacarpals"
+    - "thumb_distal_tip"
+    - "thumb_distal_tip"
+    - "index_distal"
+    - "index_distal_tip"
+    - "middle_distal"
+    - "middle_distal_tip"
+    - "ring_distal"
+    - "ring_distal_tip"
+    - "pinky_distal"
+    - "pinky_distal_tip"
 
   origin_link_types:
     - "body"
@@ -138,55 +137,26 @@ retargeting:
     huber_delta: 0.02
     scaling: 1.0
     scale_landmarks: [0, 9]
-    scale_bodies: ["world", "rh_middle_proximal"]
+    scale_bodies: ["world", "middle_proximal"]
     scale_body_types: ["body", "body"]
 
   angle_constraints:
     - landmarks: [2, 3, 4]
-      joint: "rh_thumb_dip"
+      joint: "thumb_ip"
       weight: 3.0
     # Finger dip
     - landmarks: [6, 7, 8]
-      joint: "rh_index_dip"
+      joint: "index_dip"
       weight: 2.0
     - landmarks: [10, 11, 12]
-      joint: "rh_middle_dip"
+      joint: "middle_dip"
       weight: 2.0
     - landmarks: [14, 15, 16]
-      joint: "rh_ring_dip"
+      joint: "ring_dip"
       weight: 2.0
     - landmarks: [18, 19, 20]
-      joint: "rh_pinky_dip"
+      joint: "pinky_dip"
       weight: 2.0
-
-  position_constraints:
-    enabled: true
-    weight: 8.0
-    scale_landmarks: [0, 9]
-    scale_bodies: ["world", "rh_middle_proximal"]
-    scale_body_types: ["body", "body"]
-    constraints:
-      - landmark: 2                  # thumb MCP
-        body: "rh_thumb_metacarpals"
-        body_type: "body"
-        weight: 1.0
-      - landmark: 4                  # thumb TIP
-        body: "rh_thumb_distal_tip"
-        body_type: "site"
-        weight: 1.5
-
-  pinch:
-    enabled: true
-    d1: 0.03          # full pinch threshold (meters)
-    d2: 0.06          # no pinch threshold (meters)
-    weight: 5.0       # fingertip attraction loss weight
-    thumb_weight_boost: 1.5  # thumb vector weight multiplier during pinch
-    fingertip_sites:
-      - "rh_thumb_distal_tip"
-      - "rh_index_distal_tip"
-      - "rh_middle_distal_tip"
-      - "rh_ring_distal_tip"
-      - "rh_pinky_distal_tip"
 
   preprocess:
     temporal_filter_alpha: 0.65

@@ -60,7 +60,7 @@ class RetargetRuntime:
         frame = HandFrame(
             landmarks_3d=detection.landmarks_3d,
             landmarks_2d=detection.landmarks_2d,
-            handedness=detection.handedness,
+            hand_side=detection.hand_side,
         )
         result = self.engine.process(frame)
         self.trajectory_recorder.on_result(result)
@@ -80,7 +80,7 @@ class RetargetRuntime:
         *,
         source_desc: str,
         num_frames: int,
-        handedness: str | None = None,
+        hand_side: str | None = None,
         num_detected: int | None = None,
     ) -> None:
         save_trajectory_artifact(
@@ -91,7 +91,7 @@ class RetargetRuntime:
             num_frames=num_frames,
             source_desc=source_desc,
             input_type=self.input_type,
-            handedness=handedness,
+            hand_side=hand_side,
             num_detected=num_detected,
         )
 

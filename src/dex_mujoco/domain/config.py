@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .hand_side import HAND_SIDES, normalize_hand_side
+
 
 @dataclass
 class SolverConfig:
@@ -21,6 +23,7 @@ class PreprocessConfig:
 @dataclass
 class HandConfig:
     name: str = ""
+    side: str = ""
     mjcf_path: str = ""
     urdf_source: str = ""
 
@@ -95,6 +98,9 @@ class RetargetingConfig:
         return load_retargeting_config(config_path)
 
     def validate(self) -> None:
+        if not self.hand.side:
+            raise ValueError("hand.side must be explicitly set to 'left' or 'right'")
+        self.hand.side = normalize_hand_side(self.hand.side)
         n = len(self.human_vector_pairs)
         if len(self.origin_link_names) != n:
             raise ValueError(
@@ -146,5 +152,7 @@ class RetargetingConfig:
             raise ValueError("origin_link_types must only contain 'body' or 'site'")
         if any(link_type not in {"body", "site"} for link_type in self.task_link_types):
             raise ValueError("task_link_types must only contain 'body' or 'site'")
+        if self.hand.side not in HAND_SIDES:
+            raise ValueError("hand.side must only contain 'left' or 'right'")
         if not Path(self.hand.mjcf_path).exists():
             raise FileNotFoundError(f"MJCF file not found: {self.hand.mjcf_path}")

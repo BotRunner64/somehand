@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from dex_mujoco.domain import HandFrame
+from dex_mujoco.domain import HandFrame, normalize_hand_side
 
 
 _HAND_RECORDING_FORMAT = "dex_mujoco.hand_recording.v1"
@@ -17,15 +17,18 @@ def _serialize_hand_frame(frame: HandFrame) -> dict[str, object]:
     return {
         "landmarks_3d": np.array(frame.landmarks_3d, copy=True),
         "landmarks_2d": None if frame.landmarks_2d is None else np.array(frame.landmarks_2d, copy=True),
-        "handedness": frame.handedness,
+        "hand_side": frame.hand_side,
     }
 
 
 def _deserialize_hand_frame(payload: dict[str, object]) -> HandFrame:
+    serialized_hand_side = payload.get("hand_side")
+    if serialized_hand_side is None:
+        serialized_hand_side = payload["handedness"]
     return HandFrame(
         landmarks_3d=np.array(payload["landmarks_3d"], copy=True),
         landmarks_2d=None if payload["landmarks_2d"] is None else np.array(payload["landmarks_2d"], copy=True),
-        handedness=str(payload["handedness"]),
+        hand_side=normalize_hand_side(str(serialized_hand_side)),
     )
 
 
@@ -38,7 +41,7 @@ def save_trajectory_artifact(
     num_frames: int,
     source_desc: str,
     input_type: str,
-    handedness: str | None = None,
+    hand_side: str | None = None,
     num_detected: int | None = None,
 ) -> None:
     if not output_path or not trajectory:
@@ -54,8 +57,8 @@ def save_trajectory_artifact(
         "input_source": source_desc,
         "input_type": input_type,
     }
-    if handedness is not None:
-        payload["handedness"] = handedness
+    if hand_side is not None:
+        payload["hand_side"] = normalize_hand_side(hand_side)
     if num_detected is not None:
         payload["num_detected"] = num_detected
 
@@ -72,7 +75,7 @@ def save_hand_recording_artifact(
     source_desc: str,
     input_type: str,
     num_frames: int,
-    handedness: str | None = None,
+    hand_side: str | None = None,
     num_detected: int | None = None,
 ) -> None:
     if not output_path or not frames:
@@ -89,8 +92,8 @@ def save_hand_recording_artifact(
         "input_source": source_desc,
         "input_type": input_type,
     }
-    if handedness is not None:
-        payload["handedness"] = handedness
+    if hand_side is not None:
+        payload["hand_side"] = normalize_hand_side(hand_side)
 
     with artifact_path.open("wb") as file_obj:
         pickle.dump(payload, file_obj)
@@ -113,5 +116,5 @@ def load_hand_recording_artifact(recording_path: str) -> dict[str, object]:
         "num_detected": int(payload.get("num_detected", len(payload["frames"]))),
         "input_source": str(payload.get("input_source", artifact_path.as_posix())),
         "input_type": str(payload.get("input_type", "recording")),
-        "handedness": payload.get("handedness"),
+        "hand_side": payload.get("hand_side", payload.get("handedness")),
     }

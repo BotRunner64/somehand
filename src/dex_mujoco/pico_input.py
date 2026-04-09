@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 
+from .domain.hand_side import normalize_hand_side
 from .hand_detector import HandDetection
 
 PICO_HAND_JOINT_NAMES: list[str] = [
@@ -72,10 +73,8 @@ def pico_hand_to_landmarks(hand_state: np.ndarray) -> np.ndarray:
 class PicoHandProvider:
     """Adapter that exposes PICO VR hand tracking as a hand landmark detector."""
 
-    def __init__(self, handedness: str, timeout: float = 60.0):
-        if handedness not in ("Left", "Right"):
-            raise ValueError(f"handedness must be 'Left' or 'Right', got '{handedness}'")
-        self.handedness = handedness
+    def __init__(self, hand_side: str, timeout: float = 60.0):
+        self.hand_side = normalize_hand_side(hand_side)
         self._timeout = timeout
 
         try:
@@ -167,19 +166,19 @@ class PicoHandProvider:
         return HandDetection(
             landmarks_3d=landmarks_3d,
             landmarks_2d=landmarks_2d,
-            handedness=self.handedness,
+            hand_side=self.hand_side,
         )
 
     def _poll_loop(self) -> None:
         xrt = self._xrt
         get_state = (
             xrt.get_left_hand_tracking_state
-            if self.handedness == "Left"
+            if self.hand_side == "left"
             else xrt.get_right_hand_tracking_state
         )
         get_active = (
             xrt.get_left_hand_is_active
-            if self.handedness == "Left"
+            if self.hand_side == "left"
             else xrt.get_right_hand_is_active
         )
 
@@ -211,8 +210,8 @@ class PicoHandProvider:
 
 
 def create_pico_provider(
-    handedness: str,
+    hand_side: str,
     timeout: float = 60.0,
 ) -> PicoHandProvider:
     """Factory: create a PicoHandProvider."""
-    return PicoHandProvider(handedness=handedness, timeout=timeout)
+    return PicoHandProvider(hand_side=hand_side, timeout=timeout)

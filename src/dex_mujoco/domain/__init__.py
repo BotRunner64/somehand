@@ -11,15 +11,20 @@ from .config import (
     SolverConfig,
     VectorLossConfig,
 )
+from .hand_side import HAND_SIDES, HandSide, display_hand_side, normalize_hand_side
 from .models import HandFrame, HandFrameSink, HandTrackingSource, OutputSink, PreviewWindow, RetargetingStepResult, SessionSummary, SourceFrame
 from .preprocessing import compute_target_directions, preprocess_landmarks
 
 __all__ = [
     "AngleConstraint",
+    "display_hand_side",
     "HandConfig",
     "HandFrame",
     "HandFrameSink",
+    "HAND_SIDES",
+    "HandSide",
     "HandTrackingSource",
+    "normalize_hand_side",
     "OutputSink",
     "PinchConfig",
     "PositionConfig",

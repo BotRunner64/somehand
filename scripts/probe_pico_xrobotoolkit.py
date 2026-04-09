@@ -13,6 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from dex_mujoco.domain import display_hand_side, normalize_hand_side
+
 
 INPUT_MODE_LABELS = {
     0: "head mode",
@@ -219,12 +221,12 @@ def _next_steps(log_summary: LogSummary, probe_stats: ProbeStats, target_hand: s
         steps.append("`handMode=1` 表示仍偏向手柄输入；先放下或关闭手柄再试。")
     if probe_stats.left.active_samples == 0 and probe_stats.right.active_samples == 0:
         steps.append("确认 PICO 系统权限里的 Hand Tracking 已打开。")
-    if target_hand == "Right" and probe_stats.right.active_samples == 0:
+    if target_hand == "right" and probe_stats.right.active_samples == 0:
         steps.append("右手始终 inactive；先在头显前做明显张合动作，保持右手进入相机视野。")
-    if target_hand == "Left" and probe_stats.left.active_samples == 0:
+    if target_hand == "left" and probe_stats.left.active_samples == 0:
         steps.append("左手始终 inactive；先在头显前做明显张合动作，保持左手进入相机视野。")
     if not steps:
-        steps.append("探测正常；现在可以重新运行 `dex-retarget pico --hand Right --visualize`。")
+        steps.append("探测正常；现在可以重新运行 `dex-retarget pico --hand right --visualize`。")
     return steps
 
 
@@ -234,8 +236,9 @@ def main() -> None:
     parser.add_argument("--interval", type=float, default=0.05, help="Polling interval in seconds")
     parser.add_argument(
         "--hand",
-        choices=["Left", "Right", "Both"],
-        default="Both",
+        type=lambda value: "both" if value.strip().lower() == "both" else normalize_hand_side(value),
+        choices=["left", "right", "both"],
+        default="both",
         help="Which hand to focus on in the final suggestions",
     )
     parser.add_argument(
@@ -294,10 +297,10 @@ def main() -> None:
         "timestamp became non-zero during probe" if probe_stats.sdk_timestamp_nonzero else "timestamp stayed zero during probe",
     )
 
-    left_level, left_detail = _summarize_hand("Left", probe_stats.left)
-    right_level, right_detail = _summarize_hand("Right", probe_stats.right)
-    _print_status(left_level, "Left hand", left_detail)
-    _print_status(right_level, "Right hand", right_detail)
+    left_level, left_detail = _summarize_hand(display_hand_side("left"), probe_stats.left)
+    right_level, right_detail = _summarize_hand(display_hand_side("right"), probe_stats.right)
+    _print_status(left_level, f"{display_hand_side('left')} hand", left_detail)
+    _print_status(right_level, f"{display_hand_side('right')} hand", right_detail)
 
     print()
     print(f"{BOLD}Next steps{RESET}")

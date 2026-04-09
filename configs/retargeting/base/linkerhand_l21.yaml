@@ -1,11 +1,14 @@
-# Retargeting config: MediaPipe -> Linkerhand L30 Right Hand
-# L30: 20 DOF total
-#   Thumb: 4 DOF (cmc_yaw, cmc_pitch, mcp, ip) - no cmc_roll, no base1
-#   Index/Middle/Ring/Pinky: 4 DOF each (mcp_roll, mcp_pitch, pip, dip)
+# Retargeting config: MediaPipe -> Linkerhand L21 Right Hand
+# L21: 17 DOF total
+#   Thumb: 5 DOF (cmc_roll, cmc_yaw, cmc_pitch, mcp, ip)
+#   Index/Middle/Ring/Pinky: 3 DOF each (mcp_roll, mcp_pitch, pip)
+#   NOTE: Fingers have no distal segment - tip site is on the middle body
+#         (index_middle_tip, middle_middle_tip, ring_middle_tip, pinky_middle_tip)
 
 hand:
-  name: "linkerhand_l30_right"
-  mjcf_path: "../../assets/mjcf/linkerhand_l30_right/model.xml"
+  name: "linkerhand_l21_right"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/linkerhand_l21_right/model.xml"
 
 retargeting:
   type: "vector"
@@ -16,29 +19,26 @@ retargeting:
     - [0, 9]    # wrist -> middle_mcp
     - [0, 13]   # wrist -> ring_mcp
     - [0, 17]   # wrist -> little_mcp
-    # Thumb: 4 vectors for 4 DOF (no cmc_roll)
+    # Thumb: 5 vectors for 5 DOF
     - [0, 4]    # wrist -> thumb_tip (opposition vector)
     - [1, 4]    # thumb_cmc -> thumb_tip (redundant thumb)
     - [1, 2]    # thumb_cmc -> thumb_mcp
+    - [1, 3]    # thumb_cmc -> thumb_ip
     - [2, 3]    # thumb_mcp -> thumb_ip (mcp direction)
     - [2, 4]    # thumb_mcp -> thumb_tip
     - [3, 4]    # thumb_ip -> thumb_tip
-    # Index (3 vectors)
+    # Index (2 vectors)
     - [5, 6]    # index_mcp -> index_pip
     - [6, 8]    # index_pip -> index_tip
-    - [7, 8]    # index_dip -> index_tip (fingertip direction)
-    # Middle (3 vectors)
+    # Middle
     - [9, 10]   # middle_mcp -> middle_pip
     - [10, 12]  # middle_pip -> middle_tip
-    - [11, 12]  # middle_dip -> middle_tip (fingertip direction)
-    # Ring (3 vectors)
+    # Ring
     - [13, 14]  # ring_mcp -> ring_pip
     - [14, 16]  # ring_pip -> ring_tip
-    - [15, 16]  # ring_dip -> ring_tip (fingertip direction)
-    # Little (3 vectors)
+    # Little
     - [17, 18]  # little_mcp -> little_pip
     - [18, 20]  # little_pip -> little_tip
-    - [19, 20]  # little_dip -> little_tip (fingertip direction)
 
   origin_link_names:
     - "world"
@@ -46,23 +46,20 @@ retargeting:
     - "world"
     - "world"
     - "world"
-    - "thumb_metacarpals_base2"
-    - "thumb_metacarpals_base2"
+    - "thumb_metacarpals_base1"
+    - "thumb_metacarpals_base1"
+    - "thumb_metacarpals_base1"
     - "thumb_metacarpals"
     - "thumb_metacarpals"
     - "thumb_distal"
     - "index_metacarpals"
     - "index_proximal"
-    - "index_distal"
     - "middle_metacarpals"
     - "middle_proximal"
-    - "middle_distal"
     - "ring_metacarpals"
     - "ring_proximal"
-    - "ring_distal"
     - "pinky_metacarpals"
     - "pinky_proximal"
-    - "pinky_distal"
 
   task_link_names:
     - "index_proximal"
@@ -72,26 +69,20 @@ retargeting:
     - "thumb_distal_tip"
     - "thumb_distal_tip"
     - "thumb_metacarpals"
-    - "thumb_distal_tip"
+    - "thumb_proximal"
     - "thumb_proximal"
     - "thumb_distal_tip"
+    - "thumb_distal_tip"
     - "index_middle"
-    - "index_distal_tip"
-    - "index_distal_tip"
+    - "index_middle_tip"
     - "middle_middle"
-    - "middle_distal_tip"
-    - "middle_distal_tip"
+    - "middle_middle_tip"
     - "ring_middle"
-    - "ring_distal_tip"
-    - "ring_distal_tip"
+    - "ring_middle_tip"
     - "pinky_middle"
-    - "pinky_distal_tip"
-    - "pinky_distal_tip"
+    - "pinky_middle_tip"
 
   origin_link_types:
-    - "body"
-    - "body"
-    - "body"
     - "body"
     - "body"
     - "body"
@@ -120,20 +111,17 @@ retargeting:
     - "site"
     - "site"
     - "body"
-    - "site"
     - "body"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
     - "body"
     - "site"
     - "site"
     - "body"
     - "site"
+    - "body"
     - "site"
     - "body"
     - "site"
+    - "body"
     - "site"
 
   vector_weights:
@@ -142,23 +130,20 @@ retargeting:
     - 1.0
     - 1.0
     - 2.5    # opposition (most important)
-    - 1.5    # redundant thumb
+    - 2.0    # redundant thumb
     - 1.5
     - 1.5
     - 1.5
     - 1.5
+    - 1.5
     - 1.0
     - 1.0
-    - 0.8    # fingertip direction
     - 1.0
     - 1.0
-    - 0.8    # fingertip direction
     - 1.0
     - 1.0
-    - 0.8    # fingertip direction
     - 1.0
     - 1.0
-    - 0.8    # fingertip direction
 
   angle_constraints:
     - landmarks: [1, 2, 3]
@@ -171,29 +156,17 @@ retargeting:
     - landmarks: [5, 6, 7]
       joint: "index_pip"
       weight: 2.0
-    - landmarks: [6, 7, 8]
-      joint: "index_dip"
-      weight: 2.0
     # Middle
     - landmarks: [9, 10, 11]
       joint: "middle_pip"
-      weight: 2.0
-    - landmarks: [10, 11, 12]
-      joint: "middle_dip"
       weight: 2.0
     # Ring
     - landmarks: [13, 14, 15]
       joint: "ring_pip"
       weight: 2.0
-    - landmarks: [14, 15, 16]
-      joint: "ring_dip"
-      weight: 2.0
     # Pinky
     - landmarks: [17, 18, 19]
       joint: "pinky_pip"
-      weight: 2.0
-    - landmarks: [18, 19, 20]
-      joint: "pinky_dip"
       weight: 2.0
 
   preprocess:

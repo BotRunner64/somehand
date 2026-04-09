@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+from .domain.hand_side import normalize_hand_side
 from .hand_detector import HandDetection
 _OUTPUT_ROTATION_MATRIX = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
@@ -25,7 +26,7 @@ def _point(frame: dict[str, tuple[np.ndarray, np.ndarray]], joint_name: str) -> 
 
 def hc_mocap_frame_to_landmarks(
     frame: dict[str, tuple[np.ndarray, np.ndarray]],
-    handedness: str,
+    hand_side: str,
 ) -> np.ndarray:
     """Convert a Teleopit hc_mocap frame into MediaPipe-style 21 landmarks.
 
@@ -33,7 +34,7 @@ def hc_mocap_frame_to_landmarks(
     fingertip positions; the MediaPipe tip slots reuse the last available
     measured joint.
     """
-    side = "L" if handedness == "Left" else "R"
+    side = "L" if normalize_hand_side(hand_side) == "left" else "R"
 
     names = [
         f"hc_Hand_{side}",
@@ -83,9 +84,9 @@ def hc_mocap_frame_to_landmarks(
 class HCMocapHandProvider:
     """Adapter that exposes hc_mocap hand data like a hand landmark detector."""
 
-    def __init__(self, provider: object, handedness: str):
+    def __init__(self, provider: object, hand_side: str):
         self._provider = provider
-        self.handedness = handedness
+        self.hand_side = normalize_hand_side(hand_side)
         self._latest_detection: HandDetection | None = None
         self._latest_frame_index = 0
         self._snapshot_lock = threading.Lock()
@@ -134,12 +135,12 @@ class HCMocapHandProvider:
         self,
         frame: dict[str, tuple[np.ndarray, np.ndarray]],
     ) -> HandDetection:
-        landmarks_3d = hc_mocap_frame_to_landmarks(frame, self.handedness)
+        landmarks_3d = hc_mocap_frame_to_landmarks(frame, self.hand_side)
         landmarks_2d = np.zeros((21, 2), dtype=np.float64)
         return HandDetection(
             landmarks_3d=landmarks_3d,
             landmarks_2d=landmarks_2d,
-            handedness=self.handedness,
+            hand_side=self.hand_side,
         )
 
 
@@ -439,7 +440,7 @@ class _DirectHCMocapUDPProvider:
 def create_hc_mocap_udp_provider(
     *,
     reference_bvh: str,
-    handedness: str,
+    hand_side: str,
     host: str = "",
     port: int = 1118,
     timeout: float = 30.0,
@@ -450,4 +451,4 @@ def create_hc_mocap_udp_provider(
         port=port,
         timeout=timeout,
     )
-    return HCMocapHandProvider(provider, handedness)
+    return HCMocapHandProvider(provider, hand_side)

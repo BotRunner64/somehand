@@ -17,7 +17,7 @@ class _FakeEngine:
             qpos=np.array([1.0, 2.0], dtype=np.float64),
             target_directions=None,
             processed_landmarks=frame.landmarks_3d.copy(),
-            handedness=frame.handedness,
+            hand_side=frame.hand_side,
         )
 
 
@@ -77,7 +77,7 @@ class _LiveFakeSource(_FakeSource):
             if not self._running:
                 break
             self._latest_index = index
-            self._latest_frame = _detection("Right")
+            self._latest_frame = _detection("right")
             time.sleep(self._period_s)
 
 
@@ -126,21 +126,21 @@ class _FakePreview:
         self.closed = True
 
 
-def _detection(handedness: str = "Right") -> HandFrame:
+def _detection(hand_side: str = "right") -> HandFrame:
     landmarks = np.zeros((21, 3), dtype=np.float64)
     return HandFrame(
         landmarks_3d=landmarks,
         landmarks_2d=None,
-        handedness=handedness,
+        hand_side=hand_side,
     )
 
 
 def test_session_runs_source_engine_and_sinks():
     source = _FakeSource(
         [
-            SourceFrame(detection=_detection("Right")),
+            SourceFrame(detection=_detection("right")),
             SourceFrame(detection=None),
-            SourceFrame(detection=_detection("Left")),
+            SourceFrame(detection=_detection("left")),
         ]
     )
     sink = _FakeSink()
@@ -154,7 +154,7 @@ def test_session_runs_source_engine_and_sinks():
     assert summary.num_frames == 3
     assert summary.num_detected == 2
     assert len(sink.results) == 2
-    assert sink.results[1].handedness == "Left"
+    assert sink.results[1].hand_side == "left"
     assert source.closed is True
     assert sink.closed is True
     assert preview.closed is True
@@ -162,7 +162,7 @@ def test_session_runs_source_engine_and_sinks():
 
 
 def test_session_feeds_frame_sinks_inline_without_snapshot_support():
-    source = _FakeSource([SourceFrame(detection=_detection("Right"))])
+    source = _FakeSource([SourceFrame(detection=_detection("right"))])
     frame_sink = _FakeFrameSink()
 
     session = RetargetingSession(_FakeEngine(), frame_sinks=[frame_sink])
@@ -179,7 +179,7 @@ def test_session_decouples_frame_sinks_with_live_snapshot_source():
             time.sleep(0.12)
             return super().process(frame)
 
-    source = _LiveFakeSource([SourceFrame(detection=_detection("Right"))], updates=10, period_s=0.01)
+    source = _LiveFakeSource([SourceFrame(detection=_detection("right"))], updates=10, period_s=0.01)
     result_sink = _FakeSink()
     frame_sink = _FakeFrameSink()
 
@@ -195,8 +195,8 @@ def test_session_decouples_frame_sinks_with_live_snapshot_source():
 def test_session_stops_when_stop_condition_is_triggered():
     source = _FakeSource(
         [
-            SourceFrame(detection=_detection("Right")),
-            SourceFrame(detection=_detection("Left")),
+            SourceFrame(detection=_detection("right")),
+            SourceFrame(detection=_detection("left")),
         ]
     )
     sink = _FakeSink()
@@ -222,7 +222,7 @@ def test_session_ignores_interrupts_raised_while_closing_resources():
         def close(self) -> None:
             raise KeyboardInterrupt
 
-    source = _InterruptingSource([SourceFrame(detection=_detection("Right"))])
+    source = _InterruptingSource([SourceFrame(detection=_detection("right"))])
     sink = _InterruptingSink()
     session = RetargetingSession(_FakeEngine(), sinks=[sink])
 

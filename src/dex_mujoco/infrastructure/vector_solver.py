@@ -9,6 +9,7 @@ from scipy.optimize import minimize
 from dex_mujoco.domain import RetargetingConfig, preprocess_landmarks
 
 from .hand_model import HandModel
+from .model_name_resolver import ModelNameResolver
 
 _THUMB_TIP_IDX = 4
 _FINGER_TIP_INDICES = [8, 12, 16, 20]
@@ -53,6 +54,7 @@ class VectorRetargeter:
         self.config = config
         self.model = hand_model.model
         self.data = hand_model.data
+        self._name_resolver = ModelNameResolver(self.model, hand_side=config.hand.side)
 
         self.human_vector_pairs = [(pair[0], pair[1]) for pair in config.human_vector_pairs]
         self.origin_link_names = config.origin_link_names
@@ -64,7 +66,8 @@ class VectorRetargeter:
             is_site = config.origin_link_types[index] == "site"
             self.origin_is_site.append(is_site)
             obj_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-            link_id = mujoco.mj_name2id(self.model, obj_type, name)
+            resolved_name = self._name_resolver.resolve(name, obj_type=obj_type, role="Origin link")
+            link_id = mujoco.mj_name2id(self.model, obj_type, resolved_name)
             if link_id < 0:
                 raise ValueError(f"Origin link '{name}' not found in model")
             self.origin_ids.append(link_id)
@@ -75,7 +78,8 @@ class VectorRetargeter:
             is_site = config.task_link_types[index] == "site"
             self.task_is_site.append(is_site)
             obj_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-            link_id = mujoco.mj_name2id(self.model, obj_type, name)
+            resolved_name = self._name_resolver.resolve(name, obj_type=obj_type, role="Task link")
+            link_id = mujoco.mj_name2id(self.model, obj_type, resolved_name)
             if link_id < 0:
                 raise ValueError(f"Task link '{name}' not found in model")
             self.task_ids.append(link_id)
@@ -112,9 +116,15 @@ class VectorRetargeter:
 
             sites = config.pinch.fingertip_sites
             if len(sites) >= 5:
-                self._thumb_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, sites[0])
+                thumb_site = self._name_resolver.resolve(
+                    sites[0], obj_type=mujoco.mjtObj.mjOBJ_SITE, role="Thumb site"
+                )
+                self._thumb_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, thumb_site)
                 for name in sites[1:5]:
-                    site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, name)
+                    resolved_name = self._name_resolver.resolve(
+                        name, obj_type=mujoco.mjtObj.mjOBJ_SITE, role="Finger site"
+                    )
+                    site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, resolved_name)
                     self._finger_site_ids.append(site_id)
                 if self._thumb_site_id < 0:
                     raise ValueError(f"Thumb site '{sites[0]}' not found in model")
@@ -140,7 +150,8 @@ class VectorRetargeter:
         for index, name in enumerate(config.vector_loss.scale_bodies):
             is_site = config.vector_loss.scale_body_types[index] == "site"
             object_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-            body_id = mujoco.mj_name2id(self.model, object_type, name)
+            resolved_name = self._name_resolver.resolve(name, obj_type=object_type, role="Vector scale body")
+            body_id = mujoco.mj_name2id(self.model, object_type, resolved_name)
             if body_id < 0:
                 raise ValueError(f"Vector scale body '{name}' not found")
             vector_scale_ids.append((body_id, is_site))
@@ -152,7 +163,8 @@ class VectorRetargeter:
             for index, name in enumerate(position_config.scale_bodies):
                 is_site = position_config.scale_body_types[index] == "site"
                 object_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-                body_id = mujoco.mj_name2id(self.model, object_type, name)
+                resolved_name = self._name_resolver.resolve(name, obj_type=object_type, role="Scale body")
+                body_id = mujoco.mj_name2id(self.model, object_type, resolved_name)
                 if body_id < 0:
                     raise ValueError(f"Scale body '{name}' not found")
                 scale_ids.append((body_id, is_site))
@@ -170,7 +182,10 @@ class VectorRetargeter:
                 is_site = constraint.body_type == "site"
                 self._pos_body_is_site.append(is_site)
                 object_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-                body_id = mujoco.mj_name2id(self.model, object_type, constraint.body)
+                resolved_name = self._name_resolver.resolve(
+                    constraint.body, obj_type=object_type, role="Position constraint body"
+                )
+                body_id = mujoco.mj_name2id(self.model, object_type, resolved_name)
                 if body_id < 0:
                     raise ValueError(f"Position constraint body '{constraint.body}' not found")
                 self._pos_body_ids.append(body_id)
@@ -192,7 +207,10 @@ class VectorRetargeter:
         self._angle_inverts: list[bool] = []
         for constraint in config.angle_constraints:
             self._angle_landmarks.append(tuple(constraint.landmarks))
-            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, constraint.joint)
+            resolved_joint = self._name_resolver.resolve(
+                constraint.joint, obj_type=mujoco.mjtObj.mjOBJ_JOINT, role="Angle constraint joint"
+            )
+            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, resolved_joint)
             if joint_id < 0:
                 raise ValueError(f"Angle constraint joint '{constraint.joint}' not found in model")
             self._angle_qpos_ids.append(int(self.model.jnt_qposadr[joint_id]))
@@ -401,11 +419,11 @@ class VectorRetargeter:
     def update_targets(
         self,
         landmarks_3d: np.ndarray,
-        handedness: str = "Right",
+        hand_side: str = "right",
     ) -> None:
         landmarks = preprocess_landmarks(
             landmarks_3d,
-            handedness=handedness,
+            hand_side=hand_side,
         )
         landmarks = self.landmark_filter.filter(landmarks)
 

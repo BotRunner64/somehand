@@ -2,7 +2,7 @@
 """Diagnostic script: print thumb body positions and direction vectors at various poses.
 
 Usage:
-    python scripts/debug_thumb_direction.py [--config configs/retargeting/linkerhand_l20.yaml]
+    python scripts/debug_thumb_direction.py [--config configs/retargeting/right/linkerhand_l20_right.yaml]
 """
 
 import argparse
@@ -144,7 +144,7 @@ def test_human_transform():
     ], dtype=np.float64)
 
     print("\n--- Thumb pointing inward (toward middle finger) ---")
-    transformed = preprocess_landmarks(landmarks, handedness="Right", frame="wrist_local")
+    transformed = preprocess_landmarks(landmarks, hand_side="right")
 
     # Key directions
     def dir_vec(a, b):
@@ -169,7 +169,7 @@ def test_human_transform():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/retargeting/linkerhand_l20.yaml")
+    parser.add_argument("--config", default="configs/retargeting/right/linkerhand_l20_right.yaml")
     args = parser.parse_args()
 
     # Load config to get MJCF path

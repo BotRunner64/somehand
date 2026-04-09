@@ -11,13 +11,13 @@ from dex_mujoco.infrastructure.sources import RecordingHandTrackingSource, creat
 from dex_mujoco.infrastructure.terminal_controls import TerminalRecordingController
 
 
-def _frame(handedness: str = "Right") -> HandFrame:
+def _frame(hand_side: str = "right") -> HandFrame:
     landmarks = np.arange(63, dtype=np.float64).reshape(21, 3)
     landmarks_2d = np.arange(42, dtype=np.float64).reshape(21, 2)
     return HandFrame(
         landmarks_3d=landmarks,
         landmarks_2d=landmarks_2d,
-        handedness=handedness,
+        hand_side=hand_side,
     )
 
 
@@ -54,9 +54,9 @@ def test_recording_wrapper_captures_detected_frames_only():
     wrapped = RecordingHandTrackingSource(
         _FakeSource(
             [
-                SourceFrame(detection=_frame("Right")),
+                SourceFrame(detection=_frame("right")),
                 SourceFrame(detection=None),
-                SourceFrame(detection=_frame("Left")),
+                SourceFrame(detection=_frame("left")),
             ]
         )
     )
@@ -65,17 +65,17 @@ def test_recording_wrapper_captures_detected_frames_only():
         wrapped.get_frame()
 
     assert len(wrapped.recorded_frames) == 2
-    assert wrapped.recorded_frames[0].handedness == "Right"
-    assert wrapped.recorded_frames[1].handedness == "Left"
+    assert wrapped.recorded_frames[0].hand_side == "right"
+    assert wrapped.recorded_frames[1].hand_side == "left"
 
 
 def test_recording_wrapper_can_gate_recording_with_explicit_start_stop():
     wrapped = RecordingHandTrackingSource(
         _FakeSource(
             [
-                SourceFrame(detection=_frame("Right")),
-                SourceFrame(detection=_frame("Left")),
-                SourceFrame(detection=_frame("Right")),
+                SourceFrame(detection=_frame("right")),
+                SourceFrame(detection=_frame("left")),
+                SourceFrame(detection=_frame("right")),
             ]
         ),
         recording_enabled=False,
@@ -88,7 +88,7 @@ def test_recording_wrapper_can_gate_recording_with_explicit_start_stop():
     wrapped.get_frame()
 
     assert len(wrapped.recorded_frames) == 1
-    assert wrapped.recorded_frames[0].handedness == "Left"
+    assert wrapped.recorded_frames[0].hand_side == "left"
 
 
 def test_terminal_recording_controller_responds_to_start_and_stop_keys():
@@ -116,7 +116,7 @@ def test_terminal_recording_controller_stop_requested_is_callable_for_session():
 
 def test_hand_recording_artifact_roundtrip(tmp_path):
     recording_path = tmp_path / "session.pkl"
-    frames = [_frame("Right"), _frame("Left")]
+    frames = [_frame("right"), _frame("left")]
 
     save_hand_recording_artifact(
         str(recording_path),
@@ -125,7 +125,7 @@ def test_hand_recording_artifact_roundtrip(tmp_path):
         source_desc="camera://0",
         input_type="webcam",
         num_frames=3,
-        handedness="Right",
+        hand_side="right",
         num_detected=2,
     )
 
@@ -141,7 +141,7 @@ def test_hand_recording_artifact_roundtrip(tmp_path):
 
 def test_recording_source_replays_saved_frames(tmp_path):
     recording_path = tmp_path / "session.pkl"
-    frames = [_frame("Right"), _frame("Left")]
+    frames = [_frame("right"), _frame("left")]
 
     save_hand_recording_artifact(
         str(recording_path),

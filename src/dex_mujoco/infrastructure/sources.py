@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from threading import Lock
 
-from dex_mujoco.domain import HandFrame, SourceFrame
+from dex_mujoco.domain import HandFrame, SourceFrame, normalize_hand_side
 from dex_mujoco.hand_detector import HandDetection, HandDetector
 from dex_mujoco.hc_mocap_input import create_hc_mocap_udp_provider
 from dex_mujoco.pico_input import create_pico_provider
@@ -27,7 +27,7 @@ def _to_hand_frame(detection: HandDetection) -> HandFrame:
     return HandFrame(
         landmarks_3d=detection.landmarks_3d,
         landmarks_2d=detection.landmarks_2d,
-        handedness=detection.handedness,
+        hand_side=detection.hand_side,
     )
 
 
@@ -48,7 +48,7 @@ def _copy_hand_frame(frame: HandFrame) -> HandFrame:
     return HandFrame(
         landmarks_3d=np.array(frame.landmarks_3d, copy=True),
         landmarks_2d=None if frame.landmarks_2d is None else np.array(frame.landmarks_2d, copy=True),
-        handedness=frame.handedness,
+        hand_side=frame.hand_side,
     )
 
 
@@ -57,14 +57,15 @@ class MediaPipeInputSource:
         self,
         source: int | str,
         *,
-        target_hand: str | None,
+        hand_side: str | None,
         swap_handedness: bool,
         source_desc: str,
     ):
         self.source_desc = source_desc
+        self.hand_side = None if hand_side is None else normalize_hand_side(hand_side)
         self._frames = HandDetector.create_source(source)
         self._detector = HandDetector(
-            target_hand=target_hand,
+            target_hand=self.hand_side,
             swap_handedness=swap_handedness,
         )
         self._available = True
@@ -218,7 +219,7 @@ class RecordedHandDataSource:
         self.recording_metadata = {
             "input_source": recording["input_source"],
             "input_type": recording["input_type"],
-            "handedness": recording.get("handedness"),
+            "hand_side": recording.get("hand_side"),
             "num_frames": recording["num_frames"],
             "num_detected": recording["num_detected"],
         }
@@ -252,14 +253,14 @@ class RecordedHandDataSource:
 def create_hc_mocap_udp_source(
     *,
     reference_bvh: str,
-    handedness: str,
+    hand_side: str,
     host: str,
     port: int,
     timeout: float,
 ) -> HCMocapInputSource:
     provider = create_hc_mocap_udp_provider(
         reference_bvh=reference_bvh,
-        handedness=handedness,
+        hand_side=hand_side,
         host=host,
         port=port,
         timeout=timeout,
@@ -270,11 +271,12 @@ def create_hc_mocap_udp_source(
     )
 
 
-def create_pico_source(*, handedness: str, timeout: float) -> HCMocapInputSource:
-    provider = create_pico_provider(handedness=handedness, timeout=timeout)
+def create_pico_source(*, hand_side: str, timeout: float) -> HCMocapInputSource:
+    normalized_side = normalize_hand_side(hand_side)
+    provider = create_pico_provider(hand_side=normalized_side, timeout=timeout)
     return HCMocapInputSource(
         provider,
-        source_desc=f"pico://{handedness.lower()}",
+        source_desc=f"pico://{normalized_side}",
     )
 
 

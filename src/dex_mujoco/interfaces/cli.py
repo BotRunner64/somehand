@@ -6,6 +6,7 @@ import argparse
 import warnings
 
 from dex_mujoco.application import RetargetingEngine, RetargetingSession
+from dex_mujoco.domain import display_hand_side, normalize_hand_side
 from dex_mujoco.infrastructure import (
     AsyncLandmarkOutputSink,
     OpenCvPreviewWindow,
@@ -58,9 +59,10 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-H",
         "--hand",
-        choices=["Left", "Right"],
-        default="Right",
-        help="Operator hand to retarget",
+        type=normalize_hand_side,
+        choices=["left", "right"],
+        default="right",
+        help="Hand side for the current single-hand channel",
     )
     parser.add_argument(
         "--record-output",
@@ -205,7 +207,7 @@ def _finalize_run(
             source_desc=summary.source_desc,
             input_type=summary.input_type,
             num_frames=summary.num_frames,
-            handedness=getattr(args, "hand", None),
+            hand_side=getattr(args, "hand", None),
             num_detected=summary.num_detected,
         )
 
@@ -227,7 +229,7 @@ def _run_webcam(args: argparse.Namespace) -> None:
     source = _wrap_source_for_recording(
         MediaPipeInputSource(
             args.camera,
-            target_hand=args.hand,
+            hand_side=args.hand,
             swap_handedness=args.swap_hands,
             source_desc=f"camera://{args.camera}",
         ),
@@ -238,7 +240,7 @@ def _run_webcam(args: argparse.Namespace) -> None:
     _print_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc=f"Tracking operator hand: {args.hand} | Swap hands: {args.swap_hands}",
+        tracking_desc=f"Tracking operator hand: {display_hand_side(args.hand)} | Swap hands: {args.swap_hands}",
         extra_lines=["Press 'q' in the camera window to quit."],
     )
     summary = session.run(source, input_type="webcam")
@@ -249,7 +251,7 @@ def _run_video(args: argparse.Namespace) -> None:
     source = _wrap_source_for_recording(
         MediaPipeInputSource(
             args.video,
-            target_hand=args.hand,
+            hand_side=args.hand,
             swap_handedness=args.swap_hands,
             source_desc=args.video,
         ),
@@ -260,7 +262,7 @@ def _run_video(args: argparse.Namespace) -> None:
     _print_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc=f"Tracking operator hand: {args.hand} | Swap hands: {args.swap_hands}",
+        tracking_desc=f"Tracking operator hand: {display_hand_side(args.hand)} | Swap hands: {args.swap_hands}",
     )
     summary = session.run(source, input_type="video")
     _finalize_run(args, summary=summary, source=source)
@@ -290,7 +292,7 @@ def _run_replay(args: argparse.Namespace) -> None:
     _print_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
+        tracking_desc=f"Tracking hand: {display_hand_side(args.hand)} | Source fps: {source.fps}",
         extra_lines=extra_lines,
     )
     summary = session.run(source, input_type="replay", realtime=True, loop=args.loop)
@@ -299,7 +301,7 @@ def _run_replay(args: argparse.Namespace) -> None:
 
 def _run_pico(args: argparse.Namespace) -> None:
     source, recording_controller = _wrap_source_for_interactive_recording(
-        create_pico_source(handedness=args.hand, timeout=args.pico_timeout),
+        create_pico_source(hand_side=args.hand, timeout=args.pico_timeout),
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="pico")
@@ -316,7 +318,7 @@ def _run_pico(args: argparse.Namespace) -> None:
     _print_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
+        tracking_desc=f"Tracking hand: {display_hand_side(args.hand)} | Source fps: {source.fps}",
         extra_lines=extra_lines,
     )
     if recording_controller is not None:
@@ -337,7 +339,7 @@ def _run_hc_mocap_udp(args: argparse.Namespace) -> None:
     source = _wrap_source_for_recording(
         create_hc_mocap_udp_source(
             reference_bvh=args.reference_bvh,
-            handedness=args.hand,
+            hand_side=args.hand,
             host=args.udp_host,
             port=args.udp_port,
             timeout=args.udp_timeout,
@@ -357,7 +359,7 @@ def _run_hc_mocap_udp(args: argparse.Namespace) -> None:
     _print_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc=f"Tracking hand: {args.hand} | Source fps: {source.fps}",
+        tracking_desc=f"Tracking hand: {display_hand_side(args.hand)} | Source fps: {source.fps}",
         extra_lines=extra_lines,
     )
     summary = session.run(source, input_type="hc_mocap", stats_every=args.udp_stats_every)

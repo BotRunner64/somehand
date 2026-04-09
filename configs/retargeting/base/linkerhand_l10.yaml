@@ -1,11 +1,13 @@
-# Retargeting config: MediaPipe -> Linkerhand LHG20 Left Hand
-# LHG20: 21 DOF total (LEFT hand)
-#   Thumb: 5 DOF (cmc_yaw, cmc_roll, cmc_pitch, mcp, dip)
-#   Index/Middle/Ring/Pinky: 4 DOF each (mcp_roll, mcp_pitch, pip, dip)
+# Retargeting config: MediaPipe -> Linkerhand L10 Right Hand
+# L10: 20 DOF total
+#   Thumb: 5 DOF (cmc_roll, cmc_yaw, cmc_pitch, mcp, ip)
+#   Index/Ring/Pinky: 4 DOF each (mcp_roll, mcp_pitch, pip, dip)
+#   Middle: 3 DOF (mcp_pitch, pip, dip)
 
 hand:
-  name: "linkerhand_lhg20_left"
-  mjcf_path: "../../assets/mjcf/linkerhand_lhg20_left/model.xml"
+  name: "linkerhand_l10_right"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/linkerhand_l10_right/model.xml"
 
 retargeting:
   type: "vector"
@@ -28,15 +30,15 @@ retargeting:
     - [5, 6]    # index_mcp -> index_pip
     - [6, 8]    # index_pip -> index_tip
     - [7, 8]    # index_dip -> index_tip (fingertip direction)
-    # Middle
+    # Middle (3 vectors)
     - [9, 10]   # middle_mcp -> middle_pip
     - [10, 12]  # middle_pip -> middle_tip
     - [11, 12]  # middle_dip -> middle_tip (fingertip direction)
-    # Ring
+    # Ring (3 vectors)
     - [13, 14]  # ring_mcp -> ring_pip
     - [14, 16]  # ring_pip -> ring_tip
     - [15, 16]  # ring_dip -> ring_tip (fingertip direction)
-    # Little
+    # Little (3 vectors)
     - [17, 18]  # little_mcp -> little_pip
     - [18, 20]  # little_pip -> little_tip
     - [19, 20]  # little_dip -> little_tip (fingertip direction)
@@ -56,8 +58,8 @@ retargeting:
     - "index_metacarpals"
     - "index_proximal"
     - "index_distal"
-    - "middle_metacarpals"
     - "middle_proximal"
+    - "middle_middle"
     - "middle_distal"
     - "ring_metacarpals"
     - "ring_proximal"
@@ -171,7 +173,7 @@ retargeting:
       joint: "thumb_mcp"
       weight: 3.0
     - landmarks: [2, 3, 4]
-      joint: "thumb_dip"
+      joint: "thumb_ip"
       weight: 3.0
     # Index
     - landmarks: [5, 6, 7]

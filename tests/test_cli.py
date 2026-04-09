@@ -21,16 +21,16 @@ def test_hc_mocap_uses_repo_defaults():
     assert args.config == str(DEFAULT_CONFIG_PATH)
     assert args.reference_bvh == str(DEFAULT_HC_MOCAP_REFERENCE_BVH)
     assert args.udp_port == 1118
-    assert args.hand == "Right"
+    assert args.hand == "right"
 
 
 def test_video_command_requires_video_path():
     parser = build_parser()
-    args = parser.parse_args(["video", "--video", "input.mp4", "--hand", "Left"])
+    args = parser.parse_args(["video", "--video", "input.mp4", "--hand", "left"])
 
     assert args.command == "video"
     assert args.video == "input.mp4"
-    assert args.hand == "Left"
+    assert args.hand == "left"
 
 
 def test_replay_command_uses_realtime_replay_by_default():
@@ -270,11 +270,11 @@ def test_create_offscreen_renderer_prefers_egl_on_linux(monkeypatch):
 
 def test_pico_command_uses_default_timeout():
     parser = build_parser()
-    args = parser.parse_args(["pico", "--hand", "Left"])
+    args = parser.parse_args(["pico", "--hand", "left"])
 
     assert args.command == "pico"
     assert args.pico_timeout == 60.0
-    assert args.hand == "Left"
+    assert args.hand == "left"
 
 
 def test_webcam_command_uses_current_common_args():

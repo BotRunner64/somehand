@@ -113,30 +113,30 @@ def rotation_invariance_score(config, vector_pairs: list[tuple[int, int]]) -> fl
         base_dirs = compute_target_directions(
             pose,
             vector_pairs,
-            handedness="Right",
+            hand_side="right",
         )
         for axis, angle in (("x", 50.0), ("y", 35.0), ("z", 70.0)):
             rotated = pose @ rotation_matrix(axis, angle).T
             dirs = compute_target_directions(
                 rotated,
                 vector_pairs,
-                handedness="Right",
+                hand_side="right",
             )
             scores.append(mean_direction_cosine(base_dirs, dirs))
     return float(min(scores))
 
 
-def mirror_consistency_score(config, vector_pairs: list[tuple[int, int]]) -> float:
+def bilateral_preprocess_consistency_score(config, vector_pairs: list[tuple[int, int]]) -> float:
     pose = synthetic_hand_pose("pinch")
     right_dirs = compute_target_directions(
         pose,
         vector_pairs,
-        handedness="Right",
+        hand_side="right",
     )
     left_dirs = compute_target_directions(
         mirror_pose_to_left(pose),
         vector_pairs,
-        handedness="Left",
+        hand_side="left",
     )
     return mean_direction_cosine(right_dirs, left_dirs)
 
@@ -148,7 +148,7 @@ def static_jitter_score(retargeter, pose: np.ndarray, num_steps: int = 24, warmu
 
     qpos_traj = []
     for _ in range(num_steps):
-        retargeter.update_targets(pose, handedness="Right")
+        retargeter.update_targets(pose, hand_side="right")
         qpos_traj.append(retargeter.solve().copy())
 
     tail = np.array(qpos_traj[warmup:])
@@ -186,7 +186,7 @@ def solver_quality_score(retargeter) -> dict[str, float]:
     min_scores = []
     losses = []
     for pose_name in ("open", "pinch", "fist"):
-        retargeter.update_targets(synthetic_hand_pose(pose_name), handedness="Right")
+        retargeter.update_targets(synthetic_hand_pose(pose_name), hand_side="right")
         retargeter.solve()
         metrics = current_alignment_metrics(retargeter)
         weighted_scores.append(metrics["weighted_cosine"])
@@ -222,7 +222,7 @@ def throughput_score(retargeter, num_steps: int = 60) -> float:
 
     tic = perf_counter()
     for pose in poses:
-        retargeter.update_targets(pose, handedness="Right")
+        retargeter.update_targets(pose, hand_side="right")
         retargeter.solve()
     elapsed = perf_counter() - tic
     return float(num_steps / elapsed)
