@@ -8,7 +8,7 @@ from threading import Lock
 
 from dex_mujoco.domain import HandFrame, SourceFrame
 from dex_mujoco.hand_detector import HandDetection, HandDetector
-from dex_mujoco.hc_mocap_input import create_hc_mocap_bvh_provider, create_hc_mocap_udp_provider
+from dex_mujoco.hc_mocap_input import create_hc_mocap_udp_provider
 from dex_mujoco.pico_input import create_pico_provider
 
 from .artifacts import load_hand_recording_artifact
@@ -248,21 +248,6 @@ class RecordedHandDataSource:
 
     def stats_snapshot(self) -> dict[str, object]:
         return {}
-
-
-def create_hc_mocap_bvh_source(
-    *,
-    bvh_path: str,
-    handedness: str,
-    teleopit_root: str | None,
-) -> HCMocapInputSource:
-    provider = create_hc_mocap_bvh_provider(
-        bvh_path=bvh_path,
-        handedness=handedness,
-        teleopit_root=teleopit_root,
-    )
-    return HCMocapInputSource(provider, source_desc=bvh_path)
-
 
 def create_hc_mocap_udp_source(
     *,

@@ -109,18 +109,10 @@ dex-retarget replay \
 
 ### 5.2 hc_mocap 手部输入
 
-如果你已经有 Teleopit 的 `hc_mocap` BVH 或 UDP 流，可以跳过 MediaPipe，直接把手骨架转成 21 点后喂给当前 retargeting：
+如果你已经有 Teleopit 的 `hc_mocap` UDP 流，可以跳过 MediaPipe，直接把手骨架转成 21 点后喂给当前 retargeting：
 
 ```bash
-dex-retarget hc-mocap bvh \
-    --bvh assets/ref_with_toe.bvh \
-    --hand Right
-```
-
-实时 UDP 模式：
-
-```bash
-dex-retarget hc-mocap udp \
+dex-retarget hc-mocap \
     --hand Right \
     --udp-stats-every 120
 ```
@@ -128,11 +120,11 @@ dex-retarget hc-mocap udp \
 你当前这类高频命令现在可以缩到：
 
 ```bash
-dex-retarget hc-mocap udp \
+dex-retarget hc-mocap \
     --hand Left
 ```
 
-UDP 模式不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 UDP 包都是一行 BVH motion floats，并且 joint 顺序与 `--reference-bvh` 一致。只有离线 `--bvh` 模式在未安装 `teleopit` 时才需要 `--teleopit-root /path/to/Teleopit`。
+`hc-mocap` 现在只保留 UDP 模式，不再支持离线 `BVH` 输入。它也不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 UDP 包都是一行 BVH motion floats，并且 joint 顺序与 `--reference-bvh` 一致。
 `hc_mocap` 输入会自动使用 wrist 真局部坐标做 retarget，因此即使配置文件里是 `wrist_local`，脚本也会切到更适合 `hc_mocap` 的处理方式。
 如果要检查 UDP 是否正常进入，可以看终端的 `UDP stats` 输出，确认 `recv` / `valid` 是否持续增长，以及 `floats` 是否等于参考 BVH 的通道数。
 输入手势窗口里显示的是参与 retarget 的输入 landmarks，因此看到的是已经对齐到机器人坐标系的手部骨架；机器人窗口单独显示 retarget 后的手模型。

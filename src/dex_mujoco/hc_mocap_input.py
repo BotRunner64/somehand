@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
 import socket
-import sys
 import threading
 import time
 from pathlib import Path
@@ -13,43 +11,11 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from .hand_detector import HandDetection
-
-_DEFAULT_TELEOPIT_ROOT = (
-    Path(__file__).resolve().parents[2].parent.parent / "teleop_projects" / "Teleopit"
-)
 _OUTPUT_ROTATION_MATRIX = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
     dtype=np.float64,
 )
 _HEIGHT_OFFSET = np.array([0.0, 0.0, 0.9526], dtype=np.float64)
-
-
-def _ensure_teleopit_importable(teleopit_root: str | None = None) -> None:
-    candidate_roots: list[Path] = []
-    if teleopit_root:
-        candidate_roots.append(Path(teleopit_root).resolve())
-    env_root = os.environ.get("TELEOPIT_ROOT")
-    if env_root:
-        candidate_roots.append(Path(env_root).resolve())
-    candidate_roots.append(_DEFAULT_TELEOPIT_ROOT.resolve())
-
-    for root in candidate_roots:
-        if not root.exists():
-            continue
-        root_str = str(root)
-        if root_str not in sys.path:
-            sys.path.insert(0, root_str)
-        try:
-            import teleopit  # noqa: F401
-            return
-        except ImportError:
-            continue
-
-    raise RuntimeError(
-        "Unable to import Teleopit. Install it into the current environment, set "
-        "TELEOPIT_ROOT, or pass --teleopit-root."
-    )
-
 
 def _point(frame: dict[str, tuple[np.ndarray, np.ndarray]], joint_name: str) -> np.ndarray:
     if joint_name not in frame:
@@ -120,6 +86,9 @@ class HCMocapHandProvider:
     def __init__(self, provider: object, handedness: str):
         self._provider = provider
         self.handedness = handedness
+        self._latest_detection: HandDetection | None = None
+        self._latest_frame_index = 0
+        self._snapshot_lock = threading.Lock()
 
     def is_available(self) -> bool:
         return bool(self._provider.is_available())
@@ -130,13 +99,25 @@ class HCMocapHandProvider:
 
     def get_detection(self) -> HandDetection:
         frame = self._provider.get_frame()
-        landmarks_3d = hc_mocap_frame_to_landmarks(frame, self.handedness)
-        landmarks_2d = np.zeros((21, 2), dtype=np.float64)
-        return HandDetection(
-            landmarks_3d=landmarks_3d,
-            landmarks_2d=landmarks_2d,
-            handedness=self.handedness,
-        )
+        detection = self._frame_to_detection(frame)
+        with self._snapshot_lock:
+            self._latest_frame_index += 1
+            self._latest_detection = detection
+        return detection
+
+    def latest_detection_snapshot(self) -> tuple[int, HandDetection] | None:
+        snapshot_fn = getattr(self._provider, "latest_frame_snapshot", None)
+        if callable(snapshot_fn):
+            snapshot = snapshot_fn()
+            if snapshot is None:
+                return None
+            frame_index, frame = snapshot
+            return frame_index, self._frame_to_detection(frame)
+
+        with self._snapshot_lock:
+            if self._latest_detection is None or self._latest_frame_index <= 0:
+                return None
+            return self._latest_frame_index, self._latest_detection
 
     def close(self) -> None:
         close_fn = getattr(self._provider, "close", None)
@@ -148,6 +129,18 @@ class HCMocapHandProvider:
         if callable(stats_fn):
             return dict(stats_fn())
         return {}
+
+    def _frame_to_detection(
+        self,
+        frame: dict[str, tuple[np.ndarray, np.ndarray]],
+    ) -> HandDetection:
+        landmarks_3d = hc_mocap_frame_to_landmarks(frame, self.handedness)
+        landmarks_2d = np.zeros((21, 2), dtype=np.float64)
+        return HandDetection(
+            landmarks_3d=landmarks_3d,
+            landmarks_2d=landmarks_2d,
+            handedness=self.handedness,
+        )
 
 
 class _BvhSkeleton:
@@ -384,6 +377,12 @@ class _DirectHCMocapUDPProvider:
             self._last_served_frame_index = self._frame_index
             return self._latest_frame
 
+    def latest_frame_snapshot(self) -> tuple[int, dict[str, tuple[np.ndarray, np.ndarray]]] | None:
+        with self._lock:
+            if self._latest_frame is None or self._frame_index <= 0:
+                return None
+            return self._frame_index, dict(self._latest_frame)
+
     def close(self) -> None:
         self._running = False
         try:
@@ -436,20 +435,6 @@ class _DirectHCMocapUDPProvider:
                 self._stats["packets_valid"] += 1
                 self._cond.notify_all()
             self._ready.set()
-
-
-def create_hc_mocap_bvh_provider(
-    *,
-    bvh_path: str,
-    handedness: str,
-    teleopit_root: str | None = None,
-) -> HCMocapHandProvider:
-    _ensure_teleopit_importable(teleopit_root)
-    from teleopit.inputs.bvh_provider import BVHInputProvider
-
-    provider = BVHInputProvider(bvh_path=bvh_path, human_format="hc_mocap")
-    return HCMocapHandProvider(provider, handedness)
-
 
 def create_hc_mocap_udp_provider(
     *,

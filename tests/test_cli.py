@@ -7,12 +7,11 @@ from dex_mujoco.cli import build_parser
 from dex_mujoco.paths import DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 
-def test_hc_mocap_udp_uses_repo_defaults():
+def test_hc_mocap_uses_repo_defaults():
     parser = build_parser()
-    args = parser.parse_args(["hc-mocap", "udp"])
+    args = parser.parse_args(["hc-mocap"])
 
     assert args.command == "hc-mocap"
-    assert args.hc_command == "udp"
     assert args.config == str(DEFAULT_CONFIG_PATH)
     assert args.reference_bvh == str(DEFAULT_HC_MOCAP_REFERENCE_BVH)
     assert args.udp_port == 1118
