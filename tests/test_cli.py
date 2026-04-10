@@ -59,6 +59,50 @@ def test_replay_command_accepts_dump_video_path():
     assert args.dump_video == "recordings/replay.mp4"
 
 
+def test_run_replay_uses_landmark_retarget_and_sim_viewers_for_sim_backend(monkeypatch):
+    calls = {}
+
+    class _FakeSource:
+        fps = 30
+        source_desc = "recordings/session.pkl"
+        recording_metadata = {
+            "input_source": "recordings/session.pkl",
+            "input_type": "pico",
+            "num_detected": 12,
+        }
+
+    class _FakeSession:
+        def run(self, source, **kwargs):
+            calls["run"] = kwargs
+            return SimpleNamespace(num_frames=12, num_detected=12, source_desc=source.source_desc, input_type="replay")
+
+    def _fake_build_runtime_session(*args, **kwargs):
+        calls["session_kwargs"] = kwargs
+        return _FakeSession()
+
+    monkeypatch.setattr(cli_module, "create_recording_source", lambda **kwargs: _FakeSource())
+    monkeypatch.setattr(cli_module, "_wrap_source_for_recording", lambda source, **kwargs: source)
+    monkeypatch.setattr(cli_module, "_build_engine", lambda args, **kwargs: SimpleNamespace(describe=lambda: {"model_name": "m", "dof": 1, "vector_pairs": 1}))
+    monkeypatch.setattr(cli_module, "_build_runtime_session", _fake_build_runtime_session)
+    monkeypatch.setattr(cli_module, "_print_startup", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cli_module, "_finalize_run", lambda *args, **kwargs: None)
+
+    args = SimpleNamespace(
+        recording="recordings/session.pkl",
+        record_output=None,
+        dump_video=None,
+        backend="sim",
+        hand="right",
+        loop=False,
+        config="unused.yaml",
+    )
+
+    cli_module._run_replay(args)
+
+    assert calls["session_kwargs"]["include_landmark_viewer"] is True
+    assert calls["session_kwargs"]["include_sim_state_viewer"] is True
+
+
 def test_bihand_default_config_replaces_single_hand_default():
     args = SimpleNamespace(config=str(DEFAULT_CONFIG_PATH))
 
@@ -114,6 +158,49 @@ def test_build_session_adds_replay_video_sink(monkeypatch):
         "output_path": "recordings/replay.mp4",
         "fps": 30,
     }
+
+
+def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
+    created = []
+
+    class _FakeLandmarkSink:
+        def __init__(self, *, window_title=None):
+            created.append(("landmark", window_title))
+
+        @property
+        def is_running(self):
+            return True
+
+        def close(self):
+            return None
+
+    class _FakeOutputSink:
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
+            created.append(("robot", hand_model, key_callback, overlay_label, window_title))
+
+        @property
+        def is_running(self):
+            return True
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(cli_module, "AsyncLandmarkOutputSink", _FakeLandmarkSink)
+    monkeypatch.setattr(cli_module, "RobotHandOutputSink", _FakeOutputSink)
+
+    engine = SimpleNamespace(hand_model=object())
+    session = cli_module._build_session(
+        engine,
+        backend="viewer",
+        visualize=True,
+        show_preview=False,
+    )
+
+    assert len(session.frame_sinks) == 1
+    assert created == [
+        ("landmark", "Input Landmarks"),
+        ("robot", engine.hand_model, None, None, "Retargeting"),
+    ]
 
 
 def test_build_session_falls_back_to_video_only_when_visualization_unavailable(monkeypatch, capsys):
@@ -310,12 +397,20 @@ def test_webcam_command_uses_current_common_args():
     args = parser.parse_args(["webcam"])
 
     assert set(vars(args)) == {
+        "backend",
+        "can_interface",
         "camera",
         "command",
         "config",
+        "control_rate",
         "hand",
+        "modbus_port",
+        "model_family",
         "record_output",
+        "sdk_root",
+        "sim_rate",
         "swap_hands",
+        "transport",
     }
 
 

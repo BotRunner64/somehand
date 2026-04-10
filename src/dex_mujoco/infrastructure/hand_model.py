@@ -94,6 +94,19 @@ class HandModel:
     def get_qpos(self) -> np.ndarray:
         return self.data.qpos.copy()
 
+    def get_joint_name_to_qpos_index(self) -> dict[str, int]:
+        return {
+            mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_id): int(self.model.jnt_qposadr[joint_id])
+            for joint_id in range(self.model.njnt)
+        }
+
+    def get_actuator_qpos_indices(self) -> np.ndarray:
+        indices: list[int] = []
+        for actuator_id in range(self.model.nu):
+            joint_id = int(self.model.actuator_trnid[actuator_id][0])
+            indices.append(int(self.model.jnt_qposadr[joint_id]))
+        return np.asarray(indices, dtype=np.int32)
+
     def apply_mimic_constraints(self, qpos: np.ndarray) -> np.ndarray:
         for mimic in self.mimic_joints:
             qpos_id = int(mimic["qpos_id"])

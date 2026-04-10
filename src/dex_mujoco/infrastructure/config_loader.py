@@ -10,6 +10,7 @@ from dex_mujoco.domain.config import (
     AngleConstraint,
     BiHandRetargetingConfig,
     BiHandViewerConfig,
+    ControllerConfig,
     HandConfig,
     PinchConfig,
     PositionConfig,
@@ -73,6 +74,19 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         side=normalize_hand_side(hand_data.get("side", "")),
         mjcf_path=str(mjcf_path),
         urdf_source=hand_data.get("urdf_source", ""),
+    )
+    controller_data = data.get("controller", {})
+    config.controller = ControllerConfig(
+        backend=str(controller_data.get("backend", "viewer")),
+        model_family=str(controller_data.get("model_family", "")),
+        control_rate_hz=int(controller_data.get("control_rate_hz", 100)),
+        sim_rate_hz=int(controller_data.get("sim_rate_hz", 500)),
+        transport=str(controller_data.get("transport", "can")),
+        can_interface=str(controller_data.get("can_interface", "can0")),
+        modbus_port=str(controller_data.get("modbus_port", "None")),
+        sdk_root=str(controller_data.get("sdk_root", "")),
+        default_speed=[int(value) for value in controller_data.get("default_speed", [])],
+        default_torque=[int(value) for value in controller_data.get("default_torque", [])],
     )
 
     retargeting_data = data.get("retargeting", {})

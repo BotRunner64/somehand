@@ -42,6 +42,8 @@ class RetargetingStepResult:
     target_directions: np.ndarray | None
     processed_landmarks: np.ndarray
     hand_side: str
+    target_qpos: np.ndarray | None = None
+    backend: str | None = None
 
     def __post_init__(self) -> None:
         self.hand_side = normalize_hand_side(self.hand_side)

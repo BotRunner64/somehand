@@ -2,6 +2,7 @@
 
 from dex_mujoco.domain.config import (
     AngleConstraint,
+    ControllerConfig,
     HandConfig,
     PinchConfig,
     PositionConfig,
@@ -14,6 +15,7 @@ from dex_mujoco.domain.config import (
 
 __all__ = [
     "AngleConstraint",
+    "ControllerConfig",
     "HandConfig",
     "PinchConfig",
     "PositionConfig",

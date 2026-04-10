@@ -4,6 +4,7 @@ from .config import (
     AngleConstraint,
     BiHandRetargetingConfig,
     BiHandViewerConfig,
+    ControllerConfig,
     HandConfig,
     PinchConfig,
     PositionConfig,
@@ -13,6 +14,7 @@ from .config import (
     SolverConfig,
     VectorLossConfig,
 )
+from .control import ControllerBackend, HandCommand, HandState
 from .hand_side import HAND_SIDES, HandSide, display_hand_side, normalize_hand_side
 from .models import (
     BiHandFrame,
@@ -44,12 +46,16 @@ __all__ = [
     "BiHandSourceFrame",
     "BiHandTrackingSource",
     "BiHandViewerConfig",
+    "ControllerBackend",
+    "ControllerConfig",
     "display_hand_side",
     "HandConfig",
+    "HandCommand",
     "HandFrame",
     "HandFrameSink",
     "HAND_SIDES",
     "HandSide",
+    "HandState",
     "HandTrackingSource",
     "normalize_hand_side",
     "OutputSink",

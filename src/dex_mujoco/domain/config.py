@@ -29,6 +29,20 @@ class HandConfig:
 
 
 @dataclass
+class ControllerConfig:
+    backend: str = "viewer"
+    model_family: str = ""
+    control_rate_hz: int = 100
+    sim_rate_hz: int = 500
+    transport: str = "can"
+    can_interface: str = "can0"
+    modbus_port: str = "None"
+    sdk_root: str = ""
+    default_speed: list[int] = field(default_factory=list)
+    default_torque: list[int] = field(default_factory=list)
+
+
+@dataclass
 class PinchConfig:
     enabled: bool = False
     d1: float = 0.03
@@ -78,6 +92,7 @@ class AngleConstraint:
 @dataclass
 class RetargetingConfig:
     hand: HandConfig = field(default_factory=HandConfig)
+    controller: ControllerConfig = field(default_factory=ControllerConfig)
     human_vector_pairs: list[list[int]] = field(default_factory=list)
     origin_link_names: list[str] = field(default_factory=list)
     task_link_names: list[str] = field(default_factory=list)
@@ -156,6 +171,14 @@ class RetargetingConfig:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if not Path(self.hand.mjcf_path).exists():
             raise FileNotFoundError(f"MJCF file not found: {self.hand.mjcf_path}")
+        if self.controller.backend not in {"viewer", "sim", "real"}:
+            raise ValueError("controller.backend must be one of: viewer, sim, real")
+        if self.controller.transport not in {"can", "modbus"}:
+            raise ValueError("controller.transport must be one of: can, modbus")
+        if self.controller.control_rate_hz <= 0:
+            raise ValueError("controller.control_rate_hz must be > 0")
+        if self.controller.sim_rate_hz <= 0:
+            raise ValueError("controller.sim_rate_hz must be > 0")
 
 
 @dataclass

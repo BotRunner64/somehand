@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import multiprocessing as mp
+import atexit
 import queue
 import signal
 import sys
@@ -112,6 +113,34 @@ def _mujoco_key_callback(handler):
         handler(chr(keycode))
 
     return _callback
+
+
+def _set_viewer_overlay_label(viewer, label: str | None) -> None:
+    if not label:
+        return
+    viewer.set_texts(
+        (
+            mujoco.mjtFontScale.mjFONTSCALE_150,
+            mujoco.mjtGridPos.mjGRID_TOPLEFT,
+            label,
+            "",
+        )
+    )
+
+
+def _set_viewer_window_title(viewer, title: str | None) -> None:
+    if not title:
+        return
+    get_sim = getattr(viewer, "_get_sim", None)
+    if not callable(get_sim):
+        return
+    sim = get_sim()
+    if sim is None:
+        return
+    try:
+        sim.filename = title
+    except Exception:
+        return
 
 
 def configure_free_camera(
@@ -247,10 +276,68 @@ def _try_frame_hand_camera(
     )
 
 
+def _launch_passive_internal_with_window_title(
+    model,
+    data,
+    *,
+    handle_return,
+    key_callback=None,
+    show_left_ui=False,
+    show_right_ui=False,
+    window_title: str | None = None,
+) -> None:
+    cam = mujoco.MjvCamera()
+    opt = mujoco.MjvOption()
+    pert = mujoco.MjvPerturb()
+    user_scn = mujoco.MjvScene(model, mujoco.viewer._Simulate.MAX_GEOM)
+    simulate = mujoco.viewer._Simulate(cam, opt, pert, user_scn, False, key_callback)
+
+    simulate.ui0_enable = show_left_ui
+    simulate.ui1_enable = show_right_ui
+
+    if mujoco.viewer._MJPYTHON is None:
+        if not mujoco.viewer.glfw.init():
+            raise mujoco.FatalError("could not initialize GLFW")
+        atexit.register(mujoco.viewer.glfw.terminate)
+
+    def _loader():
+        return model, data, window_title or ""
+
+    notify_loaded = lambda: handle_return.put_nowait(mujoco.viewer.Handle(simulate, cam, opt, pert, user_scn))
+    side_thread = threading.Thread(target=mujoco.viewer._reload, args=(simulate, _loader, notify_loaded))
+
+    def _exit_simulate():
+        simulate.exit()
+
+    atexit.register(_exit_simulate)
+    side_thread.start()
+    simulate.render_loop()
+    atexit.unregister(_exit_simulate)
+    side_thread.join()
+    simulate.destroy()
+
+
+def _compile_model_with_name(mjcf_path: str, model_name: str) -> tuple[mujoco.MjModel, mujoco.MjData]:
+    spec = mujoco.MjSpec.from_file(mjcf_path)
+    spec.modelname = model_name
+    model = spec.compile()
+    data = mujoco.MjData(model)
+    return model, data
+
+
 class _ManagedPassiveViewer:
     """Wrap MuJoCo's passive viewer and wait for its render thread to exit."""
 
-    def __init__(self, model, data, *, key_callback=None, show_left_ui=False, show_right_ui=False):
+    def __init__(
+        self,
+        model,
+        data,
+        *,
+        key_callback=None,
+        show_left_ui=False,
+        show_right_ui=False,
+        window_title: str | None = None,
+    ):
         if sys.platform == "darwin":
             self._handle = mujoco.viewer.launch_passive(
                 model=model,
@@ -263,16 +350,30 @@ class _ManagedPassiveViewer:
             return
 
         handle_return = queue.Queue(1)
-        self._thread = threading.Thread(
-            target=mujoco.viewer._launch_internal,
-            args=(model, data),
-            kwargs=dict(
+        if not window_title:
+            target = mujoco.viewer._launch_internal
+            args = (model, data)
+            kwargs = dict(
                 run_physics_thread=False,
                 handle_return=handle_return,
                 key_callback=key_callback,
                 show_left_ui=show_left_ui,
                 show_right_ui=show_right_ui,
-            ),
+            )
+        else:
+            target = _launch_passive_internal_with_window_title
+            args = (model, data)
+            kwargs = dict(
+                handle_return=handle_return,
+                key_callback=key_callback,
+                show_left_ui=show_left_ui,
+                show_right_ui=show_right_ui,
+                window_title=window_title,
+            )
+        self._thread = threading.Thread(
+            target=target,
+            args=args,
+            kwargs=kwargs,
             name="dex-mujoco-passive-viewer",
             daemon=True,
         )
@@ -291,17 +392,31 @@ class _ManagedPassiveViewer:
 class HandVisualizer:
     """Real-time MuJoCo visualization of the retargeted robot hand."""
 
-    def __init__(self, hand_model: HandModel, *, key_callback=None):
+    def __init__(
+        self,
+        hand_model: HandModel,
+        *,
+        key_callback=None,
+        overlay_label: str | None = None,
+        window_title: str | None = None,
+    ):
         self.hand_model = hand_model
-        self.model = hand_model.model
-        self.data = hand_model.data
+        if window_title:
+            self.model, self.data = _compile_model_with_name(hand_model.mjcf_path, window_title)
+        else:
+            self.model = hand_model.model
+            self.data = hand_model.data
+        self._overlay_label = overlay_label
         self.viewer = _ManagedPassiveViewer(
             model=self.model,
             data=self.data,
             key_callback=_mujoco_key_callback(key_callback),
             show_left_ui=False,
             show_right_ui=False,
+            window_title=window_title,
         )
+        _set_viewer_window_title(self.viewer, window_title)
+        _set_viewer_overlay_label(self.viewer, self._overlay_label)
         self._configure_camera(**_DEFAULT_HAND_CAMERA)
         self._camera_initialized = False
 
@@ -330,6 +445,7 @@ class HandVisualizer:
             mujoco.mj_forward(self.model, self.data)
             if not self._camera_initialized and _try_frame_hand_camera(self.viewer.cam, model=self.model, data=self.data):
                 self._camera_initialized = True
+        _set_viewer_overlay_label(self.viewer, self._overlay_label)
         self.viewer.sync()
 
     @property
@@ -499,7 +615,7 @@ class BiHandVisualizer:
 class LandmarkVisualizer:
     """Real-time MuJoCo visualization of the input hand landmarks."""
 
-    def __init__(self):
+    def __init__(self, *, window_title: str | None = None):
         self.model = mujoco.MjModel.from_xml_string(_LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
         self.viewer = _ManagedPassiveViewer(
@@ -507,7 +623,9 @@ class LandmarkVisualizer:
             data=self.data,
             show_left_ui=False,
             show_right_ui=False,
+            window_title=window_title,
         )
+        _set_viewer_window_title(self.viewer, window_title)
         self._max_overlay_geoms = len(_LANDMARK_COLORS) + len(_HAND_CONNECTIONS)
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
@@ -604,7 +722,7 @@ class LandmarkVisualizer:
 class BiHandLandmarkVisualizer:
     """Real-time MuJoCo visualization of both input-hand landmark sets."""
 
-    def __init__(self):
+    def __init__(self, *, window_title: str | None = None):
         self.model = mujoco.MjModel.from_xml_string(_LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
         self.viewer = _ManagedPassiveViewer(
@@ -612,7 +730,9 @@ class BiHandLandmarkVisualizer:
             data=self.data,
             show_left_ui=False,
             show_right_ui=False,
+            window_title=window_title,
         )
+        _set_viewer_window_title(self.viewer, window_title)
         self._max_overlay_geoms = 2 * (len(_LANDMARK_COLORS) + len(_HAND_CONNECTIONS))
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
@@ -714,9 +834,9 @@ class BiHandLandmarkVisualizer:
             self.viewer.close()
 
 
-def _landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
+def _landmark_viewer_worker(frame_queue: mp.queues.Queue, window_title: str | None) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    visualizer = LandmarkVisualizer()
+    visualizer = LandmarkVisualizer(window_title=window_title)
     latest_landmarks = np.zeros((21, 3), dtype=np.float64)
 
     try:
@@ -747,12 +867,12 @@ def _landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
 class AsyncLandmarkVisualizer:
     """Landmark viewer running in a separate process for stability."""
 
-    def __init__(self):
+    def __init__(self, *, window_title: str | None = None):
         ctx = mp.get_context("spawn")
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=_landmark_viewer_worker,
-            args=(self._queue,),
+            args=(self._queue, window_title),
             name="dex-mujoco-landmark-viewer",
         )
         self._process.start()
@@ -763,6 +883,105 @@ class AsyncLandmarkVisualizer:
 
     def update(self, landmarks: np.ndarray) -> None:
         payload = np.asarray(landmarks, dtype=np.float64)
+        try:
+            self._queue.put_nowait(payload)
+            return
+        except queue.Full:
+            pass
+
+        try:
+            self._queue.get_nowait()
+        except queue.Empty:
+            pass
+
+        try:
+            self._queue.put_nowait(payload)
+        except queue.Full:
+            pass
+
+    def close(self) -> None:
+        if not self._process.is_alive():
+            return
+
+        try:
+            self._queue.put_nowait(None)
+        except queue.Full:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self._queue.put_nowait(None)
+            except queue.Full:
+                pass
+
+        self._process.join(timeout=2.0)
+        if self._process.is_alive():
+            self._process.terminate()
+            self._process.join(timeout=1.0)
+
+
+def _robot_hand_viewer_worker(
+    mjcf_path: str,
+    qpos_queue: mp.queues.Queue,
+    overlay_label: str | None,
+    window_title: str | None,
+) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    hand_model = HandModel(mjcf_path)
+    visualizer = HandVisualizer(hand_model, overlay_label=overlay_label, window_title=window_title)
+    latest_qpos = hand_model.get_qpos()
+
+    try:
+        while visualizer.is_running:
+            drained = False
+            while True:
+                try:
+                    item = qpos_queue.get_nowait()
+                except queue.Empty:
+                    break
+
+                if item is None:
+                    return
+                latest_qpos = np.asarray(item, dtype=np.float64)
+                drained = True
+
+            if drained:
+                visualizer.update(latest_qpos)
+            else:
+                visualizer.update(latest_qpos)
+                time.sleep(1.0 / 120.0)
+    except KeyboardInterrupt:
+        return
+    finally:
+        visualizer.close()
+
+
+class AsyncRobotHandVisualizer:
+    """Robot-hand viewer running in a separate process for stability."""
+
+    def __init__(
+        self,
+        mjcf_path: str,
+        *,
+        overlay_label: str | None = None,
+        window_title: str | None = None,
+    ):
+        ctx = mp.get_context("spawn")
+        self._queue = ctx.Queue(maxsize=1)
+        self._process = ctx.Process(
+            target=_robot_hand_viewer_worker,
+            args=(mjcf_path, self._queue, overlay_label, window_title),
+            name="dex-mujoco-robot-hand-viewer",
+        )
+        self._process.start()
+
+    @property
+    def is_running(self) -> bool:
+        return self._process.is_alive()
+
+    def update(self, qpos: np.ndarray) -> None:
+        payload = np.asarray(qpos, dtype=np.float64)
         try:
             self._queue.put_nowait(payload)
             return

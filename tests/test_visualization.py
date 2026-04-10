@@ -48,6 +48,87 @@ def test_managed_passive_viewer_waits_for_render_thread_on_close(monkeypatch):
     assert worker.is_alive() is False
 
 
+def test_managed_passive_viewer_passes_window_title_via_loader(monkeypatch):
+    captured = {}
+    handle = _FakeHandle()
+    model = object()
+    data = object()
+
+    def _fake_launch_with_title(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        kwargs["handle_return"].put_nowait(handle)
+
+    monkeypatch.setattr(visualization, "_launch_passive_internal_with_window_title", _fake_launch_with_title)
+
+    viewer = visualization._ManagedPassiveViewer(model, data, window_title="Retargeting")
+    viewer.close(timeout=1.0)
+
+    assert captured["args"] == (model, data)
+    assert captured["kwargs"]["window_title"] == "Retargeting"
+
+
+def test_set_viewer_window_title_updates_sim_filename():
+    class _FakeSim:
+        def __init__(self):
+            self.filename = ""
+
+    class _FakeViewer:
+        def __init__(self):
+            self._sim = _FakeSim()
+
+        def _get_sim(self):
+            return self._sim
+
+    viewer = _FakeViewer()
+    visualization._set_viewer_window_title(viewer, "Retargeting")
+
+    assert viewer._sim.filename == "Retargeting"
+
+
+def test_hand_visualizer_recompiles_model_when_window_title_is_set(monkeypatch):
+    created = {}
+
+    class _FakeViewer:
+        def __init__(self, model, data, **kwargs):
+            created["viewer_model"] = model
+            created["viewer_data"] = data
+            created["viewer_kwargs"] = kwargs
+            self.cam = object()
+
+        def lock(self):
+            class _Lock:
+                def __enter__(self_inner):
+                    return None
+
+                def __exit__(self_inner, exc_type, exc_val, exc_tb):
+                    return False
+
+            return _Lock()
+
+        def sync(self, state_only=False):
+            created.setdefault("sync_calls", []).append(state_only)
+
+        def is_running(self):
+            return True
+
+    fake_model = object()
+    fake_data = object()
+
+    monkeypatch.setattr(visualization, "_compile_model_with_name", lambda path, name: (fake_model, fake_data))
+    monkeypatch.setattr(visualization, "_ManagedPassiveViewer", _FakeViewer)
+    monkeypatch.setattr(visualization, "_set_viewer_window_title", lambda viewer, title: None)
+    monkeypatch.setattr(visualization, "_set_viewer_overlay_label", lambda viewer, label: None)
+    monkeypatch.setattr(visualization, "configure_free_camera", lambda *args, **kwargs: None)
+
+    hand_model = type("HandModelStub", (), {"mjcf_path": "model.xml", "model": object(), "data": object()})()
+    visualizer = visualization.HandVisualizer(hand_model, window_title="Sim State")
+
+    assert visualizer.model is fake_model
+    assert visualizer.data is fake_data
+    assert created["viewer_kwargs"]["window_title"] == "Sim State"
+
+
 def test_compute_bounding_sphere_accounts_for_geom_radii():
     points = visualization.np.array(
         [

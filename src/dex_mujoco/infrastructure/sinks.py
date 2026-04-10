@@ -23,6 +23,7 @@ from dex_mujoco.domain import (
     preprocess_landmarks,
 )
 from dex_mujoco.visualization import (
+    AsyncRobotHandVisualizer,
     AsyncLandmarkVisualizer,
     AsyncBiHandLandmarkVisualizer,
     BiHandScene,
@@ -140,8 +141,20 @@ class TrajectoryRecorder(OutputSink):
 
 
 class RobotHandOutputSink(OutputSink):
-    def __init__(self, hand_model: HandModel, *, key_callback=None):
-        self._visualizer = HandVisualizer(hand_model, key_callback=key_callback)
+    def __init__(
+        self,
+        hand_model: HandModel,
+        *,
+        key_callback=None,
+        overlay_label: str | None = None,
+        window_title: str | None = None,
+    ):
+        self._visualizer = HandVisualizer(
+            hand_model,
+            key_callback=key_callback,
+            overlay_label=overlay_label,
+            window_title=window_title,
+        )
 
     @property
     def is_running(self) -> bool:
@@ -149,6 +162,33 @@ class RobotHandOutputSink(OutputSink):
 
     def on_result(self, result: RetargetingStepResult) -> None:
         self._visualizer.update(result.qpos)
+
+    def close(self) -> None:
+        self._visualizer.close()
+
+
+class RobotHandTargetOutputSink(OutputSink):
+    def __init__(
+        self,
+        hand_model: HandModel,
+        *,
+        key_callback=None,
+        overlay_label: str | None = None,
+        window_title: str | None = None,
+    ):
+        self._visualizer = AsyncRobotHandVisualizer(
+            hand_model.mjcf_path,
+            overlay_label=overlay_label,
+            window_title=window_title,
+        )
+
+    @property
+    def is_running(self) -> bool:
+        return self._visualizer.is_running
+
+    def on_result(self, result: RetargetingStepResult) -> None:
+        qpos = result.target_qpos if result.target_qpos is not None else result.qpos
+        self._visualizer.update(qpos)
 
     def close(self) -> None:
         self._visualizer.close()
@@ -224,8 +264,8 @@ class RobotHandVideoOutputSink(OutputSink):
 
 
 class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
-    def __init__(self):
-        self._visualizer = AsyncLandmarkVisualizer()
+    def __init__(self, *, window_title: str | None = None):
+        self._visualizer = AsyncLandmarkVisualizer(window_title=window_title)
 
     @property
     def is_running(self) -> bool:

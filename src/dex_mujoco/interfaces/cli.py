@@ -8,6 +8,7 @@ import warnings
 from dex_mujoco.application import (
     BiHandRetargetingEngine,
     BiHandRetargetingSession,
+    ControlledRetargetingSession,
     RetargetingEngine,
     RetargetingSession,
 )
@@ -18,10 +19,14 @@ from dex_mujoco.infrastructure import (
     BiHandMediaPipeInputSource,
     BiHandOutputWindowSink,
     BiHandVideoOutputSink,
+    LinkerHandModelAdapter,
+    LinkerHandSdkController,
+    MujocoSimController,
     OpenCvPreviewWindow,
     RecordingBiHandTrackingSource,
     RecordingHandTrackingSource,
     RobotHandOutputSink,
+    RobotHandTargetOutputSink,
     RobotHandVideoOutputSink,
     TerminalRecordingController,
     create_bihand_hc_mocap_udp_source,
@@ -30,6 +35,7 @@ from dex_mujoco.infrastructure import (
     create_hc_mocap_udp_source,
     create_pico_source,
     create_recording_source,
+    infer_linkerhand_model_family,
     save_bihand_recording_artifact,
     save_hand_recording_artifact,
 )
@@ -90,6 +96,19 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Output pickle file for recorded hand-tracking frames",
     )
+    parser.add_argument(
+        "--backend",
+        choices=["viewer", "sim", "real"],
+        default="viewer",
+        help="Execution backend for robot-hand output",
+    )
+    parser.add_argument("--control-rate", type=int, default=100, help="Controller update rate in Hz")
+    parser.add_argument("--sim-rate", type=int, default=500, help="MuJoCo simulation rate in Hz")
+    parser.add_argument("--transport", choices=["can", "modbus"], default="can", help="Real-hand transport mode")
+    parser.add_argument("--can-interface", default="can0", help="CAN interface name for real-hand mode")
+    parser.add_argument("--modbus-port", default="None", help="MODBUS serial port for real-hand mode")
+    parser.add_argument("--sdk-root", default=None, help="Optional LinkerHand SDK root directory")
+    parser.add_argument("--model-family", default=None, help="Optional LinkerHand SDK model family override")
 
 
 def _add_bihand_common_args(parser: argparse.ArgumentParser) -> None:
@@ -240,6 +259,7 @@ def _use_default_bihand_config_if_needed(args: argparse.Namespace) -> None:
 def _build_session(
     engine: RetargetingEngine,
     *,
+    backend: str = "viewer",
     visualize: bool,
     show_preview: bool,
     key_callback=None,
@@ -256,8 +276,30 @@ def _build_session(
             print(f"Warning: visualization disabled during replay video dump: {reason}")
     if visualize:
         try:
-            frame_sinks.append(AsyncLandmarkOutputSink())
-            sinks.append(RobotHandOutputSink(engine.hand_model, key_callback=key_callback))
+            frame_sinks.append(AsyncLandmarkOutputSink(window_title="Input Landmarks"))
+            if backend == "sim":
+                sinks.append(
+                    RobotHandTargetOutputSink(
+                        engine.hand_model,
+                        key_callback=key_callback,
+                        window_title="Retargeting",
+                    )
+                )
+                sinks.append(
+                    RobotHandOutputSink(
+                        engine.hand_model,
+                        key_callback=key_callback,
+                        window_title="Sim State",
+                    )
+                )
+            else:
+                sinks.append(
+                    RobotHandOutputSink(
+                        engine.hand_model,
+                        key_callback=key_callback,
+                        window_title="Retargeting",
+                    )
+                )
         except BaseException as exc:
             for sink in reversed(frame_sinks):
                 _close_resource(sink)
@@ -280,6 +322,126 @@ def _build_session(
         )
     preview_window = OpenCvPreviewWindow() if show_preview else None
     return RetargetingSession(engine, sinks=sinks, frame_sinks=frame_sinks, preview_window=preview_window)
+
+
+def _build_control_backend(args: argparse.Namespace, engine: RetargetingEngine):
+    if args.backend == "sim":
+        return MujocoSimController(
+            engine.config.hand.mjcf_path,
+            control_rate_hz=args.control_rate,
+            sim_rate_hz=args.sim_rate,
+        )
+    if args.backend == "real":
+        family = args.model_family or engine.config.controller.model_family or infer_linkerhand_model_family(
+            engine.config.hand.name
+        )
+        adapter = LinkerHandModelAdapter(
+            engine.hand_model,
+            family=family,
+            hand_side=engine.config.hand.side,
+            sdk_root="" if args.sdk_root is None else args.sdk_root,
+        )
+        return LinkerHandSdkController(
+            adapter,
+            transport=args.transport,
+            can_interface=args.can_interface,
+            modbus_port=args.modbus_port,
+            default_speed=engine.config.controller.default_speed or adapter.default_speed,
+            default_torque=engine.config.controller.default_torque or adapter.default_torque,
+            sdk_root="" if args.sdk_root is None else args.sdk_root,
+        )
+    raise ValueError(f"Unsupported backend: {args.backend}")
+
+
+def _build_runtime_session(
+    engine: RetargetingEngine,
+    args: argparse.Namespace,
+    *,
+    visualize: bool,
+    show_preview: bool,
+    key_callback=None,
+    video_output_path: str | None = None,
+    video_output_fps: int | None = None,
+    allow_visualization_fallback: bool = False,
+    include_landmark_viewer: bool = True,
+    include_sim_state_viewer: bool = True,
+):
+    if args.backend == "viewer":
+        return _build_session(
+            engine,
+            backend=args.backend,
+            visualize=visualize,
+            show_preview=show_preview,
+            key_callback=key_callback,
+            video_output_path=video_output_path,
+            video_output_fps=video_output_fps,
+            allow_visualization_fallback=allow_visualization_fallback,
+        )
+
+    sinks = []
+    frame_sinks = []
+    if visualize and allow_visualization_fallback and video_output_path is not None:
+        visualize_available, reason = _interactive_visualization_available()
+        if not visualize_available:
+            visualize = False
+            print(f"Warning: visualization disabled during replay video dump: {reason}")
+    if visualize:
+        try:
+            if include_landmark_viewer:
+                frame_sinks.append(AsyncLandmarkOutputSink(window_title="Input Landmarks"))
+            if args.backend == "sim":
+                sinks.append(
+                    RobotHandTargetOutputSink(
+                        engine.hand_model,
+                        key_callback=key_callback,
+                        window_title="Retargeting",
+                    )
+                )
+                if include_sim_state_viewer:
+                    sinks.append(
+                        RobotHandOutputSink(
+                            engine.hand_model,
+                            key_callback=key_callback,
+                            window_title="Sim State",
+                        )
+                    )
+            else:
+                sinks.append(
+                    RobotHandOutputSink(
+                        engine.hand_model,
+                        key_callback=key_callback,
+                        window_title="Retargeting",
+                    )
+                )
+        except BaseException as exc:
+            for sink in reversed(frame_sinks):
+                _close_resource(sink)
+            for sink in reversed(sinks):
+                _close_resource(sink)
+            frame_sinks = []
+            sinks = []
+            if not allow_visualization_fallback or video_output_path is None:
+                raise
+            print(f"Warning: visualization disabled during replay video dump: {exc}")
+    if video_output_path is not None:
+        if video_output_fps is None:
+            raise ValueError("video_output_fps is required when video_output_path is provided")
+        sinks.append(
+            RobotHandVideoOutputSink(
+                engine.hand_model,
+                output_path=video_output_path,
+                fps=video_output_fps,
+            )
+        )
+    preview_window = OpenCvPreviewWindow() if show_preview else None
+    controller = _build_control_backend(args, engine)
+    return ControlledRetargetingSession(
+        engine,
+        controller,
+        sinks=sinks,
+        frame_sinks=frame_sinks,
+        preview_window=preview_window,
+    )
 
 
 def _build_bihand_session(
@@ -444,12 +606,12 @@ def _run_webcam(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="webcam")
-    session = _build_session(engine, visualize=True, show_preview=True)
+    session = _build_runtime_session(engine, args, visualize=True, show_preview=True)
     _print_startup(
         engine,
         source_desc=source.source_desc,
         tracking_desc=f"Tracking operator hand: {display_hand_side(args.hand)} | Swap hands: {args.swap_hands}",
-        extra_lines=["Press 'q' in the camera window to quit."],
+        extra_lines=[f"Backend: {args.backend}", "Press 'q' in the camera window to quit."],
     )
     summary = session.run(source, input_type="webcam")
     _finalize_run(args, summary=summary, source=source)
@@ -466,11 +628,12 @@ def _run_video(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="video")
-    session = _build_session(engine, visualize=True, show_preview=False)
+    session = _build_runtime_session(engine, args, visualize=True, show_preview=False)
     _print_startup(
         engine,
         source_desc=source.source_desc,
         tracking_desc=f"Tracking operator hand: {display_hand_side(args.hand)} | Swap hands: {args.swap_hands}",
+        extra_lines=[f"Backend: {args.backend}"],
     )
     summary = session.run(source, input_type="video")
     _finalize_run(args, summary=summary, source=source)
@@ -482,16 +645,20 @@ def _run_replay(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="replay")
-    session = _build_session(
+    session = _build_runtime_session(
         engine,
+        args,
         visualize=True,
         show_preview=False,
         video_output_path=args.dump_video,
         video_output_fps=source.fps,
         allow_visualization_fallback=True,
+        include_landmark_viewer=True,
+        include_sim_state_viewer=True,
     )
     metadata = getattr(source, "recording_metadata", {})
     extra_lines = [
+        f"Backend: {args.backend}",
         f"Recorded source: {metadata.get('input_source', args.recording)} | Recorded input type: {metadata.get('input_type', 'unknown')}",
         f"Recorded fps: {source.fps} | Recorded detections: {metadata.get('num_detected', 0)}",
     ]
@@ -513,13 +680,14 @@ def _run_pico(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="pico")
-    session = _build_session(
+    session = _build_runtime_session(
         engine,
+        args,
         visualize=True,
         show_preview=False,
         key_callback=None if recording_controller is None else recording_controller.handle_keypress,
     )
-    extra_lines = ["Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode."]
+    extra_lines = [f"Backend: {args.backend}", "Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode."]
     if recording_controller is not None:
         extra_lines.append("Press 'r' in the terminal or robot-hand viewer to start recording.")
         extra_lines.append("Press 's' in the terminal or robot-hand viewer to stop recording, save, and exit.")
@@ -555,9 +723,9 @@ def _run_hc_mocap_udp(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_engine(args, input_type="hc_mocap")
-    session = _build_session(engine, visualize=True, show_preview=False)
+    session = _build_runtime_session(engine, args, visualize=True, show_preview=False)
     stats = source.stats_snapshot()
-    extra_lines: list[str] = []
+    extra_lines: list[str] = [f"Backend: {args.backend}"]
     if stats:
         extra_lines.append(
             "UDP packet format:"
@@ -740,6 +908,8 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "webcam":
         if args.hand == "both":
+            if args.backend != "viewer":
+                raise ValueError("Controller backends are currently only supported for single-hand commands")
             _use_default_bihand_config_if_needed(args)
             _run_bihand_webcam(args)
             return
@@ -747,6 +917,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "video":
         if args.hand == "both":
+            if args.backend != "viewer":
+                raise ValueError("Controller backends are currently only supported for single-hand commands")
             _use_default_bihand_config_if_needed(args)
             _run_bihand_video(args)
             return
@@ -754,6 +926,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "replay":
         if args.hand == "both":
+            if args.backend != "viewer":
+                raise ValueError("Controller backends are currently only supported for single-hand commands")
             _use_default_bihand_config_if_needed(args)
             _run_bihand_replay(args)
             return
@@ -761,6 +935,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "pico":
         if args.hand == "both":
+            if args.backend != "viewer":
+                raise ValueError("Controller backends are currently only supported for single-hand commands")
             _use_default_bihand_config_if_needed(args)
             _run_bihand_pico(args)
             return
@@ -768,6 +944,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "hc-mocap":
         if args.hand == "both":
+            if args.backend != "viewer":
+                raise ValueError("Controller backends are currently only supported for single-hand commands")
             _use_default_bihand_config_if_needed(args)
             _run_bihand_hc_mocap_udp(args)
             return
