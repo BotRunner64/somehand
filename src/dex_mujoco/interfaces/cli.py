@@ -13,6 +13,7 @@ from dex_mujoco.application import (
 )
 from dex_mujoco.domain import display_hand_side, normalize_hand_side
 from dex_mujoco.infrastructure import (
+    AsyncBiHandLandmarkOutputSink,
     AsyncLandmarkOutputSink,
     BiHandMediaPipeInputSource,
     BiHandOutputWindowSink,
@@ -292,6 +293,7 @@ def _build_bihand_session(
     allow_visualization_fallback: bool = False,
 ) -> BiHandRetargetingSession:
     sinks = []
+    frame_sinks = []
     if visualize and allow_visualization_fallback and video_output_path is not None:
         visualize_available, reason = _interactive_visualization_available()
         if not visualize_available:
@@ -299,6 +301,14 @@ def _build_bihand_session(
             print(f"Warning: visualization disabled during replay video dump: {reason}")
     if visualize:
         try:
+            frame_sinks.append(
+                AsyncBiHandLandmarkOutputSink(
+                    left_pos=engine.config.viewer.left_pos,
+                    right_pos=engine.config.viewer.right_pos,
+                    left_quat=engine.config.viewer.left_quat,
+                    right_quat=engine.config.viewer.right_quat,
+                )
+            )
             sinks.append(
                 BiHandOutputWindowSink(
                     engine.left_engine.hand_model,
@@ -315,8 +325,11 @@ def _build_bihand_session(
                 )
             )
         except BaseException as exc:
+            for sink in reversed(frame_sinks):
+                _close_resource(sink)
             for sink in reversed(sinks):
                 _close_resource(sink)
+            frame_sinks = []
             sinks = []
             if not allow_visualization_fallback or video_output_path is None:
                 raise
@@ -340,7 +353,7 @@ def _build_bihand_session(
             )
         )
     preview_window = OpenCvPreviewWindow("Bi-Hand Detection") if show_preview else None
-    return BiHandRetargetingSession(engine, sinks=sinks, preview_window=preview_window)
+    return BiHandRetargetingSession(engine, sinks=sinks, frame_sinks=frame_sinks, preview_window=preview_window)
 
 
 def _print_startup(engine: RetargetingEngine, *, source_desc: str, tracking_desc: str, extra_lines: list[str] | None = None) -> None:

@@ -35,6 +35,30 @@ _LANDMARK_COLORS = np.array(
     dtype=np.float32,
 ) / 255.0
 _BONE_COLORS = np.array([_LANDMARK_COLORS[end] for _, end in _HAND_CONNECTIONS], dtype=np.float32)
+_LEFT_LANDMARK_COLORS = np.array(
+    [
+        [255, 220, 200, 220],
+        [255, 180, 120, 220], [255, 180, 120, 220], [255, 180, 120, 220], [255, 180, 120, 220],
+        [255, 190, 150, 220], [255, 190, 150, 220], [255, 190, 150, 220], [255, 190, 150, 220],
+        [255, 205, 170, 220], [255, 205, 170, 220], [255, 205, 170, 220], [255, 205, 170, 220],
+        [255, 220, 190, 220], [255, 220, 190, 220], [255, 220, 190, 220], [255, 220, 190, 220],
+        [255, 235, 210, 220], [255, 235, 210, 220], [255, 235, 210, 220], [255, 235, 210, 220],
+    ],
+    dtype=np.float32,
+) / 255.0
+_RIGHT_LANDMARK_COLORS = np.array(
+    [
+        [220, 255, 220, 220],
+        [120, 255, 140, 220], [120, 255, 140, 220], [120, 255, 140, 220], [120, 255, 140, 220],
+        [140, 255, 170, 220], [140, 255, 170, 220], [140, 255, 170, 220], [140, 255, 170, 220],
+        [160, 255, 190, 220], [160, 255, 190, 220], [160, 255, 190, 220], [160, 255, 190, 220],
+        [180, 255, 210, 220], [180, 255, 210, 220], [180, 255, 210, 220], [180, 255, 210, 220],
+        [200, 255, 230, 220], [200, 255, 230, 220], [200, 255, 230, 220], [200, 255, 230, 220],
+    ],
+    dtype=np.float32,
+) / 255.0
+_LEFT_BONE_COLORS = np.array([_LEFT_LANDMARK_COLORS[end] for _, end in _HAND_CONNECTIONS], dtype=np.float32)
+_RIGHT_BONE_COLORS = np.array([_RIGHT_LANDMARK_COLORS[end] for _, end in _HAND_CONNECTIONS], dtype=np.float32)
 _IDENTITY_MAT = np.eye(3, dtype=np.float64).reshape(-1)
 _POINT_RADIUS = 0.006
 _BONE_RADIUS = 0.0035
@@ -51,6 +75,12 @@ _DEFAULT_BIHAND_CAMERA = {
     "distance": 0.60,
     "azimuth": -90.0,
     "elevation": -5.0,
+}
+_DEFAULT_BIHAND_LANDMARK_CAMERA = {
+    "distance": 0.60,
+    "azimuth": -90.0,
+    "elevation": -5.0,
+    "lookat": (0.0, 0.04, 0.02),
 }
 _DEFAULT_LANDMARK_CAMERA = {
     "distance": 0.32,
@@ -571,6 +601,119 @@ class LandmarkVisualizer:
             self.viewer.close()
 
 
+class BiHandLandmarkVisualizer:
+    """Real-time MuJoCo visualization of both input-hand landmark sets."""
+
+    def __init__(self):
+        self.model = mujoco.MjModel.from_xml_string(_LANDMARK_VIEWER_XML)
+        self.data = mujoco.MjData(self.model)
+        self.viewer = _ManagedPassiveViewer(
+            model=self.model,
+            data=self.data,
+            show_left_ui=False,
+            show_right_ui=False,
+        )
+        self._max_overlay_geoms = 2 * (len(_LANDMARK_COLORS) + len(_HAND_CONNECTIONS))
+        if self.viewer.user_scn is None:
+            raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
+        if self.viewer.user_scn.maxgeom < self._max_overlay_geoms:
+            raise RuntimeError(
+                f"MuJoCo viewer user scene only supports {self.viewer.user_scn.maxgeom} geoms, "
+                f"but bi-hand landmark overlay needs {self._max_overlay_geoms}"
+            )
+        self._configure_camera(**_DEFAULT_BIHAND_LANDMARK_CAMERA)
+        self._camera_initialized = False
+
+    def _configure_camera(
+        self,
+        *,
+        distance: float,
+        azimuth: float,
+        elevation: float,
+        lookat: tuple[float, float, float],
+    ) -> None:
+        with self.viewer.lock():
+            configure_free_camera(
+                self.viewer.cam,
+                distance=distance,
+                azimuth=azimuth,
+                elevation=elevation,
+                lookat=lookat,
+            )
+        self.viewer.sync(state_only=True)
+
+    def update(self, hands: np.ndarray):
+        with self.viewer.lock():
+            mujoco.mj_forward(self.model, self.data)
+            finite_points = hands[np.isfinite(hands).all(axis=2)]
+            if finite_points.size > 0 and not self._camera_initialized and _try_frame_camera_to_points(
+                self.viewer.cam,
+                model=self.model,
+                points=finite_points.reshape(-1, 3),
+                azimuth=_DEFAULT_BIHAND_LANDMARK_CAMERA["azimuth"],
+                elevation=_DEFAULT_BIHAND_LANDMARK_CAMERA["elevation"],
+            ):
+                self._camera_initialized = True
+            self._update_landmark_overlay(hands)
+        self.viewer.sync()
+
+    def _update_landmark_overlay(self, hands: np.ndarray) -> None:
+        scene = self.viewer.user_scn
+        scene.ngeom = 0
+        points = np.asarray(hands, dtype=np.float64)
+        if points.shape != (2, 21, 3):
+            raise ValueError(f"Expected landmarks with shape (2, 21, 3), got {points.shape}")
+
+        for hand_points, point_colors, bone_colors in (
+            (points[0], _LEFT_LANDMARK_COLORS, _LEFT_BONE_COLORS),
+            (points[1], _RIGHT_LANDMARK_COLORS, _RIGHT_BONE_COLORS),
+        ):
+            finite_mask = np.isfinite(hand_points).all(axis=1)
+            for idx, (point, rgba) in enumerate(zip(hand_points, point_colors, strict=True)):
+                if not finite_mask[idx]:
+                    continue
+                geom = scene.geoms[scene.ngeom]
+                mujoco.mjv_initGeom(
+                    geom,
+                    mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.full(3, _POINT_RADIUS, dtype=np.float64),
+                    point,
+                    _IDENTITY_MAT,
+                    rgba,
+                )
+                scene.ngeom += 1
+
+            for (start_idx, end_idx), rgba in zip(_HAND_CONNECTIONS, bone_colors, strict=True):
+                if not (finite_mask[start_idx] and finite_mask[end_idx]):
+                    continue
+                geom = scene.geoms[scene.ngeom]
+                mujoco.mjv_initGeom(
+                    geom,
+                    mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    np.zeros(3, dtype=np.float64),
+                    np.zeros(3, dtype=np.float64),
+                    _IDENTITY_MAT,
+                    rgba,
+                )
+                mujoco.mjv_connector(
+                    geom,
+                    mujoco.mjtGeom.mjGEOM_CAPSULE,
+                    _BONE_RADIUS,
+                    hand_points[start_idx],
+                    hand_points[end_idx],
+                )
+                geom.rgba[:] = rgba
+                scene.ngeom += 1
+
+    @property
+    def is_running(self) -> bool:
+        return self.viewer.is_running()
+
+    def close(self):
+        if self.viewer.is_running():
+            self.viewer.close()
+
+
 def _landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     visualizer = LandmarkVisualizer()
@@ -611,6 +754,93 @@ class AsyncLandmarkVisualizer:
             target=_landmark_viewer_worker,
             args=(self._queue,),
             name="dex-mujoco-landmark-viewer",
+        )
+        self._process.start()
+
+    @property
+    def is_running(self) -> bool:
+        return self._process.is_alive()
+
+    def update(self, landmarks: np.ndarray) -> None:
+        payload = np.asarray(landmarks, dtype=np.float64)
+        try:
+            self._queue.put_nowait(payload)
+            return
+        except queue.Full:
+            pass
+
+        try:
+            self._queue.get_nowait()
+        except queue.Empty:
+            pass
+
+        try:
+            self._queue.put_nowait(payload)
+        except queue.Full:
+            pass
+
+    def close(self) -> None:
+        if not self._process.is_alive():
+            return
+
+        try:
+            self._queue.put_nowait(None)
+        except queue.Full:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self._queue.put_nowait(None)
+            except queue.Full:
+                pass
+
+        self._process.join(timeout=2.0)
+        if self._process.is_alive():
+            self._process.terminate()
+            self._process.join(timeout=1.0)
+
+
+def _bihand_landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    visualizer = BiHandLandmarkVisualizer()
+    latest_landmarks = np.full((2, 21, 3), np.nan, dtype=np.float64)
+
+    try:
+        while visualizer.is_running:
+            drained = False
+            while True:
+                try:
+                    item = frame_queue.get_nowait()
+                except queue.Empty:
+                    break
+
+                if item is None:
+                    return
+                latest_landmarks = np.asarray(item, dtype=np.float64)
+                drained = True
+
+            if drained:
+                visualizer.update(latest_landmarks)
+            else:
+                visualizer.update(latest_landmarks)
+                time.sleep(1.0 / 120.0)
+    except KeyboardInterrupt:
+        return
+    finally:
+        visualizer.close()
+
+
+class AsyncBiHandLandmarkVisualizer:
+    """Bi-hand landmark viewer running in a separate process for stability."""
+
+    def __init__(self):
+        ctx = mp.get_context("spawn")
+        self._queue = ctx.Queue(maxsize=1)
+        self._process = ctx.Process(
+            target=_bihand_landmark_viewer_worker,
+            args=(self._queue,),
+            name="dex-mujoco-bihand-landmark-viewer",
         )
         self._process.start()
 

@@ -79,3 +79,9 @@ def test_camera_distance_for_radius_scales_with_scene_size():
 
     assert near >= visualization._MIN_CAMERA_DISTANCE
     assert far > near
+
+
+def test_bihand_landmark_camera_defaults_match_bihand_view():
+    assert visualization._DEFAULT_BIHAND_LANDMARK_CAMERA["distance"] == visualization._DEFAULT_BIHAND_CAMERA["distance"]
+    assert visualization._DEFAULT_BIHAND_LANDMARK_CAMERA["azimuth"] == visualization._DEFAULT_BIHAND_CAMERA["azimuth"]
+    assert visualization._DEFAULT_BIHAND_LANDMARK_CAMERA["elevation"] == visualization._DEFAULT_BIHAND_CAMERA["elevation"]

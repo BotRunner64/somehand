@@ -13,6 +13,7 @@ from .model_name_resolver import ModelNameResolver
 from .preview import OpenCvPreviewWindow
 from .sinks import (
     AsyncLandmarkOutputSink,
+    AsyncBiHandLandmarkOutputSink,
     BiHandOutputWindowSink,
     BiHandVideoOutputSink,
     RobotHandOutputSink,
@@ -41,6 +42,7 @@ from .vector_solver import VectorRetargeter
 
 __all__ = [
     "AsyncLandmarkOutputSink",
+    "AsyncBiHandLandmarkOutputSink",
     "BiHCMocapInputSource",
     "BiHandMediaPipeInputSource",
     "BiHandOutputWindowSink",

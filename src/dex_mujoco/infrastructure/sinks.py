@@ -12,6 +12,8 @@ import mujoco
 import numpy as np
 
 from dex_mujoco.domain import (
+    BiHandFrame,
+    BiHandFrameSink,
     BiHandOutputSink,
     BiHandRetargetingResult,
     HandFrame,
@@ -22,6 +24,7 @@ from dex_mujoco.domain import (
 )
 from dex_mujoco.visualization import (
     AsyncLandmarkVisualizer,
+    AsyncBiHandLandmarkVisualizer,
     BiHandScene,
     BiHandVisualizer,
     HandVisualizer,
@@ -92,6 +95,33 @@ def _fit_video_size(
     if height % 2 != 0:
         height -= 1
     return width, height
+
+
+def _quat_to_rotation_matrix(quat: tuple[float, float, float, float] | np.ndarray) -> np.ndarray:
+    q = np.asarray(quat, dtype=np.float64)
+    norm = np.linalg.norm(q)
+    if norm < 1e-12:
+        raise ValueError("Quaternion norm must be non-zero")
+    w, x, y, z = q / norm
+    return np.array(
+        [
+            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
+            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
+            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
+        ],
+        dtype=np.float64,
+    )
+
+
+def _transform_points(
+    points: np.ndarray,
+    *,
+    pos: tuple[float, float, float] | np.ndarray,
+    quat: tuple[float, float, float, float] | np.ndarray,
+) -> np.ndarray:
+    rotation = _quat_to_rotation_matrix(quat)
+    translation = np.asarray(pos, dtype=np.float64)
+    return np.asarray(points, dtype=np.float64) @ rotation.T + translation
 
 
 class TrajectoryRecorder(OutputSink):
@@ -211,6 +241,46 @@ class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
                 hand_side=frame.hand_side,
             )
         )
+
+    def close(self) -> None:
+        self._visualizer.close()
+
+
+class AsyncBiHandLandmarkOutputSink(BiHandFrameSink):
+    def __init__(
+        self,
+        *,
+        left_pos: tuple[float, float, float] = (0.22, 0.04, 0.02),
+        right_pos: tuple[float, float, float] = (-0.22, 0.04, 0.02),
+        left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151),
+        right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665),
+    ):
+        self._visualizer = AsyncBiHandLandmarkVisualizer()
+        self._left_pos = tuple(float(value) for value in left_pos)
+        self._right_pos = tuple(float(value) for value in right_pos)
+        self._left_quat = tuple(float(value) for value in left_quat)
+        self._right_quat = tuple(float(value) for value in right_quat)
+
+    @property
+    def is_running(self) -> bool:
+        return self._visualizer.is_running
+
+    def on_frame(self, frame: BiHandFrame) -> None:
+        left = np.full((21, 3), np.nan, dtype=np.float64)
+        right = np.full((21, 3), np.nan, dtype=np.float64)
+        if frame.left is not None:
+            left = preprocess_landmarks(
+                frame.left.landmarks_3d,
+                hand_side=frame.left.hand_side,
+            )
+            left = _transform_points(left, pos=self._left_pos, quat=self._left_quat)
+        if frame.right is not None:
+            right = preprocess_landmarks(
+                frame.right.landmarks_3d,
+                hand_side=frame.right.hand_side,
+            )
+            right = _transform_points(right, pos=self._right_pos, quat=self._right_quat)
+        self._visualizer.update(np.stack([left, right], axis=0))
 
     def close(self) -> None:
         self._visualizer.close()

@@ -170,6 +170,49 @@ def test_build_bihand_session_adds_replay_video_sink(monkeypatch):
     }
 
 
+def test_build_bihand_session_adds_landmark_frame_sink(monkeypatch):
+    created = {}
+
+    def _fake_frame_sink(**kwargs):
+        created.update(kwargs)
+        return "frame_sink"
+
+    monkeypatch.setattr(cli_module, "AsyncBiHandLandmarkOutputSink", _fake_frame_sink)
+    monkeypatch.setattr(cli_module, "BiHandOutputWindowSink", lambda *args, **kwargs: "result_sink")
+
+    engine = SimpleNamespace(
+        left_engine=SimpleNamespace(hand_model=object()),
+        right_engine=SimpleNamespace(hand_model=object()),
+        config=SimpleNamespace(
+            viewer=SimpleNamespace(
+                panel_width=600,
+                panel_height=400,
+                window_name="test",
+                left_pos=(0.3, 0.05, 0.01),
+                right_pos=(-0.3, 0.05, 0.01),
+                camera_lookat=(0.0, 0.05, 0.01),
+                left_quat=(0.1, 0.2, 0.3, 0.4),
+                right_quat=(0.5, 0.6, 0.7, 0.8),
+            )
+        ),
+    )
+
+    session = cli_module._build_bihand_session(
+        engine,
+        visualize=True,
+        show_preview=False,
+    )
+
+    assert session.frame_sinks == ["frame_sink"]
+    assert session.sinks == ["result_sink"]
+    assert created == {
+        "left_pos": (0.3, 0.05, 0.01),
+        "right_pos": (-0.3, 0.05, 0.01),
+        "left_quat": (0.1, 0.2, 0.3, 0.4),
+        "right_quat": (0.5, 0.6, 0.7, 0.8),
+    }
+
+
 def test_bihand_output_window_sink_uses_mujoco_visualizer(monkeypatch):
     created = {}
 
@@ -252,6 +295,58 @@ def test_bihand_recording_wrapper_captures_detected_frames_only():
     assert wrapped.recorded_frames[0].right is None
     assert wrapped.recorded_frames[1].left is None
     assert wrapped.recorded_frames[1].right is not None
+
+
+def test_bihand_landmark_output_sink_applies_scene_pose(monkeypatch):
+    updates = []
+
+    class _FakeVisualizer:
+        @property
+        def is_running(self):
+            return True
+
+        def update(self, landmarks):
+            updates.append(landmarks)
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(sinks_module, "AsyncBiHandLandmarkVisualizer", lambda: _FakeVisualizer())
+    monkeypatch.setattr(
+        sinks_module,
+        "preprocess_landmarks",
+        lambda landmarks, hand_side: np.asarray(landmarks, dtype=np.float64) + (1.0 if hand_side == "left" else 2.0),
+    )
+
+    half_sqrt2 = float(np.sqrt(0.5))
+    sink = sinks_module.AsyncBiHandLandmarkOutputSink(
+        left_pos=(-0.3, 0.05, 0.01),
+        right_pos=(0.3, 0.05, 0.01),
+        left_quat=(0.0, 0.0, 0.0, 1.0),
+        right_quat=(half_sqrt2, 0.0, 0.0, half_sqrt2),
+    )
+    sink.on_frame(_bihand_frame(left=True, right=True))
+
+    assert len(updates) == 1
+    assert updates[0].shape == (2, 21, 3)
+    left_input = _hand_frame("left").landmarks_3d + 1.0
+    right_input = _hand_frame("right").landmarks_3d + 2.0
+    left_rotation = np.array(
+        [
+            [-1.0, 0.0, 0.0],
+            [0.0, -1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    right_rotation = np.array(
+        [
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    np.testing.assert_allclose(updates[0][0], left_input @ left_rotation.T + np.array([-0.3, 0.05, 0.01]))
+    np.testing.assert_allclose(updates[0][1], right_input @ right_rotation.T + np.array([0.3, 0.05, 0.01]))
 
 
 def test_bihand_recording_artifact_roundtrip(tmp_path):
