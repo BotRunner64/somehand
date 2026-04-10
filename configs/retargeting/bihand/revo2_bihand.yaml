@@ -1,0 +1,5 @@
+left:
+  config: "../left/revo2_left.yaml"
+
+right:
+  config: "../right/revo2_right.yaml"

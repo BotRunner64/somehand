@@ -87,6 +87,25 @@ def test_bihand_config_loads_default_yaml():
     assert config.viewer.right_quat == (0.71846417, 0.05829359, -0.01490552, 0.69295665)
 
 
+def test_all_paired_side_specific_configs_have_bihand_yaml():
+    left_models = {path.stem.removesuffix("_left") for path in Path("configs/retargeting/left").glob("*_left.yaml")}
+    right_models = {path.stem.removesuffix("_right") for path in Path("configs/retargeting/right").glob("*_right.yaml")}
+    bihand_models = {path.stem.removesuffix("_bihand") for path in Path("configs/retargeting/bihand").glob("*_bihand.yaml")}
+
+    assert sorted(left_models & right_models) == sorted(bihand_models)
+
+
+def test_all_bihand_configs_load_successfully():
+    config_paths = sorted(Path("configs/retargeting/bihand").glob("*_bihand.yaml"))
+    assert config_paths
+    for config_path in config_paths:
+        config = BiHandRetargetingConfig.load(str(config_path))
+        left_config = RetargetingConfig.load(config.left_config_path)
+        right_config = RetargetingConfig.load(config.right_config_path)
+        assert left_config.hand.side == "left"
+        assert right_config.hand.side == "right"
+
+
 def test_build_bihand_session_adds_replay_video_sink(monkeypatch):
     created = {}
 

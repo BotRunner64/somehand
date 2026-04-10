@@ -1,0 +1,5 @@
+left:
+  config: "../left/linkerhand_l6_left.yaml"
+
+right:
+  config: "../right/linkerhand_l6_right.yaml"
