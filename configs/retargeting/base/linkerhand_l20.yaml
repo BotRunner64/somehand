@@ -153,6 +153,52 @@ retargeting:
     scale_bodies: ["world", "middle_proximal"]
     scale_body_types: ["body", "body"]
 
+  angle_constraints:
+    - landmarks: [4, 0, 8]
+      joint: "thumb_cmc_yaw"
+      weight: 1.0
+      scale: 1.0
+    - landmarks: [1, 2, 3]
+      joint: "thumb_mcp"
+      weight: 1.4
+      scale: 2.0
+    - landmarks: [2, 3, 4]
+      joint: "thumb_dip"
+      weight: 1.4
+      scale: 2.0
+    - landmarks: [5, 6, 7]
+      joint: "index_pip"
+      weight: 1.2
+      scale: 1.4
+    - landmarks: [6, 7, 8]
+      joint: "index_dip"
+      weight: 2.0
+      scale: 2.4
+    - landmarks: [9, 10, 11]
+      joint: "middle_pip"
+      weight: 1.2
+      scale: 1.4
+    - landmarks: [10, 11, 12]
+      joint: "middle_dip"
+      weight: 2.0
+      scale: 2.4
+    - landmarks: [13, 14, 15]
+      joint: "ring_pip"
+      weight: 1.2
+      scale: 1.4
+    - landmarks: [14, 15, 16]
+      joint: "ring_dip"
+      weight: 2.0
+      scale: 2.4
+    - landmarks: [17, 18, 19]
+      joint: "pinky_pip"
+      weight: 1.2
+      scale: 1.4
+    - landmarks: [18, 19, 20]
+      joint: "pinky_dip"
+      weight: 2.0
+      scale: 2.4
+
   preprocess:
     temporal_filter_alpha: 0.50
 

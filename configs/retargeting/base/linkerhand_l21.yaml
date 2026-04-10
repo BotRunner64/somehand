@@ -145,6 +145,27 @@ retargeting:
     - 1.0
     - 1.0
 
+  angle_constraints:
+    - landmarks: [1, 2, 3]
+      joint: "thumb_mcp"
+      weight: 3.0
+    - landmarks: [2, 3, 4]
+      joint: "thumb_ip"
+      weight: 3.0
+    # Finger pip
+    - landmarks: [5, 6, 7]
+      joint: "index_pip"
+      weight: 2.0
+    - landmarks: [9, 10, 11]
+      joint: "middle_pip"
+      weight: 2.0
+    - landmarks: [13, 14, 15]
+      joint: "ring_pip"
+      weight: 2.0
+    - landmarks: [17, 18, 19]
+      joint: "pinky_pip"
+      weight: 2.0
+
   preprocess:
     temporal_filter_alpha: 0.65
 

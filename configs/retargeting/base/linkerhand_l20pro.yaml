@@ -167,6 +167,39 @@ retargeting:
     - 1.0
     - 0.8     # fingertip direction
 
+  angle_constraints:
+    - landmarks: [1, 2, 3]
+      joint: "thumb_mcp"
+      weight: 3.0
+    - landmarks: [2, 3, 4]
+      joint: "thumb_ip"
+      weight: 3.0
+    # Finger pip/dip
+    - landmarks: [5, 6, 7]
+      joint: "index_pip"
+      weight: 2.0
+    - landmarks: [6, 7, 8]
+      joint: "index_dip"
+      weight: 2.0
+    - landmarks: [9, 10, 11]
+      joint: "middle_pip"
+      weight: 2.0
+    - landmarks: [10, 11, 12]
+      joint: "middle_dip"
+      weight: 2.0
+    - landmarks: [13, 14, 15]
+      joint: "ring_pip"
+      weight: 2.0
+    - landmarks: [14, 15, 16]
+      joint: "ring_dip"
+      weight: 2.0
+    - landmarks: [17, 18, 19]
+      joint: "pinky_pip"
+      weight: 2.0
+    - landmarks: [18, 19, 20]
+      joint: "pinky_dip"
+      weight: 2.0
+
   preprocess:
     temporal_filter_alpha: 0.65
 
