@@ -209,6 +209,18 @@ git submodule update --init --recursive
 bash scripts/setup_linkerhand_sdk.sh
 ```
 
+这个脚本现在也会顺手执行：
+
+```bash
+python3 -m pip install -r third_party/linkerhand-python-sdk/requirements.txt
+```
+
+如果你想指定解释器，可以这样运行：
+
+```bash
+PYTHON_BIN=python bash scripts/setup_linkerhand_sdk.sh
+```
+
 现在默认 `sdk_root` 就是仓库内的：
 
 ```text
