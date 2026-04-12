@@ -1,169 +1,203 @@
-# Retargeting config: MediaPipe -> Linkerhand L6 Right Hand
-# L6 is a simplified hand with 11 DOF total:
-#   Thumb: 3 DOF (cmc_roll, cmc_pitch, dip)
-#   Index/Middle/Ring/Pinky: 2 DOF each (mcp_pitch, dip)
-#
-# Uses cosine similarity loss (frame-invariant) with analytical Jacobians + SLSQP.
-# The config uses semantic body/site/joint names; side prefixes are resolved at runtime.
-
 hand:
-  name: "linkerhand_l6_right"
-  side: "right"
-  mjcf_path: "../../../assets/mjcf/linkerhand_l6_right/model.xml"
-
+  name: linkerhand_l6_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/linkerhand_l6_right/model.xml
 retargeting:
-  type: "vector"
-
-  human_vector_pairs:
-    # Palm structure (4 vectors)
-    - [0, 5]    # wrist -> index_mcp
-    - [0, 9]    # wrist -> middle_mcp
-    - [0, 13]   # wrist -> ring_mcp
-    - [0, 17]   # wrist -> little_mcp
-    # Thumb: 3 vectors for 3 DOF
-    - [0, 4]    # wrist -> thumb_tip (opposition vector)
-    - [1, 4]    # thumb_cmc -> thumb_tip (redundant thumb)
-    - [1, 2]    # thumb_cmc -> thumb_mcp
-    - [2, 4]    # thumb_mcp -> thumb_tip
-    - [3, 4]    # thumb_ip -> thumb_tip (dip direction)
-    # Index (2 vectors for 2 DOF)
-    - [5, 6]    # index_mcp -> index_pip
-    - [6, 8]    # index_pip -> index_tip
-    # Middle
-    - [9, 10]   # middle_mcp -> middle_pip
-    - [10, 12]  # middle_pip -> middle_tip
-    # Ring
-    - [13, 14]  # ring_mcp -> ring_pip
-    - [14, 16]  # ring_pip -> ring_tip
-    # Little
-    - [17, 18]  # little_mcp -> little_pip
-    - [18, 20]  # little_pip -> little_tip
-
-  origin_link_names:
-    - "world"
-    - "world"
-    - "world"
-    - "world"
-    - "world"
-    - "thumb_metacarpals_base1"
-    - "thumb_metacarpals_base1"
-    - "thumb_metacarpals"
-    - "thumb_distal"
-    - "index_proximal"
-    - "index_distal"
-    - "middle_proximal"
-    - "middle_distal"
-    - "ring_proximal"
-    - "ring_distal"
-    - "pinky_proximal"
-    - "pinky_distal"
-
-  task_link_names:
-    - "index_proximal"
-    - "middle_proximal"
-    - "ring_proximal"
-    - "pinky_proximal"
-    - "thumb_distal_tip"
-    - "thumb_distal_tip"
-    - "thumb_metacarpals"
-    - "thumb_distal_tip"
-    - "thumb_distal_tip"
-    - "index_distal"
-    - "index_distal_tip"
-    - "middle_distal"
-    - "middle_distal_tip"
-    - "ring_distal"
-    - "ring_distal_tip"
-    - "pinky_distal"
-    - "pinky_distal_tip"
-
-  origin_link_types:
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-
-  task_link_types:
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "body"
-    - "site"
-    - "body"
-    - "site"
-    - "body"
-    - "site"
-
-  vector_weights:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 2.5    # opposition (most important)
-    - 1.5    # redundant thumb
-    - 1.5
-    - 1.5
-    - 1.5
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-
+  type: vector
   vector_loss:
-    type: "direction"
+    type: direction
     huber_delta: 0.02
     scaling: 1.0
-    scale_landmarks: [0, 9]
-    scale_bodies: ["world", "middle_proximal"]
-    scale_body_types: ["body", "body"]
-
+    scale_landmarks:
+    - 0
+    - 9
+    scale_bodies:
+    - world
+    - middle_proximal
+    scale_body_types:
+    - body
+    - body
   angle_constraints:
-    - landmarks: [2, 3, 4]
-      joint: "thumb_dip"
-      weight: 3.0
-    # Finger dip
-    - landmarks: [6, 7, 8]
-      joint: "index_dip"
-      weight: 2.0
-    - landmarks: [10, 11, 12]
-      joint: "middle_dip"
-      weight: 2.0
-    - landmarks: [14, 15, 16]
-      joint: "ring_dip"
-      weight: 2.0
-    - landmarks: [18, 19, 20]
-      joint: "pinky_dip"
-      weight: 2.0
-
+  - landmarks:
+    - 2
+    - 3
+    - 4
+    joint: thumb_dip
+    weight: 3.0
+  - landmarks:
+    - 6
+    - 7
+    - 8
+    joint: index_dip
+    weight: 2.0
+  - landmarks:
+    - 10
+    - 11
+    - 12
+    joint: middle_dip
+    weight: 2.0
+  - landmarks:
+    - 14
+    - 15
+    - 16
+    joint: ring_dip
+    weight: 2.0
+  - landmarks:
+    - 18
+    - 19
+    - 20
+    joint: pinky_dip
+    weight: 2.0
   preprocess:
-    temporal_filter_alpha: 0.50
-
+    temporal_filter_alpha: 0.5
   solver:
     max_iterations: 60
     norm_delta: 0.004
-    output_alpha: 0.80
+    output_alpha: 0.8
+  vector_constraints:
+  - human:
+    - 0
+    - 5
+    robot:
+    - world
+    - index_proximal
+    weight: 1.0
+  - human:
+    - 0
+    - 9
+    robot:
+    - world
+    - middle_proximal
+    weight: 1.0
+  - human:
+    - 0
+    - 13
+    robot:
+    - world
+    - ring_proximal
+    weight: 1.0
+  - human:
+    - 0
+    - 17
+    robot:
+    - world
+    - pinky_proximal
+    weight: 1.0
+  - human:
+    - 0
+    - 4
+    robot:
+    - world
+    - thumb_distal_tip
+    weight: 2.5
+    robot_types:
+    - body
+    - site
+  - human:
+    - 1
+    - 4
+    robot:
+    - thumb_metacarpals_base1
+    - thumb_distal_tip
+    weight: 1.5
+    robot_types:
+    - body
+    - site
+  - human:
+    - 2
+    - 4
+    robot:
+    - thumb_metacarpals
+    - thumb_distal_tip
+    weight: 1.5
+    robot_types:
+    - body
+    - site
+  - human:
+    - 3
+    - 4
+    robot:
+    - thumb_distal
+    - thumb_distal_tip
+    weight: 1.5
+    robot_types:
+    - body
+    - site
+  - human:
+    - 5
+    - 6
+    robot:
+    - index_proximal
+    - index_distal
+    weight: 1.0
+  - human:
+    - 6
+    - 8
+    robot:
+    - index_distal
+    - index_distal_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 9
+    - 10
+    robot:
+    - middle_proximal
+    - middle_distal
+    weight: 1.0
+  - human:
+    - 10
+    - 12
+    robot:
+    - middle_distal
+    - middle_distal_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 13
+    - 14
+    robot:
+    - ring_proximal
+    - ring_distal
+    weight: 1.0
+  - human:
+    - 14
+    - 16
+    robot:
+    - ring_distal
+    - ring_distal_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 17
+    - 18
+    robot:
+    - pinky_proximal
+    - pinky_distal
+    weight: 1.0
+  - human:
+    - 18
+    - 20
+    robot:
+    - pinky_distal
+    - pinky_distal_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  frame_constraints:
+  - name: thumb_cmc_frame
+    human_origin: 1
+    human_primary: 2
+    human_secondary: 5
+    robot_origin: thumb_metacarpals_base1
+    robot_primary: thumb_metacarpals
+    robot_secondary: index_proximal
+    primary_weight: 1.5
+    secondary_weight: 1.0

@@ -346,12 +346,21 @@ hand:
   mjcf_path: "path/to/model.xml"
 
 retargeting:
-  human_vector_pairs:    # MediaPipe 关键点索引对
-    - [0, 5]             # wrist -> index_mcp
-  origin_link_names:     # 机器人向量起点 body 名称
-    - "base_link"
-  task_link_names:       # 机器人向量终点 body 名称
-    - "index_proximal"
+  vector_constraints:
+    - human: [0, 5]      # wrist -> index_mcp
+      robot: ["base_link", "index_proximal"]
+      robot_types: ["body", "body"]
+      weight: 1.0
+  frame_constraints:      # 可选：例如给 thumb CMC 增加局部朝向目标
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "thumb_base"
+      robot_primary: "thumb_proximal"
+      robot_secondary: "index_proximal"
+      primary_weight: 1.5
+      secondary_weight: 1.0
   preprocess:
     temporal_filter_alpha: 0.35
   solver:

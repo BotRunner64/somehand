@@ -52,14 +52,11 @@ def test_controller_config_parses_optional_fields(tmp_path):
                 '  transport: "can"',
                 '  can_interface: "can1"',
                 "retargeting:",
-                "  human_vector_pairs:",
-                "    - [0, 4]",
-                '  origin_link_names: ["world"]',
-                '  task_link_names: ["thumb_distal_tip"]',
-                '  origin_link_types: ["body"]',
-                '  task_link_types: ["site"]',
-                "  vector_weights:",
-                "    - 1.0",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
             ]
         )
     )

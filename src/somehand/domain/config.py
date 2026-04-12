@@ -64,50 +64,86 @@ class AngleConstraint:
 
 
 @dataclass
+class VectorConstraint:
+    human: list[int] = field(default_factory=list)
+    robot: list[str] = field(default_factory=list)
+    robot_types: list[str] = field(default_factory=lambda: ["body", "body"])
+    weight: float = 1.0
+
+
+@dataclass
+class FrameConstraint:
+    name: str = ""
+    human_origin: int = 0
+    human_primary: int = 0
+    human_secondary: int = 0
+    robot_origin: str = ""
+    robot_primary: str = ""
+    robot_secondary: str = ""
+    robot_types: list[str] = field(default_factory=lambda: ["body", "body", "body"])
+    primary_weight: float = 1.0
+    secondary_weight: float = 1.0
+
+
+@dataclass
 class RetargetingConfig:
     hand: HandConfig = field(default_factory=HandConfig)
     controller: ControllerConfig = field(default_factory=ControllerConfig)
-    human_vector_pairs: list[list[int]] = field(default_factory=list)
-    origin_link_names: list[str] = field(default_factory=list)
-    task_link_names: list[str] = field(default_factory=list)
-    origin_link_types: list[str] = field(default_factory=list)
-    task_link_types: list[str] = field(default_factory=list)
-    vector_weights: list[float] = field(default_factory=list)
+    vector_constraints: list[VectorConstraint] = field(default_factory=list)
+    frame_constraints: list[FrameConstraint] = field(default_factory=list)
     vector_loss: VectorLossConfig = field(default_factory=VectorLossConfig)
     angle_constraints: list[AngleConstraint] = field(default_factory=list)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     solver: SolverConfig = field(default_factory=SolverConfig)
 
+    @property
+    def human_vector_pairs(self) -> list[list[int]]:
+        return [list(constraint.human) for constraint in self.vector_constraints]
+
+    @property
+    def origin_link_names(self) -> list[str]:
+        return [constraint.robot[0] for constraint in self.vector_constraints]
+
+    @property
+    def task_link_names(self) -> list[str]:
+        return [constraint.robot[1] for constraint in self.vector_constraints]
+
+    @property
+    def origin_link_types(self) -> list[str]:
+        return [constraint.robot_types[0] for constraint in self.vector_constraints]
+
+    @property
+    def task_link_types(self) -> list[str]:
+        return [constraint.robot_types[1] for constraint in self.vector_constraints]
+
+    @property
+    def vector_weights(self) -> list[float]:
+        return [constraint.weight for constraint in self.vector_constraints]
+
     def validate(self) -> None:
         if not self.hand.side:
             raise ValueError("hand.side must be explicitly set to 'left' or 'right'")
         self.hand.side = normalize_hand_side(self.hand.side)
-        n = len(self.human_vector_pairs)
-        if len(self.origin_link_names) != n:
-            raise ValueError(
-                f"origin_link_names length ({len(self.origin_link_names)}) "
-                f"must match human_vector_pairs length ({n})"
-            )
-        if len(self.task_link_names) != n:
-            raise ValueError(
-                f"task_link_names length ({len(self.task_link_names)}) "
-                f"must match human_vector_pairs length ({n})"
-            )
-        if len(self.origin_link_types) != n:
-            raise ValueError(
-                f"origin_link_types length ({len(self.origin_link_types)}) "
-                f"must match human_vector_pairs length ({n})"
-            )
-        if len(self.task_link_types) != n:
-            raise ValueError(
-                f"task_link_types length ({len(self.task_link_types)}) "
-                f"must match human_vector_pairs length ({n})"
-            )
-        if len(self.vector_weights) != n:
-            raise ValueError(
-                f"vector_weights length ({len(self.vector_weights)}) "
-                f"must match human_vector_pairs length ({n})"
-            )
+        for constraint in self.vector_constraints:
+            if len(constraint.human) != 2:
+                raise ValueError("vector constraint human must have length 2")
+            if len(constraint.robot) != 2:
+                raise ValueError("vector constraint robot must have length 2")
+            if len(constraint.robot_types) != 2:
+                raise ValueError("vector constraint robot_types must have length 2")
+            if any(link_type not in {"body", "site"} for link_type in constraint.robot_types):
+                raise ValueError("vector constraint robot_types must only contain 'body' or 'site'")
+            if constraint.weight < 0.0:
+                raise ValueError("vector constraint weight must be >= 0")
+        for constraint in self.frame_constraints:
+            if len(constraint.robot_types) != 3:
+                raise ValueError("frame constraint robot_types must have length 3")
+            if any(link_type not in {"body", "site"} for link_type in constraint.robot_types):
+                raise ValueError("frame constraint robot_types must only contain 'body' or 'site'")
+            if constraint.primary_weight < 0.0:
+                raise ValueError("frame constraint primary_weight must be >= 0")
+            if constraint.secondary_weight < 0.0:
+                raise ValueError("frame constraint secondary_weight must be >= 0")
         if not 0.0 < self.preprocess.temporal_filter_alpha <= 1.0:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
@@ -129,10 +165,6 @@ class RetargetingConfig:
         for constraint in self.angle_constraints:
             if constraint.scale <= 0.0:
                 raise ValueError("angle constraint scale must be > 0")
-        if any(link_type not in {"body", "site"} for link_type in self.origin_link_types):
-            raise ValueError("origin_link_types must only contain 'body' or 'site'")
-        if any(link_type not in {"body", "site"} for link_type in self.task_link_types):
-            raise ValueError("task_link_types must only contain 'body' or 'site'")
         if self.hand.side not in HAND_SIDES:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if not Path(self.hand.mjcf_path).exists():

@@ -1,158 +1,184 @@
-# Retargeting config: MediaPipe -> DexRobot DexHand021
-# Uses the simplified URDF/MJCF export. Finger numbering is:
-#   1=thumb, 2=index, 3=middle, 4=ring, 5=pinky
-
 hand:
-  name: "dexhand021_right"
-  side: "right"
-  mjcf_path: "../../../assets/mjcf/dexhand021_right/model.xml"
-
+  name: dexhand021_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/dexhand021_right/model.xml
 retargeting:
-  type: "vector"
-
-  human_vector_pairs:
-    # Thumb
-    - [0, 4]
-    - [1, 4]
-    - [1, 2]
-    - [1, 3]
-    - [2, 3]
-    - [2, 4]
-    - [3, 4]
-    # Index
-    - [5, 6]
-    - [6, 8]
-    - [7, 8]
-    # Middle
-    - [9, 10]
-    - [10, 12]
-    - [11, 12]
-    # Ring
-    - [13, 14]
-    - [14, 16]
-    - [15, 16]
-    # Little
-    - [17, 18]
-    - [18, 20]
-    - [19, 20]
-
-  origin_link_names:
-    - "world"
-    - "f_link1_1"
-    - "f_link1_1"
-    - "f_link1_1"
-    - "f_link1_2"
-    - "f_link1_2"
-    - "f_link1_3"
-    - "f_link2_1"
-    - "f_link2_2"
-    - "f_link2_3"
-    - "f_link3_1"
-    - "f_link3_2"
-    - "f_link3_3"
-    - "f_link4_1"
-    - "f_link4_2"
-    - "f_link4_3"
-    - "f_link5_1"
-    - "f_link5_2"
-    - "f_link5_3"
-
-  task_link_names:
-    - "f_link1_4_tip"
-    - "f_link1_4_tip"
-    - "f_link1_2"
-    - "f_link1_3"
-    - "f_link1_3"
-    - "f_link1_4_tip"
-    - "f_link1_4_tip"
-    - "f_link2_2"
-    - "f_link2_4_tip"
-    - "f_link2_4_tip"
-    - "f_link3_2"
-    - "f_link3_4_tip"
-    - "f_link3_4_tip"
-    - "f_link4_2"
-    - "f_link4_4_tip"
-    - "f_link4_4_tip"
-    - "f_link5_2"
-    - "f_link5_4_tip"
-    - "f_link5_4_tip"
-
-  origin_link_types:
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-    - "body"
-
-  task_link_types:
-    - "site"
-    - "site"
-    - "body"
-    - "body"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
-    - "body"
-    - "site"
-    - "site"
-
-  vector_weights:
-    - 2.2
-    - 1.8
-    - 1.2
-    - 1.2
-    - 1.2
-    - 1.4
-    - 1.4
-    - 1.0
-    - 1.0
-    - 0.8
-    - 1.0
-    - 1.0
-    - 0.8
-    - 1.0
-    - 1.0
-    - 0.8
-    - 1.0
-    - 1.0
-    - 0.8
-
+  type: vector
   vector_loss:
-    type: "residual"
+    type: residual
     huber_delta: 0.02
     scaling: 1.0
-    scale_landmarks: [0, 9]
-    scale_bodies: ["world", "f_link3_2"]
-    scale_body_types: ["body", "body"]
-
+    scale_landmarks:
+    - 0
+    - 9
+    scale_bodies:
+    - world
+    - f_link3_2
+    scale_body_types:
+    - body
+    - body
   preprocess:
-    temporal_filter_alpha: 0.50
-
+    temporal_filter_alpha: 0.5
   solver:
     max_iterations: 60
     norm_delta: 0.004
-    output_alpha: 0.80
+    output_alpha: 0.8
+  vector_constraints:
+  - human:
+    - 0
+    - 4
+    robot:
+    - world
+    - f_link1_4_tip
+    weight: 2.2
+    robot_types:
+    - body
+    - site
+  - human:
+    - 1
+    - 4
+    robot:
+    - f_link1_1
+    - f_link1_4_tip
+    weight: 1.8
+    robot_types:
+    - body
+    - site
+  - human:
+    - 2
+    - 4
+    robot:
+    - f_link1_2
+    - f_link1_4_tip
+    weight: 1.4
+    robot_types:
+    - body
+    - site
+  - human:
+    - 3
+    - 4
+    robot:
+    - f_link1_3
+    - f_link1_4_tip
+    weight: 1.4
+    robot_types:
+    - body
+    - site
+  - human:
+    - 5
+    - 6
+    robot:
+    - f_link2_1
+    - f_link2_2
+    weight: 1.0
+  - human:
+    - 6
+    - 8
+    robot:
+    - f_link2_2
+    - f_link2_4_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 7
+    - 8
+    robot:
+    - f_link2_3
+    - f_link2_4_tip
+    weight: 0.8
+    robot_types:
+    - body
+    - site
+  - human:
+    - 9
+    - 10
+    robot:
+    - f_link3_1
+    - f_link3_2
+    weight: 1.0
+  - human:
+    - 10
+    - 12
+    robot:
+    - f_link3_2
+    - f_link3_4_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 11
+    - 12
+    robot:
+    - f_link3_3
+    - f_link3_4_tip
+    weight: 0.8
+    robot_types:
+    - body
+    - site
+  - human:
+    - 13
+    - 14
+    robot:
+    - f_link4_1
+    - f_link4_2
+    weight: 1.0
+  - human:
+    - 14
+    - 16
+    robot:
+    - f_link4_2
+    - f_link4_4_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 15
+    - 16
+    robot:
+    - f_link4_3
+    - f_link4_4_tip
+    weight: 0.8
+    robot_types:
+    - body
+    - site
+  - human:
+    - 17
+    - 18
+    robot:
+    - f_link5_1
+    - f_link5_2
+    weight: 1.0
+  - human:
+    - 18
+    - 20
+    robot:
+    - f_link5_2
+    - f_link5_4_tip
+    weight: 1.0
+    robot_types:
+    - body
+    - site
+  - human:
+    - 19
+    - 20
+    robot:
+    - f_link5_3
+    - f_link5_4_tip
+    weight: 0.8
+    robot_types:
+    - body
+    - site
+  frame_constraints:
+  - name: thumb_cmc_frame
+    human_origin: 1
+    human_primary: 2
+    human_secondary: 5
+    robot_origin: f_link1_1
+    robot_primary: f_link1_2
+    robot_secondary: f_link2_1
+    primary_weight: 1.2
+    secondary_weight: 1.0

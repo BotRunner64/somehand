@@ -92,6 +92,8 @@ class VectorRetargeter:
 
         self._target_directions: np.ndarray | None = None
         self._target_vectors: np.ndarray | None = None
+        self._target_frame_primary_directions: np.ndarray | None = None
+        self._target_frame_secondary_directions: np.ndarray | None = None
         self._target_angles: np.ndarray | None = None
         self._last_qpos: np.ndarray | None = None
         self._vector_scale_landmark_idx = config.vector_loss.scale_landmarks[1]
@@ -137,6 +139,45 @@ class VectorRetargeter:
             self._angle_scales.append(float(constraint.scale))
             self._angle_inverts.append(bool(constraint.invert))
 
+        self._frame_names: list[str] = []
+        self._frame_human_indices: list[tuple[int, int, int]] = []
+        self._frame_primary_weights: list[float] = []
+        self._frame_secondary_weights: list[float] = []
+        self._frame_origin_ids: list[int] = []
+        self._frame_origin_is_site: list[bool] = []
+        self._frame_primary_ids: list[int] = []
+        self._frame_primary_is_site: list[bool] = []
+        self._frame_secondary_ids: list[int] = []
+        self._frame_secondary_is_site: list[bool] = []
+        for constraint in config.frame_constraints:
+            self._frame_names.append(constraint.name)
+            self._frame_human_indices.append(
+                (constraint.human_origin, constraint.human_primary, constraint.human_secondary)
+            )
+            self._frame_primary_weights.append(constraint.primary_weight)
+            self._frame_secondary_weights.append(constraint.secondary_weight)
+            origin_id, origin_is_site = self._resolve_frame_point(
+                constraint.robot_origin,
+                constraint.robot_types[0],
+                role=f"Frame origin ({constraint.name or 'unnamed'})",
+            )
+            primary_id, primary_is_site = self._resolve_frame_point(
+                constraint.robot_primary,
+                constraint.robot_types[1],
+                role=f"Frame primary ({constraint.name or 'unnamed'})",
+            )
+            secondary_id, secondary_is_site = self._resolve_frame_point(
+                constraint.robot_secondary,
+                constraint.robot_types[2],
+                role=f"Frame secondary ({constraint.name or 'unnamed'})",
+            )
+            self._frame_origin_ids.append(origin_id)
+            self._frame_origin_is_site.append(origin_is_site)
+            self._frame_primary_ids.append(primary_id)
+            self._frame_primary_is_site.append(primary_is_site)
+            self._frame_secondary_ids.append(secondary_id)
+            self._frame_secondary_is_site.append(secondary_is_site)
+
         self._bounds: list[tuple[float | None, float | None]] = []
         for joint_index in range(self.model.nq):
             low, high = self.model.jnt_range[joint_index]
@@ -164,6 +205,15 @@ class VectorRetargeter:
                 break
 
         self._forward()
+
+    def _resolve_frame_point(self, name: str, point_type: str, *, role: str) -> tuple[int, bool]:
+        is_site = point_type == "site"
+        obj_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
+        resolved_name = self._name_resolver.resolve(name, obj_type=obj_type, role=role)
+        point_id = mujoco.mj_name2id(self.model, obj_type, resolved_name)
+        if point_id < 0:
+            raise ValueError(f"{role} '{name}' not found in model")
+        return point_id, is_site
 
     def _expand_qpos(self, qpos: np.ndarray) -> np.ndarray:
         if qpos.shape[0] == self.model.nq:
@@ -202,6 +252,39 @@ class VectorRetargeter:
             vectors[index] = task - origin
         return vectors
 
+    def _get_robot_frame_vectors(self) -> tuple[np.ndarray, np.ndarray]:
+        primary_vectors = np.empty((len(self._frame_origin_ids), 3), dtype=np.float64)
+        secondary_vectors = np.empty((len(self._frame_origin_ids), 3), dtype=np.float64)
+        for index in range(len(self._frame_origin_ids)):
+            origin = self._get_pos(self._frame_origin_ids[index], self._frame_origin_is_site[index])
+            primary = self._get_pos(self._frame_primary_ids[index], self._frame_primary_is_site[index])
+            secondary = self._get_pos(self._frame_secondary_ids[index], self._frame_secondary_is_site[index])
+            primary_vectors[index] = primary - origin
+            secondary_vectors[index] = secondary - origin
+        return primary_vectors, secondary_vectors
+
+    def _accumulate_direction_loss(
+        self,
+        vector: np.ndarray,
+        target_dir: np.ndarray,
+        weight: float,
+        jac_diff: np.ndarray | None = None,
+        grad: np.ndarray | None = None,
+    ) -> tuple[float, np.ndarray | None]:
+        if weight <= 0.0:
+            return 0.0, grad
+        robot_norm = np.linalg.norm(vector)
+        if robot_norm < 1e-8:
+            return weight, grad
+        robot_dir = vector / robot_norm
+        cos_sim = float(np.dot(robot_dir, target_dir))
+        loss = weight * (1.0 - cos_sim)
+        if grad is None or jac_diff is None:
+            return loss, grad
+        grad_vec = -(target_dir - cos_sim * robot_dir) / robot_norm
+        grad += weight * (grad_vec @ jac_diff)
+        return loss, grad
+
     def _get_effective_weight(self, index: int) -> float:
         return self._weights[index]
 
@@ -217,12 +300,26 @@ class VectorRetargeter:
                 dist = float(np.linalg.norm(diff))
                 loss += weight * _huber_loss(dist, self._vector_huber_delta)
             else:
-                robot_norm = np.linalg.norm(robot_vecs[index])
-                if robot_norm < 1e-8:
-                    loss += weight
-                    continue
-                cos_sim = np.dot(robot_vecs[index] / robot_norm, self._target_directions[index])
-                loss += weight * (1.0 - cos_sim)
+                direction_loss, _ = self._accumulate_direction_loss(
+                    robot_vecs[index],
+                    self._target_directions[index],
+                    weight,
+                )
+                loss += direction_loss
+        if self._target_frame_primary_directions is not None:
+            primary_vectors, secondary_vectors = self._get_robot_frame_vectors()
+            for index in range(len(primary_vectors)):
+                primary_loss, _ = self._accumulate_direction_loss(
+                    primary_vectors[index],
+                    self._target_frame_primary_directions[index],
+                    self._frame_primary_weights[index],
+                )
+                secondary_loss, _ = self._accumulate_direction_loss(
+                    secondary_vectors[index],
+                    self._target_frame_secondary_directions[index],
+                    self._frame_secondary_weights[index],
+                )
+                loss += primary_loss + secondary_loss
         if self._last_qpos is not None:
             loss += self._norm_delta * np.sum((full_qpos - self._last_qpos) ** 2)
         if self._target_angles is not None:
@@ -265,18 +362,56 @@ class VectorRetargeter:
                     grad_coeff = _huber_grad(dist, self._vector_huber_delta) / dist
                     grad += weight * grad_coeff * (diff @ jac_diff)
             else:
-                robot_norm = np.linalg.norm(robot_vec)
-                if robot_norm < 1e-8:
-                    loss += weight
-                    continue
+                direction_loss, grad = self._accumulate_direction_loss(
+                    robot_vec,
+                    self._target_directions[index],
+                    weight,
+                    jac_diff=jac_diff,
+                    grad=grad,
+                )
+                loss += direction_loss
 
-                robot_dir = robot_vec / robot_norm
-                target_dir = self._target_directions[index]
-                cos_sim = np.dot(robot_dir, target_dir)
-                loss += weight * (1.0 - cos_sim)
+        if self._target_frame_primary_directions is not None:
+            for index in range(len(self._frame_origin_ids)):
+                jac_origin = np.zeros((3, num_velocities))
+                jac_primary = np.zeros((3, num_velocities))
+                jac_secondary = np.zeros((3, num_velocities))
 
-                grad_vec = -(target_dir - cos_sim * robot_dir) / robot_norm
-                grad += weight * (grad_vec @ jac_diff)
+                if self._frame_origin_is_site[index]:
+                    mujoco.mj_jacSite(self.model, self.data, jac_origin, None, self._frame_origin_ids[index])
+                else:
+                    mujoco.mj_jacBody(self.model, self.data, jac_origin, None, self._frame_origin_ids[index])
+
+                if self._frame_primary_is_site[index]:
+                    mujoco.mj_jacSite(self.model, self.data, jac_primary, None, self._frame_primary_ids[index])
+                else:
+                    mujoco.mj_jacBody(self.model, self.data, jac_primary, None, self._frame_primary_ids[index])
+
+                if self._frame_secondary_is_site[index]:
+                    mujoco.mj_jacSite(self.model, self.data, jac_secondary, None, self._frame_secondary_ids[index])
+                else:
+                    mujoco.mj_jacBody(self.model, self.data, jac_secondary, None, self._frame_secondary_ids[index])
+
+                origin = self._get_pos(self._frame_origin_ids[index], self._frame_origin_is_site[index])
+                primary = self._get_pos(self._frame_primary_ids[index], self._frame_primary_is_site[index])
+                secondary = self._get_pos(self._frame_secondary_ids[index], self._frame_secondary_is_site[index])
+                primary_vec = primary - origin
+                secondary_vec = secondary - origin
+                primary_loss, grad = self._accumulate_direction_loss(
+                    primary_vec,
+                    self._target_frame_primary_directions[index],
+                    self._frame_primary_weights[index],
+                    jac_diff=jac_primary - jac_origin,
+                    grad=grad,
+                )
+                secondary_loss, grad = self._accumulate_direction_loss(
+                    secondary_vec,
+                    self._target_frame_secondary_directions[index],
+                    self._frame_secondary_weights[index],
+                    jac_diff=jac_secondary - jac_origin,
+                    grad=grad,
+                )
+                loss += primary_loss + secondary_loss
 
         if self._last_qpos is not None:
             delta_q = full_qpos - self._last_qpos
@@ -322,6 +457,21 @@ class VectorRetargeter:
                 directions[index] = vector / norm
         self._target_directions = directions
         self._target_vectors = target_vectors
+        if self._frame_human_indices:
+            frame_primary = np.empty((len(self._frame_human_indices), 3), dtype=np.float64)
+            frame_secondary = np.empty((len(self._frame_human_indices), 3), dtype=np.float64)
+            for index, (origin_idx, primary_idx, secondary_idx) in enumerate(self._frame_human_indices):
+                primary_vector = landmarks[primary_idx] - landmarks[origin_idx]
+                secondary_vector = landmarks[secondary_idx] - landmarks[origin_idx]
+                primary_norm = np.linalg.norm(primary_vector)
+                secondary_norm = np.linalg.norm(secondary_vector)
+                frame_primary[index] = 0.0 if primary_norm < 1e-8 else primary_vector / primary_norm
+                frame_secondary[index] = 0.0 if secondary_norm < 1e-8 else secondary_vector / secondary_norm
+            self._target_frame_primary_directions = frame_primary
+            self._target_frame_secondary_directions = frame_secondary
+        else:
+            self._target_frame_primary_directions = None
+            self._target_frame_secondary_directions = None
 
         if self._angle_landmarks:
             target_angles = np.zeros(len(self._angle_landmarks))
@@ -381,3 +531,10 @@ class VectorRetargeter:
         if self._target_directions is None:
             return None
         return self._target_directions.copy()
+
+    def get_frame_target_directions(self) -> tuple[np.ndarray | None, np.ndarray | None]:
+        primary = None if self._target_frame_primary_directions is None else self._target_frame_primary_directions.copy()
+        secondary = (
+            None if self._target_frame_secondary_directions is None else self._target_frame_secondary_directions.copy()
+        )
+        return primary, secondary

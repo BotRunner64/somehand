@@ -170,11 +170,31 @@ def current_alignment_metrics(retargeter) -> dict[str, float]:
             cosines[i] = -1.0
         else:
             cosines[i] = float(np.dot(vector / norm, target_directions[i]))
-    return {
+    metrics = {
         "weighted_cosine": float(np.average(cosines, weights=weights)),
         "mean_cosine": float(np.mean(cosines)),
         "min_cosine": float(np.min(cosines)),
     }
+    frame_primary_targets, frame_secondary_targets = retargeter.get_frame_target_directions()
+    if frame_primary_targets is not None and frame_secondary_targets is not None:
+        primary_vectors, secondary_vectors = retargeter._get_robot_frame_vectors()
+        primary_cosines = np.empty(len(primary_vectors), dtype=np.float64)
+        secondary_cosines = np.empty(len(secondary_vectors), dtype=np.float64)
+        for index, vector in enumerate(primary_vectors):
+            norm = np.linalg.norm(vector)
+            if norm < 1e-8:
+                primary_cosines[index] = -1.0
+            else:
+                primary_cosines[index] = float(np.dot(vector / norm, frame_primary_targets[index]))
+        for index, vector in enumerate(secondary_vectors):
+            norm = np.linalg.norm(vector)
+            if norm < 1e-8:
+                secondary_cosines[index] = -1.0
+            else:
+                secondary_cosines[index] = float(np.dot(vector / norm, frame_secondary_targets[index]))
+        metrics["thumb_frame_primary_cosine"] = float(np.mean(primary_cosines))
+        metrics["thumb_frame_secondary_cosine"] = float(np.mean(secondary_cosines))
+    return metrics
 
 
 def solver_quality_score(retargeter) -> dict[str, float]:
@@ -186,6 +206,8 @@ def solver_quality_score(retargeter) -> dict[str, float]:
     mean_scores = []
     min_scores = []
     losses = []
+    frame_primary_scores = []
+    frame_secondary_scores = []
     for pose_name in ("open", "pinch", "fist"):
         retargeter.update_targets(synthetic_hand_pose(pose_name), hand_side="right")
         retargeter.solve()
@@ -194,14 +216,23 @@ def solver_quality_score(retargeter) -> dict[str, float]:
         mean_scores.append(metrics["mean_cosine"])
         min_scores.append(metrics["min_cosine"])
         losses.append(retargeter.compute_error())
+        if "thumb_frame_primary_cosine" in metrics:
+            frame_primary_scores.append(metrics["thumb_frame_primary_cosine"])
+        if "thumb_frame_secondary_cosine" in metrics:
+            frame_secondary_scores.append(metrics["thumb_frame_secondary_cosine"])
 
-    return {
+    result = {
         "mean_weighted_cosine": float(np.mean(weighted_scores)),
         "min_weighted_cosine": float(np.min(weighted_scores)),
         "mean_cosine": float(np.mean(mean_scores)),
         "min_cosine": float(np.min(min_scores)),
         "mean_loss": float(np.mean(losses)),
     }
+    if frame_primary_scores:
+        result["mean_thumb_frame_primary_cosine"] = float(np.mean(frame_primary_scores))
+    if frame_secondary_scores:
+        result["mean_thumb_frame_secondary_cosine"] = float(np.mean(frame_secondary_scores))
+    return result
 
 
 def throughput_score(retargeter, num_steps: int = 60) -> float:

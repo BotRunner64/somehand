@@ -12,7 +12,7 @@ from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from somehand.infrastructure.vector_solver import VectorRetargeter
 
 
-def test_config_validation_rejects_mismatched_vector_lengths(tmp_path):
+def test_config_validation_rejects_legacy_vector_schema(tmp_path):
     mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
     config_path = tmp_path / "invalid.yaml"
     config_path.write_text(
@@ -31,7 +31,7 @@ def test_config_validation_rejects_mismatched_vector_lengths(tmp_path):
         )
     )
 
-    with pytest.raises(ValueError, match="origin_link_names length"):
+    with pytest.raises(ValueError, match="legacy vector schema"):
         load_retargeting_config(str(config_path))
 
 
@@ -46,14 +46,11 @@ def test_angle_constraint_parses_scale_and_invert(tmp_path):
                 '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
-                "  human_vector_pairs:",
-                "    - [0, 4]",
-                '  origin_link_names: ["world"]',
-                '  task_link_names: ["thumb_distal_tip"]',
-                '  origin_link_types: ["body"]',
-                '  task_link_types: ["site"]',
-                "  vector_weights:",
-                "    - 1.0",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
                 "  angle_constraints:",
                 "    - landmarks: [4, 0, 8]",
                 '      joint: "thumb_cmc_yaw"',
@@ -80,14 +77,11 @@ def test_vector_loss_parses_residual_settings(tmp_path):
                 '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
-                "  human_vector_pairs:",
-                "    - [0, 4]",
-                '  origin_link_names: ["world"]',
-                '  task_link_names: ["thumb_distal_tip"]',
-                '  origin_link_types: ["body"]',
-                '  task_link_types: ["site"]',
-                "  vector_weights:",
-                "    - 1.0",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
                 "  vector_loss:",
                 '    type: "residual"',
                 "    huber_delta: 0.03",
@@ -105,6 +99,43 @@ def test_vector_loss_parses_residual_settings(tmp_path):
     assert config.vector_loss.scaling == pytest.approx(1.2)
 
 
+def test_frame_constraint_parses_thumb_cmc_axes(tmp_path):
+    mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
+    config_path = tmp_path / "frame.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "hand:",
+                '  name: "ok"',
+                '  side: "right"',
+                f'  mjcf_path: "{mjcf_path}"',
+                "retargeting:",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
+                "  frame_constraints:",
+                '    - name: "thumb_cmc_frame"',
+                "      human_origin: 1",
+                "      human_primary: 2",
+                "      human_secondary: 5",
+                '      robot_origin: "thumb_metacarpals_base1"',
+                '      robot_primary: "thumb_metacarpals"',
+                '      robot_secondary: "index_proximal"',
+                "      primary_weight: 1.4",
+                "      secondary_weight: 0.9",
+            ]
+        )
+    )
+
+    config = load_retargeting_config(str(config_path))
+    assert config.frame_constraints[0].name == "thumb_cmc_frame"
+    assert config.frame_constraints[0].human_secondary == 5
+    assert config.frame_constraints[0].primary_weight == pytest.approx(1.4)
+    assert config.frame_constraints[0].secondary_weight == pytest.approx(0.9)
+
+
 def test_removed_position_constraints_are_rejected(tmp_path):
     mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
     config_path = tmp_path / "position.yaml"
@@ -116,12 +147,11 @@ def test_removed_position_constraints_are_rejected(tmp_path):
                 '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
-                "  human_vector_pairs:",
-                "    - [0, 4]",
-                '  origin_link_names: ["world"]',
-                '  task_link_names: ["thumb_distal_tip"]',
-                "  vector_weights:",
-                "    - 1.0",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
                 "  position_constraints:",
                 "    enabled: true",
             ]
@@ -143,12 +173,11 @@ def test_removed_pinch_is_rejected(tmp_path):
                 '  side: "right"',
                 f'  mjcf_path: "{mjcf_path}"',
                 "retargeting:",
-                "  human_vector_pairs:",
-                "    - [0, 4]",
-                '  origin_link_names: ["world"]',
-                '  task_link_names: ["thumb_distal_tip"]',
-                "  vector_weights:",
-                "    - 1.0",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
                 "  pinch:",
                 "    enabled: true",
             ]

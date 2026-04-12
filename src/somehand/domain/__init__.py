@@ -5,10 +5,12 @@ from .config import (
     BiHandRetargetingConfig,
     BiHandViewerConfig,
     ControllerConfig,
+    FrameConstraint,
     HandConfig,
     PreprocessConfig,
     RetargetingConfig,
     SolverConfig,
+    VectorConstraint,
     VectorLossConfig,
 )
 from .control import ControllerBackend, HandCommand, HandState
@@ -46,6 +48,7 @@ __all__ = [
     "ControllerBackend",
     "ControllerConfig",
     "display_hand_side",
+    "FrameConstraint",
     "HandConfig",
     "HandCommand",
     "HandFrame",
@@ -65,5 +68,6 @@ __all__ = [
     "SourceFrame",
     "compute_target_directions",
     "preprocess_landmarks",
+    "VectorConstraint",
     "VectorLossConfig",
 ]

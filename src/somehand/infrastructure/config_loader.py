@@ -11,10 +11,12 @@ from somehand.domain.config import (
     BiHandRetargetingConfig,
     BiHandViewerConfig,
     ControllerConfig,
+    FrameConstraint,
     HandConfig,
     PreprocessConfig,
     RetargetingConfig,
     SolverConfig,
+    VectorConstraint,
     VectorLossConfig,
 )
 from somehand.domain.hand_side import normalize_hand_side
@@ -87,21 +89,44 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
     )
 
     retargeting_data = data.get("retargeting", {})
-    config.human_vector_pairs = retargeting_data.get("human_vector_pairs", [])
-    config.origin_link_names = retargeting_data.get("origin_link_names", [])
-    config.task_link_names = retargeting_data.get("task_link_names", [])
-    config.origin_link_types = retargeting_data.get(
+    legacy_vector_keys = {
+        "human_vector_pairs",
+        "origin_link_names",
+        "task_link_names",
         "origin_link_types",
-        ["body"] * len(config.origin_link_names),
-    )
-    config.task_link_types = retargeting_data.get(
         "task_link_types",
-        ["body"] * len(config.task_link_names),
-    )
-    config.vector_weights = retargeting_data.get(
         "vector_weights",
-        [1.0] * len(config.human_vector_pairs),
-    )
+    }
+    legacy_keys_present = sorted(key for key in legacy_vector_keys if key in retargeting_data)
+    if legacy_keys_present:
+        raise ValueError(
+            "retargeting legacy vector schema is no longer supported; "
+            f"use vector_constraints instead of {', '.join(legacy_keys_present)}"
+        )
+    config.vector_constraints = [
+        VectorConstraint(
+            human=[int(value) for value in item["human"]],
+            robot=[str(value) for value in item["robot"]],
+            robot_types=[str(value) for value in item.get("robot_types", ["body", "body"])],
+            weight=float(item.get("weight", 1.0)),
+        )
+        for item in retargeting_data.get("vector_constraints", [])
+    ]
+    config.frame_constraints = [
+        FrameConstraint(
+            name=str(item.get("name", "")),
+            human_origin=int(item["human_origin"]),
+            human_primary=int(item["human_primary"]),
+            human_secondary=int(item["human_secondary"]),
+            robot_origin=str(item["robot_origin"]),
+            robot_primary=str(item["robot_primary"]),
+            robot_secondary=str(item["robot_secondary"]),
+            robot_types=[str(value) for value in item.get("robot_types", ["body", "body", "body"])],
+            primary_weight=float(item.get("primary_weight", 1.0)),
+            secondary_weight=float(item.get("secondary_weight", 1.0)),
+        )
+        for item in retargeting_data.get("frame_constraints", [])
+    ]
     vector_loss_data = retargeting_data.get("vector_loss", {})
     config.vector_loss = VectorLossConfig(
         type=vector_loss_data.get("type", "direction"),

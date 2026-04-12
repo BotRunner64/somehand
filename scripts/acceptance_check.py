@@ -48,6 +48,8 @@ def run_video_check(
     mean_cosines = []
     min_cosines = []
     losses = []
+    frame_primary_cosines = []
+    frame_secondary_cosines = []
 
     try:
         for frame in HandDetector.create_source(video_path):
@@ -63,6 +65,10 @@ def run_video_check(
             weighted_cosines.append(metrics["weighted_cosine"])
             mean_cosines.append(metrics["mean_cosine"])
             min_cosines.append(metrics["min_cosine"])
+            if "thumb_frame_primary_cosine" in metrics:
+                frame_primary_cosines.append(metrics["thumb_frame_primary_cosine"])
+            if "thumb_frame_secondary_cosine" in metrics:
+                frame_secondary_cosines.append(metrics["thumb_frame_secondary_cosine"])
             losses.append(retargeter.compute_error())
     finally:
         detector.close()
@@ -73,18 +79,25 @@ def run_video_check(
     min_cosine = float(sum(min_cosines) / len(min_cosines)) if min_cosines else float("-inf")
     mean_loss = float(sum(losses) / len(losses)) if losses else float("inf")
     passed = detection_rate >= min_detection_rate and mean_weighted_cosine >= min_video_cos
+    metrics = {
+        "total_frames": total_frames,
+        "detected_frames": detected_frames,
+        "detection_rate": detection_rate,
+        "mean_weighted_cosine": mean_weighted_cosine,
+        "mean_cosine": mean_cosine,
+        "mean_min_cosine": min_cosine,
+        "mean_loss": mean_loss,
+    }
+    if frame_primary_cosines:
+        metrics["mean_thumb_frame_primary_cosine"] = float(sum(frame_primary_cosines) / len(frame_primary_cosines))
+    if frame_secondary_cosines:
+        metrics["mean_thumb_frame_secondary_cosine"] = float(
+            sum(frame_secondary_cosines) / len(frame_secondary_cosines)
+        )
     return AcceptanceResult(
         name="video_regression",
         passed=passed,
-        metrics={
-            "total_frames": total_frames,
-            "detected_frames": detected_frames,
-            "detection_rate": detection_rate,
-            "mean_weighted_cosine": mean_weighted_cosine,
-            "mean_cosine": mean_cosine,
-            "mean_min_cosine": min_cosine,
-            "mean_loss": mean_loss,
-        },
+        metrics=metrics,
         detail="Offline video acceptance on recorded webcam footage.",
     )
 
