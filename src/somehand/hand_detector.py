@@ -1,12 +1,14 @@
 """MediaPipe hand tracking wrapper using Tasks API."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterator, Optional, Union
 
 import cv2
 import numpy as np
 
 from .domain.hand_side import display_hand_side, normalize_hand_side
+from .external_assets import build_missing_asset_message
 from .paths import DEFAULT_HAND_LANDMARKER_MODEL
 
 # Default model path relative to project root
@@ -49,6 +51,16 @@ class HandDetector:
 
         if model_path is None:
             model_path = str(_DEFAULT_MODEL_PATH)
+            if not Path(model_path).exists():
+                raise FileNotFoundError(
+                    build_missing_asset_message(
+                        model_path,
+                        group="mediapipe",
+                        label="MediaPipe hand model",
+                    )
+                )
+        elif not Path(model_path).expanduser().exists():
+            raise FileNotFoundError(f"MediaPipe hand model not found: {model_path}")
 
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=model_path),

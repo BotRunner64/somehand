@@ -178,7 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     hc_mocap.add_argument(
         "--reference-bvh",
         default=str(DEFAULT_HC_MOCAP_REFERENCE_BVH),
-        help="Reference hc_mocap BVH file for UDP joint ordering",
+        help="Optional custom hc_mocap BVH override; default uses built-in joint ordering",
     )
     hc_mocap.add_argument("--udp-host", default="", help="UDP bind host for hc_mocap input")
     hc_mocap.add_argument("--udp-port", type=int, default=1118, help="UDP port for hc_mocap input")
@@ -236,7 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     bihand_hc_mocap.add_argument(
         "--reference-bvh",
         default=str(DEFAULT_HC_MOCAP_REFERENCE_BVH),
-        help="Reference hc_mocap BVH file for UDP joint ordering",
+        help="Optional custom hc_mocap BVH override; default uses built-in joint ordering",
     )
     bihand_hc_mocap.add_argument("--udp-host", default="", help="UDP bind host for hc_mocap input")
     bihand_hc_mocap.add_argument("--udp-port", type=int, default=1118, help="UDP port for hc_mocap input")

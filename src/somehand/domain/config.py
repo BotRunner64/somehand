@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from somehand.external_assets import build_missing_asset_message
+
 from .hand_side import HAND_SIDES, normalize_hand_side
 
 
@@ -170,7 +172,12 @@ class RetargetingConfig:
         if self.hand.side not in HAND_SIDES:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if not Path(self.hand.mjcf_path).exists():
-            raise FileNotFoundError(f"MJCF file not found: {self.hand.mjcf_path}")
+            raise FileNotFoundError(
+                build_missing_asset_message(
+                    self.hand.mjcf_path,
+                    label="MJCF file",
+                )
+            )
         if self.controller.backend not in {"viewer", "sim", "real"}:
             raise ValueError("controller.backend must be one of: viewer, sim, real")
         if self.controller.transport not in {"can", "modbus"}:

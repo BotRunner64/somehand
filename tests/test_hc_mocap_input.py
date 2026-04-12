@@ -5,9 +5,11 @@ from pathlib import Path
 from somehand.hc_mocap_input import (
     _frame_from_bvh_values,
     _parse_bvh_reference,
+    _builtin_hc_mocap_skeleton,
     HCMocapHandProvider,
     hc_mocap_frame_to_landmarks,
 )
+from somehand.paths import DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 
 def _joint(position):
@@ -90,6 +92,28 @@ def test_hc_mocap_provider_exposes_latest_detection_snapshot():
     assert detection.hand_side == "left"
     assert detection.landmarks_3d.shape == (21, 3)
     np.testing.assert_allclose(detection.landmarks_3d[0], [0.0, 0.0, 0.0])
+
+
+def test_builtin_hc_mocap_reference_matches_default_selector():
+    skeleton = _parse_bvh_reference(DEFAULT_HC_MOCAP_REFERENCE_BVH)
+
+    assert skeleton.expected_floats == 159
+    assert skeleton.joint_names[0] == "hc_Abdomen"
+    assert skeleton.joint_names[36] == "hc_Hand_R"
+    assert abs(skeleton.frame_time - (1.0 / 60.0)) < 1e-8
+
+
+def test_builtin_hc_mocap_skeleton_matches_legacy_bvh_layout():
+    builtin = _builtin_hc_mocap_skeleton()
+    legacy = _parse_bvh_reference("assets/ref_with_toe.bvh")
+
+    assert builtin.joint_names == legacy.joint_names
+    np.testing.assert_array_equal(builtin.parents, legacy.parents)
+    np.testing.assert_allclose(builtin.offsets, legacy.offsets)
+    assert builtin.channels == legacy.channels
+    assert builtin.end_sites.keys() == legacy.end_sites.keys()
+    for key in builtin.end_sites:
+        np.testing.assert_allclose(builtin.end_sites[key], legacy.end_sites[key])
 
 @pytest.mark.skipif(
     not Path("/home/wubingqian/project/teleop_projects/Teleopit/data/hc_mocap_bvh/motion-20260211203358.bvh").exists(),

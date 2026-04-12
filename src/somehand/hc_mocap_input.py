@@ -6,12 +6,14 @@ import socket
 import threading
 import time
 from pathlib import Path
+from typing import Final
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from .domain.hand_side import normalize_hand_side
 from .hand_detector import HandDetection
+from .paths import DEFAULT_HC_MOCAP_REFERENCE_BVH
 _OUTPUT_ROTATION_MATRIX = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
     dtype=np.float64,
@@ -163,8 +165,125 @@ class _BvhSkeleton:
         self.end_sites = end_sites or {}  # parent_joint_idx -> local offset
 
 
+_ROOT_CHANNELS: Final[tuple[str, ...]] = (
+    "Xposition",
+    "Yposition",
+    "Zposition",
+    "Zrotation",
+    "Xrotation",
+    "Yrotation",
+)
+_JOINT_CHANNELS: Final[tuple[str, ...]] = ("Zrotation", "Xrotation", "Yrotation")
+_BUILTIN_HC_MOCAP_JOINTS: Final[list[tuple[str, str | None, tuple[float, float, float]]]] = [
+    ("hc_Abdomen", None, (0.0, 0.0, 0.0)),
+    ("hc_Hip_L", "hc_Abdomen", (-0.090058, -0.014508, -0.005261)),
+    ("hc_Knee_L", "hc_Hip_L", (0.0, -0.42572, 0.0)),
+    ("hc_Foot_L", "hc_Knee_L", (0.0, -0.401965, 0.0)),
+    ("LeftToeBase", "hc_Foot_L", (0.008324, -0.164266, -0.10654)),
+    ("hc_Hip_R", "hc_Abdomen", (0.090058, -0.014508, -0.005261)),
+    ("hc_Knee_R", "hc_Hip_R", (0.0, -0.42572, 0.0)),
+    ("hc_Foot_R", "hc_Knee_R", (0.0, -0.401965, 0.0)),
+    ("RightToeBase", "hc_Foot_R", (-0.008324, -0.164266, -0.10654)),
+    ("Spine", "hc_Abdomen", (0.0, 0.108057, -0.00891)),
+    ("hc_Chest", "Spine", (0.0, 0.005886, 0.192453)),
+    ("hc_Chest1", "hc_Chest", (0.0, 0.132667, 0.019818)),
+    ("LeftShoulder", "hc_Chest1", (-0.03782, 0.121714, -0.007377)),
+    ("hc_Shoulder_L", "LeftShoulder", (0.0, 0.0, 0.161531)),
+    ("hc_Elbow_L", "hc_Shoulder_L", (0.0, -0.298399, 0.0)),
+    ("hc_Hand_L", "hc_Elbow_L", (0.0, -0.269751, 0.0)),
+    ("hc_Index1_L", "hc_Hand_L", (-0.027655, -0.120344, -0.008508)),
+    ("hc_Index2_L", "hc_Index1_L", (0.0, 0.0, 0.042875)),
+    ("hc_Index3_L", "hc_Index2_L", (0.0, 0.0, 0.033938)),
+    ("hc_Middle1_L", "hc_Hand_L", (-0.001078, -0.123213, -0.003106)),
+    ("hc_Middle2_L", "hc_Middle1_L", (0.0, 0.0, 0.046404)),
+    ("hc_Middle3_L", "hc_Middle2_L", (0.0, 0.0, 0.036488)),
+    ("hc_Pinky1_L", "hc_Hand_L", (0.040938, -0.105318, -0.013548)),
+    ("hc_Pinky2_L", "hc_Pinky1_L", (0.0, 0.0, 0.03571)),
+    ("hc_Pinky3_L", "hc_Pinky2_L", (0.000881, 0.0, 0.029796)),
+    ("hc_Ring1_L", "hc_Hand_L", (0.022144, -0.117419, -0.007786)),
+    ("hc_Ring2_L", "hc_Ring1_L", (0.0, 0.0, 0.044193)),
+    ("hc_Ring3_L", "hc_Ring2_L", (0.000638, 0.0, 0.034791)),
+    ("hc_Thumb1_L", "hc_Hand_L", (-0.027649, -0.047882, -0.020461)),
+    ("hc_Thumb2_L", "hc_Thumb1_L", (0.0, -0.038697, 0.0)),
+    ("hc_Thumb3_L", "hc_Thumb2_L", (0.0, -0.040622, 0.0)),
+    ("neck", "hc_Chest1", (0.0, 0.163912, 0.023766)),
+    ("hc_Head", "neck", (0.0, -0.018972, 0.09095)),
+    ("RightShoulder1", "hc_Chest1", (0.03782, 0.121711, -0.007377)),
+    ("hc_Shoulder_R", "RightShoulder1", (0.0, 0.0, 0.16153)),
+    ("hc_Elbow_R", "hc_Shoulder_R", (0.0, -0.298397, 0.0)),
+    ("hc_Hand_R", "hc_Elbow_R", (0.0, -0.269752, 0.0)),
+    ("hc_Index1_R", "hc_Hand_R", (0.023345, -0.121506, -0.003388)),
+    ("hc_Index2_R", "hc_Index1_R", (0.0, 0.0, 0.042879)),
+    ("hc_Index3_R", "hc_Index2_R", (0.0, 0.0, 0.033935)),
+    ("hc_Middle1_R", "hc_Hand_R", (-0.002997, -0.123175, 0.003474)),
+    ("hc_Middle2_R", "hc_Middle1_R", (0.0, 0.0, 0.046401)),
+    ("hc_Middle3_R", "hc_Middle2_R", (0.0, 0.0, 0.036488)),
+    ("hc_Pinky1_R", "hc_Hand_R", (-0.044907, -0.104415, -0.005811)),
+    ("hc_Pinky2_R", "hc_Pinky1_R", (0.0, 0.0, 0.035707)),
+    ("hc_Pinky3_R", "hc_Pinky2_R", (0.0, 0.0, 0.029808)),
+    ("hc_Ring1_R", "hc_Hand_R", (-0.026234, -0.116837, -0.000348)),
+    ("hc_Ring2_R", "hc_Ring1_R", (0.0, 0.0, 0.044191)),
+    ("hc_Ring3_R", "hc_Ring2_R", (0.0, 0.0, 0.034797)),
+    ("hc_Thumb1_R", "hc_Hand_R", (0.025022, -0.04981, -0.019209)),
+    ("hc_Thumb2_R", "hc_Thumb1_R", (0.0, -0.038698, 0.0)),
+    ("hc_Thumb3_R", "hc_Thumb2_R", (0.0, -0.04062, 0.0)),
+]
+_BUILTIN_HC_MOCAP_END_SITES: Final[dict[str, tuple[float, float, float]]] = {
+    "LeftToeBase": (0.008324, -0.164266, -0.10654),
+    "RightToeBase": (-0.008324, -0.164266, -0.10654),
+    "hc_Index3_L": (0.0, 0.0, 0.033938),
+    "hc_Middle3_L": (0.0, 0.0, 0.036488),
+    "hc_Pinky3_L": (0.000881, 0.0, 0.029796),
+    "hc_Ring3_L": (0.000638, 0.0, 0.034791),
+    "hc_Thumb3_L": (0.0, -0.040622, 0.0),
+    "hc_Head": (0.0, -0.018972, 0.09095),
+    "hc_Index3_R": (0.0, 0.0, 0.033935),
+    "hc_Middle3_R": (0.0, 0.0, 0.036488),
+    "hc_Pinky3_R": (0.0, 0.0, 0.029808),
+    "hc_Ring3_R": (0.0, 0.0, 0.034797),
+    "hc_Thumb3_R": (0.0, -0.04062, 0.0),
+}
+
+
+def _builtin_hc_mocap_skeleton() -> _BvhSkeleton:
+    name_to_index: dict[str, int] = {}
+    joint_names: list[str] = []
+    parents: list[int] = []
+    offsets: list[np.ndarray] = []
+    channels: list[list[str]] = []
+    end_sites: dict[int, np.ndarray] = {}
+
+    for index, (name, parent_name, offset) in enumerate(_BUILTIN_HC_MOCAP_JOINTS):
+        joint_names.append(name)
+        name_to_index[name] = index
+        parents.append(-1 if parent_name is None else name_to_index[parent_name])
+        offsets.append(np.array(offset, dtype=np.float64))
+        channels.append(list(_ROOT_CHANNELS if parent_name is None else _JOINT_CHANNELS))
+
+    for joint_name, offset in _BUILTIN_HC_MOCAP_END_SITES.items():
+        end_sites[name_to_index[joint_name]] = np.array(offset, dtype=np.float64)
+
+    return _BvhSkeleton(
+        joint_names=joint_names,
+        parents=np.array(parents, dtype=np.int32),
+        offsets=np.array(offsets, dtype=np.float64),
+        channels=channels,
+        frame_time=1.0 / 60.0,
+        end_sites=end_sites,
+    )
+
+
 def _parse_bvh_reference(reference_bvh: str) -> _BvhSkeleton:
-    lines = Path(reference_bvh).read_text().splitlines()
+    if reference_bvh == DEFAULT_HC_MOCAP_REFERENCE_BVH:
+        return _builtin_hc_mocap_skeleton()
+
+    reference_path = Path(reference_bvh).expanduser()
+    if not reference_path.exists():
+        legacy_default_path = Path("assets/ref_with_toe.bvh")
+        if reference_path == legacy_default_path or reference_path == legacy_default_path.resolve():
+            return _builtin_hc_mocap_skeleton()
+        raise FileNotFoundError(f"Reference BVH not found: {reference_bvh}")
+    lines = reference_path.read_text().splitlines()
     motion_idx = next(i for i, line in enumerate(lines) if line.strip() == "MOTION")
 
     joint_names: list[str] = []
@@ -320,12 +439,12 @@ def _frame_from_bvh_values(
 class _DirectHCMocapUDPProvider:
     def __init__(
         self,
-        reference_bvh: str,
+        reference_bvh: str | None,
         host: str = "",
         port: int = 1118,
         timeout: float = 30.0,
     ):
-        self._skeleton = _parse_bvh_reference(reference_bvh)
+        self._skeleton = _parse_bvh_reference(reference_bvh or DEFAULT_HC_MOCAP_REFERENCE_BVH)
         self._timeout = timeout
         self._running = True
         self._lock = threading.Lock()
@@ -439,7 +558,7 @@ class _DirectHCMocapUDPProvider:
 
 def create_hc_mocap_udp_provider(
     *,
-    reference_bvh: str,
+    reference_bvh: str | None,
     hand_side: str,
     host: str = "",
     port: int = 1118,

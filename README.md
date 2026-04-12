@@ -30,6 +30,25 @@ git submodule update --init --recursive
 pip install -e .
 ```
 
+项目里的大体积 `assets` 建议走外部仓库，不直接塞进 Git。现在支持和 `Teleopit` 类似的下载流程：
+
+```bash
+# ModelScope（推荐）
+python scripts/setup/download_assets.py --repo-id <your-modelscope-repo>
+
+# 或者先配置环境变量，再按组下载
+export SOMEHAND_MODELSCOPE_REPO_ID=<your-modelscope-repo>
+python scripts/setup/download_assets.py --only mjcf mediapipe
+
+# HuggingFace 也支持
+python scripts/setup/download_assets.py --source huggingface --repo-id <your-hf-repo>
+```
+
+脚本当前约定的远端布局写在 `src/somehand/external_assets.py`，默认包含两组资源：
+
+- `mjcf`：`archives/mjcf_assets.tar.gz` → `assets/mjcf/`
+- `mediapipe`：`models/hand_landmarker.task` → `assets/models/hand_landmarker.task`
+
 主要依赖：mujoco, mink, mediapipe, opencv-python, numpy, pyyaml, daqp
 
 安装后主要入口是：
@@ -53,7 +72,19 @@ pip install -e .
 
 ## 快速开始
 
-### 1. 转换手部模型（以 Linkerhand L20 为例）
+### 1. 准备 assets
+
+如果你已经有外部 asset 仓库，先把默认资源拉下来：
+
+```bash
+python scripts/setup/download_assets.py --only mjcf mediapipe --repo-id <your-modelscope-repo>
+```
+
+`hc-mocap` 默认使用代码内置的 joint 顺序和骨架定义，不再依赖仓库里的默认 `BVH` 文件；只有你想覆盖默认 UDP 解析格式时，才需要额外传 `--reference-bvh <path>`.
+
+如果你不想维护远端资产，也可以继续手动转换/准备本地文件。
+
+### 2. 转换手部模型（以 Linkerhand L20 为例）
 
 ```bash
 python scripts/convert_urdf_to_mjcf.py \
@@ -61,13 +92,13 @@ python scripts/convert_urdf_to_mjcf.py \
     --output assets/mjcf/linkerhand_l20_right
 ```
 
-### 2. 查看模型
+### 3. 查看模型
 
 ```bash
 python scripts/visualize_hand.py --mjcf assets/mjcf/linkerhand_l20_right/model.xml
 ```
 
-### 3. 实时 Retargeting（摄像头）
+### 4. 实时 Retargeting（摄像头）
 
 ```bash
 somehand webcam
@@ -84,7 +115,7 @@ somehand webcam \
     --record-output recordings/webcam_hand.pkl
 ```
 
-### 4. 自动录制验收视频（摄像头）
+### 5. 自动录制验收视频（摄像头）
 
 ```bash
 python scripts/record_webcam.py \
@@ -103,14 +134,14 @@ python scripts/acceptance_check.py \
     --hand right
 ```
 
-### 5. 离线 Retargeting（视频）
+### 6. 离线 Retargeting（视频）
 
 ```bash
 somehand video \
     --video input.mp4
 ```
 
-### 5.1 离线 Retargeting（已录制手部数据）
+### 6.1 离线 Retargeting（已录制手部数据）
 
 如果你想绕过摄像头 / PICO / UDP 输入，直接复现某次采集到的手部 landmarks：
 
@@ -128,7 +159,7 @@ somehand dump-video \
     --output recordings/webcam_hand_replay.mp4
 ```
 
-### 5.2 hc_mocap 手部输入
+### 6.2 hc_mocap 手部输入
 
 如果你已经有 Teleopit 的 `hc_mocap` UDP 流，可以跳过 MediaPipe，直接把手骨架转成 21 点后喂给当前 retargeting：
 
@@ -145,12 +176,12 @@ somehand hc-mocap \
     --hand left
 ```
 
-`hc-mocap` 现在只保留 UDP 模式，不再支持离线 `BVH` 输入。它也不依赖 `Teleopit` Python 包；只要求你的 SDK 发送的每个 UDP 包都是一行 BVH motion floats，并且 joint 顺序与 `--reference-bvh` 一致。
+`hc-mocap` 现在只保留 UDP 模式，不再支持离线 `BVH` 输入。它也不依赖 `Teleopit` Python 包；默认直接使用代码内置的 joint 顺序解析每个 UDP 包里的一行 BVH motion floats。只有当你想覆盖默认解析格式时，才需要额外传 `--reference-bvh`。
 `hc_mocap` 输入会自动使用 wrist 真局部坐标做 retarget，因此即使配置文件里是 `wrist_local`，脚本也会切到更适合 `hc_mocap` 的处理方式。
-如果要检查 UDP 是否正常进入，可以看终端的 `UDP stats` 输出，确认 `recv` / `valid` 是否持续增长，以及 `floats` 是否等于参考 BVH 的通道数。
+如果要检查 UDP 是否正常进入，可以看终端的 `UDP stats` 输出，确认 `recv` / `valid` 是否持续增长，以及 `floats` 是否等于内置格式的通道数（默认是 `159`）。
 输入手势窗口里显示的是参与 retarget 的输入 landmarks，因此看到的是已经对齐到机器人坐标系的手部骨架；机器人窗口单独显示 retarget 后的手模型。
 
-### 5.3 PICO 4 手部输入
+### 6.3 PICO 4 手部输入
 
 先确保 `xrobotoolkit_sdk` 可导入；如果没装，可以运行：
 
@@ -200,7 +231,7 @@ somehand pico \
     --pico-timeout 90
 ```
 
-### 5.4 LinkerHand 真机 backend
+### 6.4 LinkerHand 真机 backend
 
 如果你想直接把 retarget 结果发到 LinkerHand 真手，先初始化 SDK 子仓库：
 
@@ -317,7 +348,9 @@ somehand/
 │   ├── base/              # 按型号复用的共享模板
 │   ├── left/              # 可直接运行的左手配置
 │   └── right/             # 可直接运行的右手配置
-├── assets/mjcf/            # 转换后的 MJCF 模型（gitignored）
+├── assets/                # 下载或本地生成的资源（默认 gitignored）
+│   ├── mjcf/
+│   └── models/
 ├── scripts/                # 薄工具脚本 / 诊断脚本
 │   ├── acceptance_check.py
 │   ├── convert_urdf_to_mjcf.py

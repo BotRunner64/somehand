@@ -495,7 +495,7 @@ class BiHCMocapInputSource:
     def __init__(
         self,
         *,
-        reference_bvh: str,
+        reference_bvh: str | None,
         host: str,
         port: int,
         timeout: float,
@@ -593,7 +593,7 @@ class RecordedBiHandDataSource:
 
 def create_hc_mocap_udp_source(
     *,
-    reference_bvh: str,
+    reference_bvh: str | None,
     hand_side: str,
     host: str,
     port: int,
@@ -631,7 +631,7 @@ def create_bihand_pico_source(*, timeout: float) -> BiHandPicoInputSource:
 
 def create_bihand_hc_mocap_udp_source(
     *,
-    reference_bvh: str,
+    reference_bvh: str | None,
     host: str,
     port: int,
     timeout: float,
