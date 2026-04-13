@@ -123,6 +123,7 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
             weight=float(item.get("weight", 1.0)),
             scale=float(item.get("scale", 1.0)),
             threshold=float(item.get("threshold", 0.04)),
+            activation_type=str(item.get("activation_type", "gaussian")),
         )
         for item in retargeting_data.get("distance_constraints", [])
     ]

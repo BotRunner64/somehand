@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import mujoco
 import numpy as np
 from scipy.optimize import minimize
@@ -148,11 +150,13 @@ class VectorRetargeter:
         self._dist_weights: list[float] = []
         self._dist_scales: list[float] = []
         self._dist_thresholds: list[float] = []
+        self._dist_activation_types: list[str] = []
         for constraint in config.distance_constraints:
             self._dist_human_pairs.append((constraint.human[0], constraint.human[1]))
             self._dist_weights.append(constraint.weight)
             self._dist_scales.append(constraint.scale)
             self._dist_thresholds.append(constraint.threshold)
+            self._dist_activation_types.append(constraint.activation_type)
             ids: list[tuple[int, bool]] = []
             for i, name in enumerate(constraint.robot):
                 is_site = constraint.robot_types[i] == "site"
@@ -274,6 +278,17 @@ class VectorRetargeter:
         if is_site:
             return self.data.site_xpos[index].copy()
         return self.data.xpos[index].copy()
+
+    def _dist_activation(self, index: int, raw_dist: float) -> float:
+        threshold = self._dist_thresholds[index]
+        if threshold <= 0.0:
+            return 1.0
+        if self._dist_activation_types[index] == "gaussian":
+            sigma = threshold / 2.0
+            return math.exp(-(raw_dist / sigma) ** 2)
+        if self._dist_activation_types[index] == "linear":
+            return max(0.0, 1.0 - raw_dist / threshold)
+        raise ValueError(f"unknown activation_type: '{self._dist_activation_types[index]}'")
 
     def _get_rot(self, index: int, is_site: bool) -> np.ndarray:
         if is_site:
@@ -406,10 +421,9 @@ class VectorRetargeter:
                 loss += self._angle_weights[index] * diff * diff
         if self._target_distances is not None:
             for index in range(len(self._dist_site_ids)):
-                threshold = self._dist_thresholds[index]
                 raw_dist = self._raw_human_distances[index]
-                activation = max(0.0, 1.0 - raw_dist / threshold) if threshold > 0.0 else 1.0
-                if activation <= 0.0:
+                activation = self._dist_activation(index, raw_dist)
+                if activation < 1e-4:
                     continue
                 id_a, is_site_a, id_b, is_site_b = self._dist_site_ids[index]
                 pos_a = self._get_pos(id_a, is_site_a)
@@ -509,10 +523,9 @@ class VectorRetargeter:
 
         if self._target_distances is not None:
             for index in range(len(self._dist_site_ids)):
-                threshold = self._dist_thresholds[index]
                 raw_dist = self._raw_human_distances[index]
-                activation = max(0.0, 1.0 - raw_dist / threshold) if threshold > 0.0 else 1.0
-                if activation <= 0.0:
+                activation = self._dist_activation(index, raw_dist)
+                if activation < 1e-4:
                     continue
                 id_a, is_site_a, id_b, is_site_b = self._dist_site_ids[index]
                 pos_a = self._get_pos(id_a, is_site_a)

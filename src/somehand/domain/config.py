@@ -95,6 +95,7 @@ class DistanceConstraint:
     weight: float = 1.0
     scale: float = 1.0
     threshold: float = 0.04
+    activation_type: str = "gaussian"
 
 
 @dataclass
@@ -170,6 +171,11 @@ class RetargetingConfig:
                 raise ValueError("distance constraint robot_types must only contain 'body' or 'site'")
             if constraint.weight < 0.0:
                 raise ValueError("distance constraint weight must be >= 0")
+            if constraint.activation_type not in {"gaussian", "linear"}:
+                raise ValueError(
+                    f"distance constraint activation_type must be 'gaussian' or 'linear', "
+                    f"got '{constraint.activation_type}'"
+                )
         if not 0.0 < self.preprocess.temporal_filter_alpha <= 1.0:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
