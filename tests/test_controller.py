@@ -1,4 +1,5 @@
 import sys
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from somehand.application import ControlledRetargetingSession
-from somehand.domain import HandCommand
+from somehand.domain import HandCommand, HandFrame, SourceFrame
 from somehand.infrastructure.config_loader import load_retargeting_config
 from somehand.infrastructure.hand_model import HandModel
 from somehand.infrastructure.controllers.adapters import LinkerHandModelAdapter, infer_linkerhand_model_family
@@ -594,4 +595,134 @@ def test_controlled_session_cleans_up_when_controller_start_fails():
     assert source.closed is True
     assert sink.closed is True
     assert preview.closed is True
+    assert controller.closed is True
+
+
+def test_controlled_session_decouples_frame_sinks_with_live_snapshot_source():
+    class _FakeSource:
+        def __init__(self, frames, *, updates: int = 8, period_s: float = 0.01):
+            self.source_desc = "fake://source"
+            self._frames = list(frames)
+            self._index = 0
+            self._latest_index = 0
+            self._latest_frame = None
+            self._running = True
+            self._updates = updates
+            self._period_s = period_s
+            self.closed = False
+            self._thread = threading.Thread(target=self._update_loop, daemon=True)
+            self._thread.start()
+
+        @property
+        def fps(self) -> int:
+            return 30
+
+        def is_available(self) -> bool:
+            return self._index < len(self._frames)
+
+        def get_frame(self) -> SourceFrame:
+            frame = self._frames[self._index]
+            self._index += 1
+            return frame
+
+        def latest_hand_frame_snapshot(self):
+            if self._latest_frame is None:
+                return None
+            return self._latest_index, self._latest_frame
+
+        def reset(self) -> bool:
+            return False
+
+        def close(self) -> None:
+            self._running = False
+            self._thread.join(timeout=1.0)
+            self.closed = True
+
+        def stats_snapshot(self):
+            return {}
+
+        def _update_loop(self) -> None:
+            for index in range(1, self._updates + 1):
+                if not self._running:
+                    break
+                self._latest_index = index
+                self._latest_frame = HandFrame(
+                    landmarks_3d=np.zeros((21, 3), dtype=np.float64),
+                    landmarks_2d=None,
+                    hand_side="right",
+                )
+                time.sleep(self._period_s)
+
+    class _SlowEngine:
+        def __init__(self):
+            self.config = SimpleNamespace(hand=SimpleNamespace(name="linkerhand_o6_right"))
+
+        def process(self, frame: HandFrame):
+            time.sleep(0.12)
+            return SimpleNamespace(
+                qpos=np.array([1.0, 2.0], dtype=np.float64),
+                target_directions=None,
+                processed_landmarks=frame.landmarks_3d.copy(),
+                hand_side=frame.hand_side,
+            )
+
+    class _FakeController:
+        def __init__(self):
+            self._running = False
+            self.closed = False
+
+        @property
+        def is_running(self):
+            return self._running
+
+        def start(self):
+            self._running = True
+
+        def set_command(self, command):
+            return None
+
+        def get_state(self):
+            return SimpleNamespace(
+                measured_qpos_rad=None,
+                backend="real",
+            )
+
+        def close(self):
+            self._running = False
+            self.closed = True
+
+    class _FakeFrameSink:
+        def __init__(self):
+            self.frames = []
+            self.closed = False
+
+        @property
+        def is_running(self):
+            return True
+
+        def on_frame(self, frame: HandFrame) -> None:
+            self.frames.append(frame)
+
+        def close(self):
+            self.closed = True
+
+    source = _FakeSource([SourceFrame(detection=HandFrame(
+        landmarks_3d=np.zeros((21, 3), dtype=np.float64),
+        landmarks_2d=None,
+        hand_side="right",
+    ))])
+    controller = _FakeController()
+    frame_sink = _FakeFrameSink()
+    session = ControlledRetargetingSession(
+        _SlowEngine(),
+        controller,
+        frame_sinks=[frame_sink],
+    )
+
+    summary = session.run(source, input_type="pico")
+
+    assert summary.num_detected == 1
+    assert len(frame_sink.frames) >= 2
+    assert source.closed is True
+    assert frame_sink.closed is True
     assert controller.closed is True
