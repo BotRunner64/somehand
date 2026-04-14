@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -40,6 +41,7 @@ def test_video_command_accepts_both_hand_selector():
     assert args.command == "video"
     assert args.video == "input.mp4"
     assert args.hand == "both"
+    assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
 
 
 def test_replay_command_uses_realtime_replay_by_default():
@@ -151,12 +153,11 @@ def test_run_dump_video_uses_offline_video_only_session(monkeypatch):
     }
 
 
-def test_bihand_default_config_replaces_single_hand_default():
-    args = SimpleNamespace(config=str(DEFAULT_CONFIG_PATH))
+def test_custom_config_is_preserved_for_both_hand_selector():
+    parser = build_parser()
+    args = parser.parse_args(["video", "--video", "input.mp4", "--hand", "both", "--config", "custom_both.yaml"])
 
-    cli_module._use_default_bihand_config_if_needed(args)
-
-    assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
+    assert args.config == "custom_both.yaml"
 
 
 def test_webcam_both_dispatches_to_bihand(monkeypatch):
@@ -168,6 +169,13 @@ def test_webcam_both_dispatches_to_bihand(monkeypatch):
     cli_module.main(["webcam", "--hand", "both"])
 
     assert called == [("bihand", str(DEFAULT_BIHAND_CONFIG_PATH), "both")]
+
+
+def test_bihand_subcommand_is_rejected():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["bihand", "webcam"])
 
 
 def test_build_session_adds_replay_video_sink(monkeypatch):

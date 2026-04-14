@@ -42,6 +42,13 @@ from somehand.infrastructure import (
 from somehand.paths import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 
+class _SomehandArgumentParser(argparse.ArgumentParser):
+    def parse_known_args(self, args=None, namespace=None):
+        parsed_args, extras = super().parse_known_args(args, namespace)
+        _normalize_both_hand_args(parsed_args)
+        return parsed_args, extras
+
+
 def _close_resource(resource: object) -> None:
     close_fn = getattr(resource, "close", None)
     if callable(close_fn):
@@ -68,7 +75,7 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         type=_parse_hand_selector,
         choices=["left", "right", "both"],
         default="right",
-        help="Hand side for the current channel, or 'both' for bi-hand mode",
+        help="Hand side for the current channel, or 'both' for two-hand mode",
     )
     parser.add_argument(
         "--record-output",
@@ -90,20 +97,6 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model-family", default=None, help="Optional LinkerHand SDK model family override")
 
 
-def _add_bihand_common_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "-c",
-        "--config",
-        default=str(DEFAULT_BIHAND_CONFIG_PATH),
-        help="Path to bi-hand retargeting config YAML",
-    )
-    parser.add_argument(
-        "--record-output",
-        default=None,
-        help="Output pickle file for recorded bi-hand tracking frames",
-    )
-
-
 def _add_dump_video_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-c",
@@ -117,25 +110,14 @@ def _add_dump_video_args(parser: argparse.ArgumentParser) -> None:
         type=_parse_hand_selector,
         choices=["left", "right", "both"],
         default="right",
-        help="Hand side for the current channel, or 'both' for bi-hand mode",
+        help="Hand side for the current channel, or 'both' for two-hand mode",
     )
     parser.add_argument("--recording", required=True, help="Path to a saved hand-tracking recording")
     parser.add_argument("--output", required=True, help="Output MP4 path for the rendered replay video")
 
 
-def _add_bihand_dump_video_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "-c",
-        "--config",
-        default=str(DEFAULT_BIHAND_CONFIG_PATH),
-        help="Path to bi-hand retargeting config YAML",
-    )
-    parser.add_argument("--recording", required=True, help="Path to a saved bi-hand tracking recording")
-    parser.add_argument("--output", required=True, help="Output MP4 path for the rendered replay video")
-
-
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="somehand", description="Unified dex hand retargeting CLI")
+    parser = _SomehandArgumentParser(prog="somehand", description="Unified dex hand retargeting CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     webcam = subparsers.add_parser("webcam", help="Retarget from a live webcam stream")
@@ -190,64 +172,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print UDP receive statistics every N processed frames (0 disables)",
     )
 
-    bihand = subparsers.add_parser("bihand", help="Retarget both hands simultaneously")
-    bihand_subparsers = bihand.add_subparsers(dest="bihand_command", required=True)
-
-    bihand_webcam = bihand_subparsers.add_parser("webcam", help="Retarget both hands from a live webcam stream")
-    _add_bihand_common_args(bihand_webcam)
-    bihand_webcam.add_argument("--camera", type=int, default=0, help="Webcam device index")
-    bihand_webcam.add_argument(
-        "--swap-hands",
-        action="store_true",
-        help="Swap MediaPipe Left/Right labels if capture reports the opposite hand",
-    )
-
-    bihand_video = bihand_subparsers.add_parser("video", help="Retarget both hands from a video file")
-    _add_bihand_common_args(bihand_video)
-    bihand_video.add_argument("--video", required=True, help="Path to input video file")
-    bihand_video.add_argument(
-        "--swap-hands",
-        action="store_true",
-        help="Swap MediaPipe Left/Right labels if this video reports the opposite hand",
-    )
-
-    bihand_replay = bihand_subparsers.add_parser("replay", help="Replay a saved bi-hand tracking recording")
-    _add_bihand_common_args(bihand_replay)
-    bihand_replay.add_argument("--recording", required=True, help="Path to a saved bi-hand tracking recording")
-    bihand_replay.add_argument("--loop", action="store_true", help="Loop the saved recording indefinitely")
-
-    bihand_dump_video = bihand_subparsers.add_parser(
-        "dump-video",
-        help="Render a bi-hand replay recording to MP4 as fast as possible",
-    )
-    _add_bihand_dump_video_args(bihand_dump_video)
-
-    bihand_pico = bihand_subparsers.add_parser("pico", help="Retarget both hands from live PICO hand tracking")
-    _add_bihand_common_args(bihand_pico)
-    bihand_pico.add_argument(
-        "--pico-timeout",
-        type=float,
-        default=60.0,
-        help="Timeout in seconds while waiting for PICO hand-tracking frames",
-    )
-
-    bihand_hc_mocap = bihand_subparsers.add_parser("hc-mocap", help="Retarget both hands from a live hc_mocap UDP stream")
-    _add_bihand_common_args(bihand_hc_mocap)
-    bihand_hc_mocap.add_argument(
-        "--reference-bvh",
-        default=str(DEFAULT_HC_MOCAP_REFERENCE_BVH),
-        help="Optional custom hc_mocap BVH override; default uses built-in joint ordering",
-    )
-    bihand_hc_mocap.add_argument("--udp-host", default="", help="UDP bind host for hc_mocap input")
-    bihand_hc_mocap.add_argument("--udp-port", type=int, default=1118, help="UDP port for hc_mocap input")
-    bihand_hc_mocap.add_argument("--udp-timeout", type=float, default=30.0, help="UDP startup timeout in seconds")
-    bihand_hc_mocap.add_argument(
-        "--udp-stats-every",
-        type=int,
-        default=120,
-        help="Print UDP receive statistics every N processed frames (0 disables)",
-    )
-
     return parser
 
 
@@ -259,7 +183,9 @@ def _build_bihand_engine(args: argparse.Namespace, *, input_type: str) -> BiHand
     return BiHandRetargetingEngine.from_config_path(args.config, input_type=input_type)
 
 
-def _use_default_bihand_config_if_needed(args: argparse.Namespace) -> None:
+def _normalize_both_hand_args(args: argparse.Namespace) -> None:
+    if getattr(args, "hand", None) != "both":
+        return
     if getattr(args, "config", None) == str(DEFAULT_CONFIG_PATH):
         args.config = str(DEFAULT_BIHAND_CONFIG_PATH)
 
@@ -937,7 +863,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.hand == "both":
             if args.backend != "viewer":
                 raise ValueError("Controller backends are currently only supported for single-hand commands")
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_webcam(args)
             return
         _run_webcam(args)
@@ -946,7 +871,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.hand == "both":
             if args.backend != "viewer":
                 raise ValueError("Controller backends are currently only supported for single-hand commands")
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_video(args)
             return
         _run_video(args)
@@ -955,14 +879,12 @@ def main(argv: list[str] | None = None) -> None:
         if args.hand == "both":
             if args.backend != "viewer":
                 raise ValueError("Controller backends are currently only supported for single-hand commands")
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_replay(args)
             return
         _run_replay(args)
         return
     if args.command == "dump-video":
         if args.hand == "both":
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_dump_video(args)
             return
         _run_dump_video(args)
@@ -971,7 +893,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.hand == "both":
             if args.backend != "viewer":
                 raise ValueError("Controller backends are currently only supported for single-hand commands")
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_pico(args)
             return
         _run_pico(args)
@@ -980,30 +901,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.hand == "both":
             if args.backend != "viewer":
                 raise ValueError("Controller backends are currently only supported for single-hand commands")
-            _use_default_bihand_config_if_needed(args)
             _run_bihand_hc_mocap_udp(args)
             return
         _run_hc_mocap_udp(args)
         return
-    if args.command == "bihand":
-        if args.bihand_command == "webcam":
-            _run_bihand_webcam(args)
-            return
-        if args.bihand_command == "video":
-            _run_bihand_video(args)
-            return
-        if args.bihand_command == "replay":
-            _run_bihand_replay(args)
-            return
-        if args.bihand_command == "dump-video":
-            _run_bihand_dump_video(args)
-            return
-        if args.bihand_command == "pico":
-            _run_bihand_pico(args)
-            return
-        if args.bihand_command == "hc-mocap":
-            _run_bihand_hc_mocap_udp(args)
-            return
-        raise ValueError(f"Unsupported bi-hand command: {args.bihand_command}")
-
     raise ValueError(f"Unsupported command: {args.command}")

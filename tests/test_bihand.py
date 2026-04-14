@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -64,15 +65,22 @@ class _FakeBiHandSource:
         return {}
 
 
-def test_bihand_cli_uses_repo_defaults():
+def test_both_hand_selector_uses_repo_bihand_defaults():
     parser = build_parser()
-    args = parser.parse_args(["bihand", "hc-mocap"])
+    args = parser.parse_args(["hc-mocap", "--hand", "both"])
 
-    assert args.command == "bihand"
-    assert args.bihand_command == "hc-mocap"
+    assert args.command == "hc-mocap"
+    assert args.hand == "both"
     assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
     assert args.reference_bvh == str(DEFAULT_HC_MOCAP_REFERENCE_BVH)
     assert args.udp_port == 1118
+
+
+def test_bihand_subcommand_is_removed():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["bihand", "hc-mocap"])
 
 
 def test_bihand_config_loads_default_yaml():

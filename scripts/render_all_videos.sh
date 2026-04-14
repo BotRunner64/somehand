@@ -116,7 +116,7 @@ failed=()
 render_group() {
     local group="$1"
     local recording="$2"
-    local subcommand="$3"
+    local hand="$3"
     local output_dir="$OUTPUT_ROOT/$group"
     local config_path
 
@@ -134,31 +134,21 @@ render_group() {
         fi
 
         echo "[render] $group/$config_name"
-        if [[ "$subcommand" == "bihand" ]]; then
-            if "$PYTHON_BIN" -m somehand.cli bihand dump-video \
-                --config "$config_path" \
-                --recording "$recording" \
-                --output "$output_path"; then
-                rendered+=("$output_path")
-            else
-                failed+=("$config_path")
-            fi
+        if "$PYTHON_BIN" -m somehand.cli dump-video \
+            --config "$config_path" \
+            --hand "$hand" \
+            --recording "$recording" \
+            --output "$output_path"; then
+            rendered+=("$output_path")
         else
-            if "$PYTHON_BIN" -m somehand.cli dump-video \
-                --config "$config_path" \
-                --recording "$recording" \
-                --output "$output_path"; then
-                rendered+=("$output_path")
-            else
-                failed+=("$config_path")
-            fi
+            failed+=("$config_path")
         fi
     done
 }
 
-render_group "right" "$RIGHT_RECORDING" "single"
-render_group "left" "$LEFT_RECORDING" "single"
-render_group "bihand" "$BIHAND_RECORDING" "bihand"
+render_group "right" "$RIGHT_RECORDING" "right"
+render_group "left" "$LEFT_RECORDING" "left"
+render_group "bihand" "$BIHAND_RECORDING" "both"
 
 render_landmark_video() {
     local group="$1"
