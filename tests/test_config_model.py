@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 import mujoco
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -10,6 +11,43 @@ from somehand.infrastructure.config_loader import load_retargeting_config
 from somehand.infrastructure.hand_model import HandModel
 from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from somehand.infrastructure.vector_solver import VectorRetargeter
+
+
+def _quat_to_matrix(quat: np.ndarray) -> np.ndarray:
+    matrix = np.zeros(9, dtype=np.float64)
+    mujoco.mju_quat2Mat(matrix, quat)
+    return matrix.reshape(3, 3)
+
+
+def _mesh_tip_for_body(model: mujoco.MjModel, body_id: int) -> np.ndarray | None:
+    vertices_by_geom: list[np.ndarray] = []
+    for geom_id in range(model.ngeom):
+        if int(model.geom_bodyid[geom_id]) != body_id:
+            continue
+        if int(model.geom_type[geom_id]) != int(mujoco.mjtGeom.mjGEOM_MESH):
+            continue
+        mesh_id = int(model.geom_dataid[geom_id])
+        start = int(model.mesh_vertadr[mesh_id])
+        count = int(model.mesh_vertnum[mesh_id])
+        if count <= 0:
+            continue
+        vertices = np.array(model.mesh_vert[start:start + count], copy=True)
+        vertices = vertices @ _quat_to_matrix(model.geom_quat[geom_id]).T
+        vertices += model.geom_pos[geom_id]
+        vertices_by_geom.append(vertices)
+    if not vertices_by_geom:
+        return None
+    vertices = np.vstack(vertices_by_geom)
+    centered = vertices - vertices.mean(axis=0, keepdims=True)
+    _, _, vh = np.linalg.svd(centered, full_matrices=False)
+    axis = vh[0]
+    projection = vertices @ axis
+    if abs(float(projection.max())) < abs(float(projection.min())):
+        axis = -axis
+        projection = -projection
+    tip_band = vertices[projection >= float(projection.max()) - 0.0015]
+    centroid = tip_band.mean(axis=0)
+    return tip_band[int(np.argmin(np.linalg.norm(tip_band - centroid, axis=1)))]
 
 
 def test_config_validation_rejects_legacy_vector_schema(tmp_path):
@@ -235,6 +273,24 @@ def test_side_specific_configs_instantiate_vector_retargeter():
         hand_model = HandModel(config.hand.mjcf_path)
         retargeter = VectorRetargeter(hand_model, config)
         assert retargeter.config.hand.name == config.hand.name
+
+
+def test_all_fingertip_sites_align_with_mesh_surface_points():
+    model_paths = sorted(Path("assets/mjcf").glob("*/model.xml"))
+    for model_path in model_paths:
+        model = mujoco.MjModel.from_xml_path(str(model_path))
+        for site_id in range(model.nsite):
+            site_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_SITE, site_id)
+            if not site_name or not site_name.endswith("_tip"):
+                continue
+            body_id = int(model.site_bodyid[site_id])
+            mesh_tip = _mesh_tip_for_body(model, body_id)
+            if mesh_tip is None:
+                continue
+            error = float(np.linalg.norm(model.site_pos[site_id] - mesh_tip))
+            assert error < 1e-3, f"{model_path}:{site_name} drifted {error:.4f}m from mesh tip"
+            assert model.site_size[site_id, 0] == pytest.approx(0.004)
+            assert np.allclose(model.site_rgba[site_id], np.array([1.0, 0.0, 0.0, 1.0]))
 
 
 def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():

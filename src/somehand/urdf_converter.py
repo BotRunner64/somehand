@@ -6,6 +6,8 @@ import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import numpy as np
+
 
 def _find_leaf_bodies(worldbody: ET.Element) -> list[str]:
     """Find leaf bodies (no child bodies) in MJCF XML - these are fingertips."""
@@ -24,17 +26,42 @@ def _find_leaf_bodies(worldbody: ET.Element) -> list[str]:
     return leaf_bodies
 
 
-def _compute_fingertip_offsets(model, leaf_body_names: list[str]) -> dict[str, list[float]]:
-    """Compute fingertip offsets in local body frame using MuJoCo geom data.
+def _quat_to_matrix(mujoco_module, quat: np.ndarray) -> np.ndarray:
+    matrix = np.zeros(9, dtype=np.float64)
+    mujoco_module.mju_quat2Mat(matrix, quat)
+    return matrix.reshape(3, 3)
 
-    For each leaf body, find its geoms and compute the max extent in the
-    primary axis (typically z for finger extension).
-    """
+
+def _mesh_vertices_in_body_frame(model, geom_id: int) -> np.ndarray:
+    import mujoco
+
+    mesh_id = int(model.geom_dataid[geom_id])
+    start = int(model.mesh_vertadr[mesh_id])
+    count = int(model.mesh_vertnum[mesh_id])
+    vertices = np.array(model.mesh_vert[start:start + count], copy=True)
+    rotation = _quat_to_matrix(mujoco, model.geom_quat[geom_id])
+    return vertices @ rotation.T + model.geom_pos[geom_id]
+
+
+def _select_tip_surface_point(vertices: np.ndarray, *, band_thickness: float = 0.0015) -> np.ndarray:
+    centered = vertices - vertices.mean(axis=0, keepdims=True)
+    _, _, vh = np.linalg.svd(centered, full_matrices=False)
+    axis = vh[0]
+    projection = vertices @ axis
+    if abs(float(projection.max())) < abs(float(projection.min())):
+        axis = -axis
+        projection = -projection
+    band_vertices = vertices[projection >= float(projection.max()) - band_thickness]
+    centroid = band_vertices.mean(axis=0)
+    closest = int(np.argmin(np.linalg.norm(band_vertices - centroid, axis=1)))
+    return band_vertices[closest]
+
+
+def _compute_fingertip_offsets(model, leaf_body_names: list[str]) -> dict[str, list[float]]:
+    """Compute fingertip offsets in local body frame from mesh surface points."""
     import mujoco
 
     offsets = {}
-    data = mujoco.MjData(model)
-    mujoco.mj_forward(model, data)
 
     for bname in leaf_body_names:
         body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, bname)
@@ -42,31 +69,16 @@ def _compute_fingertip_offsets(model, leaf_body_names: list[str]) -> dict[str, l
             offsets[bname] = [0.0, 0.0, 0.02]
             continue
 
-        # Find all geoms belonging to this body
-        max_extent = 0.0
-        geom_center = [0.0, 0.0, 0.0]
+        mesh_vertices: list[np.ndarray] = []
         for gid in range(model.ngeom):
-            if model.geom_bodyid[gid] == body_id:
-                gpos = model.geom_pos[gid]
-                gsize = model.geom_size[gid]
-                # Compute extent: geom center + size in each axis
-                for axis in range(3):
-                    extent = abs(gpos[axis]) + gsize[min(axis, len(gsize) - 1)]
-                    if extent > max_extent:
-                        max_extent = extent
-                        # Use the axis with maximum extent as the fingertip direction
-                        geom_center = [gpos[0], gpos[1], gpos[2]]
+            if model.geom_bodyid[gid] != body_id:
+                continue
+            if int(model.geom_type[gid]) != int(mujoco.mjtGeom.mjGEOM_MESH):
+                continue
+            mesh_vertices.append(_mesh_vertices_in_body_frame(model, gid))
 
-        # Find the direction from body origin toward the child body frame.
-        # Use the geom center direction, extended by the geom size.
-        if max_extent > 0:
-            # Use geom center + geom size along the primary axis
-            gpos = geom_center
-            best_axis = max(range(3), key=lambda a: abs(gpos[a]))
-            offset = [0.0, 0.0, 0.0]
-            sign = 1.0 if gpos[best_axis] >= 0 else -1.0
-            offset[best_axis] = sign * max_extent
-            offsets[bname] = offset
+        if mesh_vertices:
+            offsets[bname] = _select_tip_surface_point(np.vstack(mesh_vertices)).tolist()
         else:
             offsets[bname] = [0.0, 0.0, 0.02]
 
@@ -312,7 +324,7 @@ def convert_urdf_to_mjcf(
                         "site",
                         name=site_name,
                         pos=f"{offset[0]:.5f} {offset[1]:.5f} {offset[2]:.5f}",
-                        size="0.005",
+                        size="0.004",
                         rgba="1 0 0 1",
                     )
 
