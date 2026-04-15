@@ -236,6 +236,20 @@ def test_side_specific_configs_instantiate_vector_retargeter():
         assert retargeter.config.hand.name == config.hand.name
 
 
+def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
+    expected_pairs = {(4, 8), (4, 12), (4, 16), (4, 20)}
+    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    assert config_paths
+    for config_path in config_paths:
+        if config_path.parent.name == "bihand":
+            continue
+        config = load_retargeting_config(str(config_path))
+        if not config.distance_constraints:
+            continue
+        actual_pairs = {tuple(constraint.human) for constraint in config.distance_constraints}
+        assert actual_pairs == expected_pairs, f"{config_path} distance pairs mismatch: {actual_pairs}"
+
+
 def test_model_name_resolver_supports_single_letter_prefixes():
     model = mujoco.MjModel.from_xml_path("assets/mjcf/dexhand021_right/model.xml")
     resolver = ModelNameResolver(model, hand_side="right")

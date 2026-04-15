@@ -165,3 +165,15 @@ retargeting:
     weight: 1500.0
     scale: 1.0
     threshold: 0.04
+  - human: [4, 16]
+    robot: [finger1_link4_tip, finger4_link4_tip]
+    robot_types: [site, site]
+    weight: 1000.0
+    scale: 1.0
+    threshold: 0.04
+  - human: [4, 20]
+    robot: [finger1_link4_tip, finger5_link4_tip]
+    robot_types: [site, site]
+    weight: 800.0
+    scale: 1.0
+    threshold: 0.04

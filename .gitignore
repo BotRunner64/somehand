@@ -32,3 +32,4 @@ recordings/full_renders/
 data/modelscope_cache/
 data/huggingface_cache/
 .tmp_asset_upload/
+.omx/

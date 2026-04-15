@@ -135,7 +135,7 @@ class PicoHandProvider:
 
     @property
     def fps(self) -> int:
-        return 120
+        return 80
 
     def is_available(self) -> bool:
         return self._running and self._thread.is_alive()
@@ -228,7 +228,7 @@ class PicoHandProvider:
                     self._stats["active_frames"] += 1
                     self._cond.notify_all()
                 self._ready.set()
-                time.sleep(1.0 / 120)
+                time.sleep(1.0 / 80)
             except Exception:
                 if not self._running:
                     break

@@ -177,3 +177,39 @@ retargeting:
     weight: 2000.0
     scale: 1.0
     threshold: 0.04
+  - human:
+    - 4
+    - 12
+    robot:
+    - thumb_distal_tip
+    - middle_middle_tip
+    robot_types:
+    - site
+    - site
+    weight: 1500.0
+    scale: 1.0
+    threshold: 0.04
+  - human:
+    - 4
+    - 16
+    robot:
+    - thumb_distal_tip
+    - ring_middle_tip
+    robot_types:
+    - site
+    - site
+    weight: 1000.0
+    scale: 1.0
+    threshold: 0.04
+  - human:
+    - 4
+    - 20
+    robot:
+    - thumb_distal_tip
+    - pinky_middle_tip
+    robot_types:
+    - site
+    - site
+    weight: 800.0
+    scale: 1.0
+    threshold: 0.04
