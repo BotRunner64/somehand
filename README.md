@@ -41,6 +41,12 @@
 - 云端默认分发的是运行所需的 `MJCF` 资产，不是 `URDF` 源文件。
 - 本仓库不提交 `assets/` 实际内容；本地仅保留占位目录，所有资产统一放在云端资产仓。
 
+当前仓库只保留一套 `universal` retargeting 约束实现。它使用核心向量约束，并保留拇指必要的 frame / residual / pinch distance 约束。可直接运行的示例配置：
+
+```bash
+somehand replay --backend sim --hand right --config configs/retargeting/right/linkerhand_o6_right.yaml --recording recordings/pico_right.pkl
+```
+
 ## 核心算法
 
 向量 retargeting 的核心思想：**方向取自人手，长度取自机器人**。

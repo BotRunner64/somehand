@@ -1,6 +1,6 @@
 retargeting:
   type: vector
-  preset: universal_v1
+  preset: universal
   vector_loss:
     type: direction
     huber_delta: 0.02

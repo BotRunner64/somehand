@@ -233,7 +233,7 @@ def test_top_level_loader_exports_work():
     bihand = load_bihand_config("configs/retargeting/bihand/linkerhand_l20_bihand.yaml")
 
     assert config.hand.name == "linkerhand_l20_right"
-    assert config.preset == "universal_v1"
+    assert config.preset == "universal"
     assert bihand.left_config_path.endswith("configs/retargeting/left/linkerhand_l20_left.yaml")
 
 
@@ -275,6 +275,48 @@ def test_side_specific_configs_instantiate_vector_retargeter():
         assert retargeter.config.hand.name == config.hand.name
 
 
+def test_universal_preset_loads_minimal_constraint_set():
+    config = load_retargeting_config("configs/retargeting/right/linkerhand_o6_right.yaml")
+
+    assert config.preset == "universal"
+    assert len(config.vector_constraints) == 16
+    thumb_mid_tip = next(
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_tip"]
+    )
+    assert thumb_mid_tip.loss_type == "residual"
+    thumb_distal_tip = next(
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_tip"]
+    )
+    assert thumb_distal_tip.loss_type == "residual"
+    assert len(config.distance_constraints) == 4
+    assert {tuple(constraint.robot) for constraint in config.distance_constraints} == {
+        ("thumb_tip", "index_tip"),
+        ("thumb_tip", "middle_tip"),
+        ("thumb_tip", "ring_tip"),
+        ("thumb_tip", "pinky_tip"),
+    }
+    assert len(config.frame_constraints) == 1
+    assert config.frame_constraints[0].name == "thumb_cmc_frame"
+    assert config.angle_constraints == []
+
+
+def test_side_specific_configs_instantiate_universal_vector_retargeter():
+    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    assert config_paths
+    for config_path in config_paths:
+        if config_path.parent.name in {"base", "bihand"}:
+            continue
+        config = load_retargeting_config(str(config_path))
+        hand_model = HandModel(config.hand.mjcf_path)
+        retargeter = VectorRetargeter(hand_model, config)
+        assert config.preset == "universal"
+        assert retargeter.config.hand.name == config.hand.name
+        assert len(retargeter.config.distance_constraints) == 4
+        assert len(retargeter.config.frame_constraints) == 1
+        assert retargeter.config.frame_constraints[0].name == "thumb_cmc_frame"
+        assert retargeter.config.angle_constraints == []
+
+
 def test_all_fingertip_sites_align_with_mesh_surface_points():
     model_paths = sorted(Path("assets/mjcf").glob("*/model.xml"))
     for model_path in model_paths:
@@ -306,8 +348,7 @@ def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
             continue
         actual_pairs = {tuple(constraint.human) for constraint in config.distance_constraints}
         assert expected_pairs.issubset(actual_pairs), f"{config_path} pinch distance pairs mismatch: {actual_pairs}"
-        if config.preset == "universal_v1":
-            assert expected_closure_pairs.issubset(actual_pairs), f"{config_path} closure pairs mismatch: {actual_pairs}"
+        assert not expected_closure_pairs.issubset(actual_pairs), f"{config_path} should no longer include closure pairs: {actual_pairs}"
 
 
 def test_model_name_resolver_supports_single_letter_prefixes():

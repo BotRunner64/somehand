@@ -169,7 +169,7 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         )
         for item in retargeting_data.get("angle_constraints", [])
     ]
-    if config.preset == "universal_v1":
+    if config.preset == "universal":
         if any(
             retargeting_data.get(key)
             for key in ("vector_constraints", "distance_constraints", "frame_constraints", "angle_constraints")

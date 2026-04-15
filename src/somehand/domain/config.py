@@ -142,8 +142,8 @@ class RetargetingConfig:
         return [constraint.weight for constraint in self.vector_constraints]
 
     def validate(self) -> None:
-        if self.preset and self.preset not in {"universal_v1"}:
-            raise ValueError(f"retargeting.preset must be 'universal_v1' when set, got '{self.preset}'")
+        if self.preset and self.preset not in {"universal"}:
+            raise ValueError(f"retargeting.preset must be 'universal' when set, got '{self.preset}'")
         if not self.hand.side:
             raise ValueError("hand.side must be explicitly set to 'left' or 'right'")
         self.hand.side = normalize_hand_side(self.hand.side)

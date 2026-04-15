@@ -25,7 +25,7 @@ from somehand.constants import (
     THUMB_TIP,
     WRIST,
 )
-from somehand.domain.config import AngleConstraint, DistanceConstraint, FrameConstraint, RetargetingConfig, VectorConstraint
+from somehand.domain.config import DistanceConstraint, FrameConstraint, RetargetingConfig, VectorConstraint
 
 
 _FINGERS = (
@@ -54,7 +54,7 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
             human=[THUMB_MCP, THUMB_TIP],
             robot=["thumb_mid", "thumb_tip"],
             robot_types=["body", "site"],
-            weight=1.2,
+            weight=1.0,
             loss_type="residual",
             loss_scale=1.0,
             optional=True,
@@ -66,20 +66,6 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
             weight=0.9,
             loss_type="residual",
             loss_scale=1.0,
-            optional=True,
-        ),
-    ]
-    angle_constraints: list[AngleConstraint] = [
-        AngleConstraint(
-            landmarks=[THUMB_CMC, THUMB_MCP, THUMB_IP],
-            joint="thumb_proximal_flex",
-            weight=0.5,
-            optional=True,
-        ),
-        AngleConstraint(
-            landmarks=[THUMB_MCP, THUMB_IP, THUMB_TIP],
-            joint="thumb_distal_flex",
-            weight=0.5,
             optional=True,
         ),
     ]
@@ -161,61 +147,12 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
                     robot=[f"{finger_name}_mid", f"{finger_name}_tip"],
                     robot_types=["body", "site"],
                     weight=1.0,
-                    loss_type="residual",
-                    loss_scale=1.0,
-                    optional=True,
-                ),
-                VectorConstraint(
-                    human=[dip, tip],
-                    robot=[f"{finger_name}_distal", f"{finger_name}_tip"],
-                    robot_types=["body", "site"],
-                    weight=0.8,
-                    loss_type="residual",
-                    loss_scale=1.0,
                     optional=True,
                 ),
             ]
-        )
-        angle_constraints.extend(
-            [
-                AngleConstraint(
-                    landmarks=[WRIST, mcp, pip],
-                    joint=f"{finger_name}_base_flex",
-                    weight=0.7,
-                    scale=1.0,
-                    optional=True,
-                ),
-                AngleConstraint(
-                    landmarks=[mcp, pip, dip],
-                    joint=f"{finger_name}_proximal_flex",
-                    weight=1.2,
-                    scale=1.4,
-                    optional=True,
-                ),
-                AngleConstraint(
-                    landmarks=[pip, dip, tip],
-                    joint=f"{finger_name}_distal_flex",
-                    weight=2.0,
-                    scale=2.4,
-                    optional=True,
-                ),
-            ]
-        )
-        distance_constraints.append(
-            DistanceConstraint(
-                human=[tip, mcp],
-                robot=[f"{finger_name}_tip", f"{finger_name}_base"],
-                robot_types=["site", "body"],
-                weight=pinch_weight,
-                scale=1.0,
-                threshold=0.06,
-                activation_type="linear",
-                scale_mode="hand_scaled",
-                optional=True,
-            )
         )
 
     config.vector_constraints = vector_constraints
     config.frame_constraints = frame_constraints
     config.distance_constraints = distance_constraints
-    config.angle_constraints = angle_constraints
+    config.angle_constraints = []
