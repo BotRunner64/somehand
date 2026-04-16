@@ -75,7 +75,7 @@ python scripts/setup/download_assets.py
 **3. Run**
 
 ```bash
-somehand replay --recording recordings/webcam_hand.pkl
+somehand replay --recording recordings/pico_right.pkl
 ```
 
 You should see a MuJoCo viewer replaying the sample recording.
