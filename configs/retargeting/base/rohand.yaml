@@ -1,0 +1,6 @@
+extends: "./_universal_common.yaml"
+
+hand:
+  name: rohand_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/rohand_right/model.xml

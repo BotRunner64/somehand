@@ -1,0 +1,6 @@
+extends: "./_universal_common.yaml"
+
+hand:
+  name: inspire_ftp_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/inspire_ftp_right/model.xml

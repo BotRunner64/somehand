@@ -1,0 +1,6 @@
+extends: "./_universal_common.yaml"
+
+hand:
+  name: sharpa_wave_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/sharpa_wave_right/model.xml

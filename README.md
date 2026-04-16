@@ -332,10 +332,16 @@ python scripts/acceptance_check.py \
 2. **编写配置**：在 `configs/retargeting/base/` 写共享模板，在 `configs/retargeting/left/` 或 `configs/retargeting/right/` 放可直接运行的侧别配置
 3. **运行测试**：指定新配置运行 `somehand webcam --visualize` 验证效果
 
-仓库里现在也提供了两套新接入示例：
+仓库里现在已经接入这些五指手型示例：
 
 - `dexhand021`：来自 `dexrobot_urdf`，建议使用 `*_simplified.urdf`
+- `dex5`：来自 `unitree_ros/robots/dexterous_hand_description/dex5_1`
+- `inspire_dfq`：来自 `unitree_ros/robots/g1_description/inspire_hand/DFQ_*`
+- `inspire_ftp`：来自 `unitree_ros/robots/g1_description/inspire_hand/FTP_*`
+- `omnihand`：来自 `omnihand_description-omnihandT2_1`
 - `revo2`：来自 `revo2_description`
+- `rohand`：来自 `rohand_urdf_ros2`
+- `sharpa_wave`：来自 `sharpa-urdf-usd-xml/wave_01`
 - `wujihand`：来自 `wuji-hand-description`，仓库内已带左右手 MJCF 与配置
 
 例如直接跑 `Wuji` 右手配置：

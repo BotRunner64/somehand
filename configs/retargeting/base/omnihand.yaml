@@ -1,0 +1,6 @@
+extends: "./_universal_common.yaml"
+
+hand:
+  name: omnihand_right
+  side: right
+  mjcf_path: ../../../assets/mjcf/omnihand_right/model.xml

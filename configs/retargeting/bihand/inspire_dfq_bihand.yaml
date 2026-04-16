@@ -1,0 +1,5 @@
+left:
+  config: "../left/inspire_dfq_left.yaml"
+
+right:
+  config: "../right/inspire_dfq_right.yaml"

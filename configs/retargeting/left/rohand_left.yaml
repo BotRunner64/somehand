@@ -1,0 +1,6 @@
+extends: "../base/rohand.yaml"
+
+hand:
+  name: "rohand_left"
+  side: "left"
+  mjcf_path: "../../../assets/mjcf/rohand_left/model.xml"

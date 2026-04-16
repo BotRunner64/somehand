@@ -1,0 +1,6 @@
+extends: "../base/dex5.yaml"
+
+hand:
+  name: "dex5_left"
+  side: "left"
+  mjcf_path: "../../../assets/mjcf/dex5_left/model.xml"

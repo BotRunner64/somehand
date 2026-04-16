@@ -1,0 +1,6 @@
+extends: "../base/inspire_ftp.yaml"
+
+hand:
+  name: "inspire_ftp_left"
+  side: "left"
+  mjcf_path: "../../../assets/mjcf/inspire_ftp_left/model.xml"

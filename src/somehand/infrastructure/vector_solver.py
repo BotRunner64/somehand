@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 
 from somehand.domain import RetargetingConfig, preprocess_landmarks
 
-from .hand_model import HandModel
+from .hand_model import HandModel, mimic_joint_derivative
 from .model_name_resolver import ModelNameResolver
 
 
@@ -293,7 +293,7 @@ class VectorRetargeter:
             qpos_index for qpos_index in range(self.model.nq) if qpos_index not in self._mimic_qpos_indices
         ]
         self._reduced_bounds = [self._bounds[index] for index in self._independent_qpos_indices]
-        self._mimic_by_source_qpos: dict[int, list[dict[str, float | int]]] = {}
+        self._mimic_by_source_qpos: dict[int, list[dict[str, object]]] = {}
         for mimic in self._mimic_joints:
             source_qpos_id = int(mimic["source_qpos_id"])
             self._mimic_by_source_qpos.setdefault(source_qpos_id, []).append(mimic)
@@ -358,7 +358,9 @@ class VectorRetargeter:
         reduced_grad = np.asarray([grad[index] for index in self._independent_qpos_indices], dtype=np.float64)
         for reduced_index, qpos_index in enumerate(self._independent_qpos_indices):
             for mimic in self._mimic_by_source_qpos.get(qpos_index, ()):
-                reduced_grad[reduced_index] += float(mimic["multiplier"]) * grad[int(mimic["qpos_id"])]
+                source_value = float(self.data.qpos[qpos_index])
+                derivative = mimic_joint_derivative(mimic, source_value)
+                reduced_grad[reduced_index] += derivative * grad[int(mimic["qpos_id"])]
         return reduced_grad
 
     def _forward(self, qpos: np.ndarray | None = None) -> None:

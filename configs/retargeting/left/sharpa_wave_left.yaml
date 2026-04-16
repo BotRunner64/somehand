@@ -1,0 +1,6 @@
+extends: "../base/sharpa_wave.yaml"
+
+hand:
+  name: "sharpa_wave_left"
+  side: "left"
+  mjcf_path: "../../../assets/mjcf/sharpa_wave_left/model.xml"

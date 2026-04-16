@@ -1,0 +1,160 @@
+hand:
+  name: "omnihand_right"
+  side: "right"
+  mjcf_path: "../../../assets/mjcf/omnihand_right/model.xml"
+
+retargeting:
+  type: vector
+  vector_constraints:
+    - human: [0, 4]
+      robot: ["world", "R_thumb_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.5
+    - human: [1, 2]
+      robot: ["R_thumb_abad_link", "R_thumb_pip_link"]
+      weight: 1.0
+    - human: [2, 4]
+      robot: ["R_thumb_pip_link", "R_thumb_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+      loss_type: "residual"
+      loss_scale: 1.0
+    - human: [5, 8]
+      robot: ["R_index_abad_link", "R_index_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [6, 8]
+      robot: ["R_index_pip_link", "R_index_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [9, 12]
+      robot: ["R_middle_pip_link", "R_middle_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [13, 16]
+      robot: ["R_ring_abad_link", "R_ring_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [14, 16]
+      robot: ["R_ring_pip_link", "R_ring_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [17, 20]
+      robot: ["R_pinky_abad_link", "R_pinky_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+    - human: [18, 20]
+      robot: ["R_pinky_pip_link", "R_pinky_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1.0
+  distance_constraints:
+    - human: [4, 8]
+      robot: ["R_thumb_dip_link_tip", "R_index_dip_link_tip"]
+      robot_types: ["site", "site"]
+      weight: 2000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 12]
+      robot: ["R_thumb_dip_link_tip", "R_middle_dip_link_tip"]
+      robot_types: ["site", "site"]
+      weight: 1500.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 16]
+      robot: ["R_thumb_dip_link_tip", "R_ring_dip_link_tip"]
+      robot_types: ["site", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 20]
+      robot: ["R_thumb_dip_link_tip", "R_pinky_dip_link_tip"]
+      robot_types: ["site", "site"]
+      weight: 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [8, 5]
+      robot: ["R_index_pip_link", "R_index_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1200.0
+      scale: 1.0
+      threshold: 0.10
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [12, 9]
+      robot: ["R_middle_pip_link", "R_middle_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.10
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [16, 13]
+      robot: ["R_ring_pip_link", "R_ring_dip_link_tip"]
+      robot_types: ["body", "site"]
+      weight: 900.0
+      scale: 1.0
+      threshold: 0.10
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+  angle_constraints:
+    - landmarks: [1, 2, 4]
+      joint: "R_thumb_mcp_joint"
+      weight: 1.2
+      scale: 1.0
+    - landmarks: [2, 3, 4]
+      joint: "R_thumb_pip_joint"
+      weight: 1.0
+      scale: 1.0
+    - landmarks: [5, 6, 8]
+      joint: "R_index_pip_joint"
+      weight: 1.4
+      scale: 1.0
+    - landmarks: [6, 7, 8]
+      joint: "R_index_dip_joint"
+      weight: 1.2
+      scale: 1.0
+    - landmarks: [9, 10, 12]
+      joint: "R_middle_pip_joint"
+      weight: 1.4
+      scale: 1.0
+    - landmarks: [10, 11, 12]
+      joint: "R_middle_dip_joint"
+      weight: 1.2
+      scale: 1.0
+    - landmarks: [13, 14, 16]
+      joint: "R_ring_pip_joint"
+      weight: 1.4
+      scale: 1.0
+    - landmarks: [14, 15, 16]
+      joint: "R_ring_dip_joint"
+      weight: 1.2
+      scale: 1.0
+    - landmarks: [17, 18, 20]
+      joint: "R_pinky_pip_joint"
+      weight: 1.4
+      scale: 1.0
+    - landmarks: [18, 19, 20]
+      joint: "R_pinky_dip_joint"
+      weight: 1.2
+      scale: 1.0
+  vector_loss:
+    type: direction
+    huber_delta: 0.02
+    scaling: 1.0
+    scale_landmarks: [0, 9]
+    scale_bodies: ["world", "R_middle_pip_link"]
+    scale_body_types: ["body", "body"]
+  preprocess:
+    temporal_filter_alpha: 0.65
+  solver:
+    max_iterations: 60
+    norm_delta: 0.001
+    output_alpha: 0.92

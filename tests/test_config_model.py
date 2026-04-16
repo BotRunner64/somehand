@@ -8,7 +8,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from somehand.infrastructure.config_loader import load_retargeting_config
-from somehand.infrastructure.hand_model import HandModel
+from somehand.infrastructure.hand_model import HandModel, mimic_joint_derivative
 from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from somehand.infrastructure.vector_solver import VectorRetargeter
 
@@ -309,12 +309,14 @@ def test_side_specific_configs_instantiate_universal_vector_retargeter():
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
         retargeter = VectorRetargeter(hand_model, config)
-        assert config.preset == "universal"
         assert retargeter.config.hand.name == config.hand.name
-        assert len(retargeter.config.distance_constraints) == 4
-        assert len(retargeter.config.frame_constraints) == 1
-        assert retargeter.config.frame_constraints[0].name == "thumb_cmc_frame"
-        assert retargeter.config.angle_constraints == []
+        if config.preset == "universal":
+            assert len(retargeter.config.distance_constraints) == 4
+            assert len(retargeter.config.frame_constraints) == 1
+            assert retargeter.config.frame_constraints[0].name == "thumb_cmc_frame"
+            assert retargeter.config.angle_constraints == []
+        else:
+            assert len(retargeter.config.vector_constraints) > 0
 
 
 def test_all_fingertip_sites_align_with_mesh_surface_points():
@@ -387,6 +389,76 @@ def test_model_name_resolver_supports_wujihand_finger_names():
     )
 
 
+def _semantic_point(hand_model: HandModel, *, hand_side: str, name: str, obj_type) -> np.ndarray:
+    resolver = ModelNameResolver(hand_model.model, hand_side=hand_side)
+    resolved = resolver.resolve(name, obj_type=obj_type, role="Orientation regression")
+    point_id = mujoco.mj_name2id(hand_model.model, obj_type, resolved)
+    if obj_type == mujoco.mjtObj.mjOBJ_SITE:
+        return hand_model.data.site_xpos[point_id].copy()
+    return hand_model.data.xpos[point_id].copy()
+
+
+def _hand_frame(mjcf_path: str, *, hand_side: str) -> np.ndarray:
+    hand_model = HandModel(mjcf_path)
+    middle_base = _semantic_point(hand_model, hand_side=hand_side, name="middle_base", obj_type=mujoco.mjtObj.mjOBJ_BODY)
+    middle_tip = _semantic_point(hand_model, hand_side=hand_side, name="middle_tip", obj_type=mujoco.mjtObj.mjOBJ_SITE)
+    index_base = _semantic_point(hand_model, hand_side=hand_side, name="index_base", obj_type=mujoco.mjtObj.mjOBJ_BODY)
+    ring_base = _semantic_point(hand_model, hand_side=hand_side, name="ring_base", obj_type=mujoco.mjtObj.mjOBJ_BODY)
+
+    y_axis = middle_tip - middle_base
+    y_axis = y_axis / np.linalg.norm(y_axis)
+    x_axis = index_base - ring_base
+    x_axis = x_axis - y_axis * np.dot(x_axis, y_axis)
+    x_axis = x_axis / np.linalg.norm(x_axis)
+    z_axis = np.cross(x_axis, y_axis)
+    z_axis = z_axis / np.linalg.norm(z_axis)
+    x_axis = np.cross(y_axis, z_axis)
+    x_axis = x_axis / np.linalg.norm(x_axis)
+    return np.stack([x_axis, y_axis, z_axis], axis=1)
+
+
+def test_new_hand_models_align_to_reference_landmark_frame():
+    reference_frames = {
+        "right": _hand_frame("assets/mjcf/linkerhand_l20_right/model.xml", hand_side="right"),
+        "left": _hand_frame("assets/mjcf/linkerhand_l20_left/model.xml", hand_side="left"),
+    }
+    for hand_name in ("dex5", "inspire_dfq", "inspire_ftp", "omnihand", "rohand", "sharpa_wave"):
+        for hand_side in ("right", "left"):
+            candidate = _hand_frame(f"assets/mjcf/{hand_name}_{hand_side}/model.xml", hand_side=hand_side)
+            reference = reference_frames[hand_side]
+            axis_cosines = np.diag(reference.T @ candidate)
+            assert np.all(axis_cosines > 0.995), f"{hand_name}_{hand_side} frame drifted: {axis_cosines}"
+
+
+def test_new_hand_models_export_single_tip_site_per_finger():
+    for hand_name in ("dex5", "inspire_dfq", "inspire_ftp", "omnihand", "rohand", "sharpa_wave"):
+        for hand_side in ("right", "left"):
+            hand_model = HandModel(f"assets/mjcf/{hand_name}_{hand_side}/model.xml")
+            tip_sites = [name for name in hand_model.get_site_names() if name.endswith("_tip")]
+            assert len(tip_sites) == 5, f"{hand_name}_{hand_side} exported {len(tip_sites)} tip sites: {tip_sites}"
+
+
+def test_rohand_slider_joint_drives_passive_linkage_via_polynomial_equalities():
+    hand_model = HandModel("assets/mjcf/rohand_right/model.xml")
+    qpos = hand_model.get_qpos()
+    name_to_idx = hand_model.get_joint_name_to_qpos_index()
+
+    baseline = {
+        name: float(qpos[name_to_idx[name]])
+        for name in ("if_proximal_link", "if_distal_link", "if_connecting_link", "th_proximal_link")
+    }
+
+    qpos[name_to_idx["if_slider_link"]] = 0.019
+    qpos[name_to_idx["th_slider_link"]] = 0.01
+    hand_model.set_qpos(qpos)
+    actual = hand_model.get_qpos()
+
+    assert abs(float(actual[name_to_idx["if_proximal_link"]]) - baseline["if_proximal_link"]) > 0.5
+    assert abs(float(actual[name_to_idx["if_distal_link"]]) - baseline["if_distal_link"]) > 0.5
+    assert abs(float(actual[name_to_idx["if_connecting_link"]]) - baseline["if_connecting_link"]) > 0.5
+    assert abs(float(actual[name_to_idx["th_proximal_link"]]) - baseline["th_proximal_link"]) > 0.2
+
+
 def test_revo2_model_preserves_mimic_equalities():
     hand_model = HandModel("assets/mjcf/revo2_right/model.xml")
 
@@ -406,3 +478,24 @@ def test_hand_model_set_qpos_applies_mimic_relationships():
     actual_qpos = hand_model.get_qpos()
     assert actual_qpos[2] == pytest.approx(0.4)
     assert actual_qpos[4] == pytest.approx(0.5 * 1.155)
+
+
+def test_vector_retargeter_reduces_grad_for_polynomial_mimics():
+    config = load_retargeting_config("configs/retargeting/right/rohand_right.yaml")
+    hand_model = HandModel(config.hand.mjcf_path)
+    retargeter = VectorRetargeter(hand_model, config)
+
+    mimic = next(item for item in hand_model.mimic_joints if "polycoef" in item and "multiplier" not in item)
+    source_qpos_id = int(mimic["source_qpos_id"])
+    source_value = 0.01
+    retargeter.data.qpos[source_qpos_id] = source_value
+
+    grad = np.zeros(retargeter.model.nv, dtype=np.float64)
+    grad[source_qpos_id] = 1.5
+    grad[int(mimic["qpos_id"])] = 2.0
+
+    reduced_grad = retargeter._reduce_grad(grad)
+    reduced_index = retargeter._independent_qpos_indices.index(source_qpos_id)
+
+    expected = 1.5 + mimic_joint_derivative(mimic, source_value) * 2.0
+    assert reduced_grad[reduced_index] == pytest.approx(expected)

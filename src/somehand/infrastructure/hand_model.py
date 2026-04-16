@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Mapping
 
 import mink
 import mujoco
@@ -11,6 +12,29 @@ import numpy as np
 
 def _joint_type_value(value) -> int:
     return int(value.value) if hasattr(value, "value") else int(value)
+
+
+def mimic_polycoef(mimic: Mapping[str, object]) -> list[float]:
+    polycoef = mimic.get("polycoef")
+    if polycoef is not None:
+        return [float(value) for value in polycoef]
+    return [
+        float(mimic.get("offset", 0.0)),
+        float(mimic.get("multiplier", 1.0)),
+    ]
+
+
+def evaluate_mimic_joint(mimic: Mapping[str, object], source_value: float) -> float:
+    polycoef = mimic_polycoef(mimic)
+    return sum(coefficient * (source_value ** power) for power, coefficient in enumerate(polycoef))
+
+
+def mimic_joint_derivative(mimic: Mapping[str, object], source_value: float) -> float:
+    polycoef = mimic_polycoef(mimic)
+    return sum(
+        power * coefficient * (source_value ** (power - 1))
+        for power, coefficient in enumerate(polycoef[1:], start=1)
+    )
 
 
 class HandModel:
@@ -24,8 +48,8 @@ class HandModel:
         self.mimic_joints = self._collect_mimic_joints()
         self.apply_mimic_constraints(self.data.qpos)
 
-    def _collect_mimic_joints(self) -> list[dict[str, float | int]]:
-        mimic_joints: list[dict[str, float | int]] = []
+    def _collect_mimic_joints(self) -> list[dict[str, object]]:
+        mimic_joints: list[dict[str, object]] = []
         joint_eq_type = _joint_type_value(mujoco.mjtEq.mjEQ_JOINT)
         for equality_index in range(self.model.neq):
             if int(self.model.eq_type[equality_index]) != joint_eq_type:
@@ -47,8 +71,7 @@ class HandModel:
                     "source_qpos_id": source_qpos_id,
                     "dof_id": mimic_dof_id,
                     "source_dof_id": source_dof_id,
-                    "offset": float(coefficients[0]),
-                    "multiplier": float(coefficients[1]),
+                    "polycoef": [float(value) for value in coefficients[:5]],
                 }
             )
         return mimic_joints
@@ -111,7 +134,8 @@ class HandModel:
         for mimic in self.mimic_joints:
             qpos_id = int(mimic["qpos_id"])
             source_qpos_id = int(mimic["source_qpos_id"])
-            qpos[qpos_id] = float(mimic["offset"]) + float(mimic["multiplier"]) * qpos[source_qpos_id]
+            source_value = float(qpos[source_qpos_id])
+            qpos[qpos_id] = evaluate_mimic_joint(mimic, source_value)
         return qpos
 
     def set_qpos(self, qpos: np.ndarray) -> None:
