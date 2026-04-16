@@ -2,46 +2,17 @@
 
 from __future__ import annotations
 
-import math
-
 import mujoco
 import numpy as np
 from scipy.optimize import minimize
 
-from somehand.domain import RetargetingConfig, preprocess_landmarks
+from somehand.domain import RetargetingConfig
 
 from .hand_model import HandModel, mimic_joint_derivative
 from .model_name_resolver import ModelNameResolver
-
-
-def _huber_loss(distance: float, delta: float) -> float:
-    if distance <= delta:
-        return 0.5 * distance * distance
-    return delta * (distance - 0.5 * delta)
-
-
-def _huber_grad(distance: float, delta: float) -> float:
-    if distance <= delta:
-        return distance
-    return delta
-
-
-class TemporalFilter:
-    """Exponential moving average filter for smooth landmark tracking."""
-
-    def __init__(self, alpha: float = 0.5):
-        self.alpha = alpha
-        self._prev: np.ndarray | None = None
-
-    def filter(self, value: np.ndarray) -> np.ndarray:
-        if self._prev is None:
-            self._prev = value.copy()
-            return value
-        self._prev = self.alpha * value + (1 - self.alpha) * self._prev
-        return self._prev.copy()
-
-    def reset(self) -> None:
-        self._prev = None
+from .vector_solver_objective import accumulate_direction_loss, compute_loss, compute_loss_and_grad, rotation_jacobian_to_axis_jacobian
+from .vector_solver_primitives import TemporalFilter
+from .vector_solver_targets import build_target_state, dist_activation, human_distance_scale, orthonormalize_frame_axes
 
 
 class VectorRetargeter:
@@ -374,23 +345,11 @@ class VectorRetargeter:
         return self.data.xpos[index].copy()
 
     def _dist_activation(self, index: int, raw_dist: float) -> float:
-        threshold = self._dist_thresholds[index]
-        if threshold <= 0.0:
-            return 1.0
-        if self._dist_activation_types[index] == "gaussian":
-            sigma = threshold / 2.0
-            return math.exp(-(raw_dist / sigma) ** 2)
-        if self._dist_activation_types[index] == "linear":
-            return max(0.0, 1.0 - raw_dist / threshold)
-        raise ValueError(f"unknown activation_type: '{self._dist_activation_types[index]}'")
+        return dist_activation(self._dist_activation_types[index], self._dist_thresholds[index], raw_dist)
 
     @staticmethod
     def _human_distance_scale(landmarks: np.ndarray) -> float:
-        return float(
-            np.linalg.norm(landmarks[10] - landmarks[9])
-            + np.linalg.norm(landmarks[11] - landmarks[10])
-            + np.linalg.norm(landmarks[12] - landmarks[11])
-        )
+        return human_distance_scale(landmarks)
 
     def _get_rot(self, index: int, is_site: bool) -> np.ndarray:
         if is_site:
@@ -402,16 +361,7 @@ class VectorRetargeter:
         primary_vector: np.ndarray,
         secondary_vector: np.ndarray,
     ) -> tuple[np.ndarray | None, np.ndarray | None]:
-        primary_norm = np.linalg.norm(primary_vector)
-        if primary_norm < 1e-8:
-            return None, None
-        primary_axis = primary_vector / primary_norm
-        secondary_rejected = secondary_vector - np.dot(secondary_vector, primary_axis) * primary_axis
-        secondary_norm = np.linalg.norm(secondary_rejected)
-        if secondary_norm < 1e-8:
-            return primary_axis, None
-        secondary_axis = secondary_rejected / secondary_norm
-        return primary_axis, secondary_axis
+        return orthonormalize_frame_axes(primary_vector, secondary_vector)
 
     def _build_local_frame_axes(
         self,
@@ -451,7 +401,7 @@ class VectorRetargeter:
 
     @staticmethod
     def _rotation_jacobian_to_axis_jacobian(jac_rot: np.ndarray, axis: np.ndarray) -> np.ndarray:
-        return np.cross(jac_rot.T, axis).T
+        return rotation_jacobian_to_axis_jacobian(jac_rot, axis)
 
     def _accumulate_direction_loss(
         self,
@@ -461,19 +411,7 @@ class VectorRetargeter:
         jac_diff: np.ndarray | None = None,
         grad: np.ndarray | None = None,
     ) -> tuple[float, np.ndarray | None]:
-        if weight <= 0.0:
-            return 0.0, grad
-        robot_norm = np.linalg.norm(vector)
-        if robot_norm < 1e-8:
-            return weight, grad
-        robot_dir = vector / robot_norm
-        cos_sim = float(np.dot(robot_dir, target_dir))
-        loss = weight * (1.0 - cos_sim)
-        if grad is None or jac_diff is None:
-            return loss, grad
-        grad_vec = -(target_dir - cos_sim * robot_dir) / robot_norm
-        grad += weight * (grad_vec @ jac_diff)
-        return loss, grad
+        return accumulate_direction_loss(vector, target_dir, weight, jac_diff=jac_diff, grad=grad)
 
     def _get_effective_weight(self, index: int) -> float:
         return self._weights[index]
@@ -483,272 +421,17 @@ class VectorRetargeter:
         return override if override else self._vector_loss_type
 
     def _compute_loss(self, qpos: np.ndarray) -> float:
-        full_qpos = self._expand_qpos(qpos)
-        self._forward(full_qpos)
-        robot_vecs = self._get_robot_vectors()
-        loss = 0.0
-        for index in range(len(robot_vecs)):
-            weight = self._get_effective_weight(index)
-            if self._get_loss_type(index) == "residual":
-                diff = robot_vecs[index] - self._target_vectors[index]
-                dist = float(np.linalg.norm(diff))
-                loss += weight * _huber_loss(dist, self._vector_huber_delta)
-            else:
-                direction_loss, _ = self._accumulate_direction_loss(
-                    robot_vecs[index],
-                    self._target_directions[index],
-                    weight,
-                )
-                loss += direction_loss
-        if self._target_frame_primary_directions is not None:
-            primary_axes, secondary_axes = self._get_robot_frame_axes()
-            for index in range(len(primary_axes)):
-                primary_loss, _ = self._accumulate_direction_loss(
-                    primary_axes[index],
-                    self._target_frame_primary_directions[index],
-                    self._frame_primary_weights[index],
-                )
-                secondary_loss, _ = self._accumulate_direction_loss(
-                    secondary_axes[index],
-                    self._target_frame_secondary_directions[index],
-                    self._frame_secondary_weights[index],
-                )
-                loss += primary_loss + secondary_loss
-        if self._last_qpos is not None:
-            loss += self._norm_delta * np.sum((full_qpos - self._last_qpos) ** 2)
-        if self._target_angles is not None:
-            for index in range(len(self._angle_qpos_ids)):
-                qpos_id = self._angle_qpos_ids[index]
-                diff = full_qpos[qpos_id] - self._target_angles[index]
-                loss += self._angle_weights[index] * diff * diff
-        if self._target_distances is not None:
-            for index in range(len(self._dist_site_ids)):
-                activation = self._smoothed_activations[index]
-                if activation < 1e-4:
-                    continue
-                id_a, is_site_a, id_b, is_site_b = self._dist_site_ids[index]
-                pos_a = self._get_pos(id_a, is_site_a)
-                pos_b = self._get_pos(id_b, is_site_b)
-                robot_dist = float(np.linalg.norm(pos_b - pos_a))
-                diff = robot_dist - self._target_distances[index]
-                if diff > 0.0:
-                    loss += self._dist_weights[index] * activation * diff * diff
-        return loss
+        return compute_loss(self, qpos)
 
     def _compute_loss_and_grad(self, qpos: np.ndarray) -> tuple[float, np.ndarray]:
-        full_qpos = self._expand_qpos(qpos)
-        self._forward(full_qpos)
-        robot_vecs = self._get_robot_vectors()
-        num_velocities = self.model.nv
-        grad = np.zeros(num_velocities)
-        loss = 0.0
-
-        for index in range(len(self.origin_ids)):
-            robot_vec = robot_vecs[index]
-            weight = self._get_effective_weight(index)
-            jac_task = np.zeros((3, num_velocities))
-            jac_origin = np.zeros((3, num_velocities))
-
-            if self.task_is_site[index]:
-                mujoco.mj_jacSite(self.model, self.data, jac_task, None, self.task_ids[index])
-            else:
-                mujoco.mj_jacBody(self.model, self.data, jac_task, None, self.task_ids[index])
-
-            if self.origin_is_site[index]:
-                mujoco.mj_jacSite(self.model, self.data, jac_origin, None, self.origin_ids[index])
-            else:
-                mujoco.mj_jacBody(self.model, self.data, jac_origin, None, self.origin_ids[index])
-
-            jac_diff = jac_task - jac_origin
-            if self._get_loss_type(index) == "residual":
-                diff = robot_vec - self._target_vectors[index]
-                dist = float(np.linalg.norm(diff))
-                loss += weight * _huber_loss(dist, self._vector_huber_delta)
-                if dist > 1e-8:
-                    grad_coeff = _huber_grad(dist, self._vector_huber_delta) / dist
-                    grad += weight * grad_coeff * (diff @ jac_diff)
-            else:
-                direction_loss, grad = self._accumulate_direction_loss(
-                    robot_vec,
-                    self._target_directions[index],
-                    weight,
-                    jac_diff=jac_diff,
-                    grad=grad,
-                )
-                loss += direction_loss
-
-        if self._target_frame_primary_directions is not None:
-            for index in range(len(self._frame_origin_ids)):
-                jac_origin_rot = np.zeros((3, num_velocities))
-
-                if self._frame_origin_is_site[index]:
-                    mujoco.mj_jacSite(self.model, self.data, None, jac_origin_rot, self._frame_origin_ids[index])
-                else:
-                    mujoco.mj_jacBody(self.model, self.data, None, jac_origin_rot, self._frame_origin_ids[index])
-
-                origin_rotation = self._get_rot(self._frame_origin_ids[index], self._frame_origin_is_site[index])
-                primary_axis = origin_rotation @ self._frame_local_primary_axes[index]
-                secondary_axis = origin_rotation @ self._frame_local_secondary_axes[index]
-                primary_jac = self._rotation_jacobian_to_axis_jacobian(jac_origin_rot, primary_axis)
-                secondary_jac = self._rotation_jacobian_to_axis_jacobian(jac_origin_rot, secondary_axis)
-                primary_loss, grad = self._accumulate_direction_loss(
-                    primary_axis,
-                    self._target_frame_primary_directions[index],
-                    self._frame_primary_weights[index],
-                    jac_diff=primary_jac,
-                    grad=grad,
-                )
-                secondary_loss, grad = self._accumulate_direction_loss(
-                    secondary_axis,
-                    self._target_frame_secondary_directions[index],
-                    self._frame_secondary_weights[index],
-                    jac_diff=secondary_jac,
-                    grad=grad,
-                )
-                loss += primary_loss + secondary_loss
-
-        if self._last_qpos is not None:
-            delta_q = full_qpos - self._last_qpos
-            loss += self._norm_delta * np.sum(delta_q**2)
-            grad += 2.0 * self._norm_delta * delta_q
-
-        if self._target_angles is not None:
-            for index in range(len(self._angle_qpos_ids)):
-                qpos_id = self._angle_qpos_ids[index]
-                dof_id = self._angle_dof_ids[index]
-                target = self._target_angles[index]
-                weight = self._angle_weights[index]
-                diff = full_qpos[qpos_id] - target
-                loss += weight * diff * diff
-                grad[dof_id] += 2.0 * weight * diff
-
-        if self._target_distances is not None:
-            for index in range(len(self._dist_site_ids)):
-                activation = self._smoothed_activations[index]
-                if activation < 1e-4:
-                    continue
-                id_a, is_site_a, id_b, is_site_b = self._dist_site_ids[index]
-                pos_a = self._get_pos(id_a, is_site_a)
-                pos_b = self._get_pos(id_b, is_site_b)
-                vec_ab = pos_b - pos_a
-                robot_dist = float(np.linalg.norm(vec_ab))
-                if robot_dist < 1e-8:
-                    continue
-                diff = robot_dist - self._target_distances[index]
-                if diff <= 0.0:
-                    continue
-                weight = self._dist_weights[index] * activation
-                loss += weight * diff * diff
-                jac_a = np.zeros((3, num_velocities))
-                jac_b = np.zeros((3, num_velocities))
-                if is_site_a:
-                    mujoco.mj_jacSite(self.model, self.data, jac_a, None, id_a)
-                else:
-                    mujoco.mj_jacBody(self.model, self.data, jac_a, None, id_a)
-                if is_site_b:
-                    mujoco.mj_jacSite(self.model, self.data, jac_b, None, id_b)
-                else:
-                    mujoco.mj_jacBody(self.model, self.data, jac_b, None, id_b)
-                direction = vec_ab / robot_dist
-                grad += 2.0 * weight * diff * (direction @ (jac_b - jac_a))
-
-        return loss, self._reduce_grad(grad)
+        return compute_loss_and_grad(self, qpos)
 
     def update_targets(
         self,
         landmarks_3d: np.ndarray,
         hand_side: str = "right",
     ) -> None:
-        landmarks = preprocess_landmarks(
-            landmarks_3d,
-            hand_side=hand_side,
-        )
-        landmarks = self.landmark_filter.filter(landmarks)
-
-        directions = np.empty((len(self.human_vector_pairs), 3), dtype=np.float64)
-        target_vectors = np.empty((len(self.human_vector_pairs), 3), dtype=np.float64)
-        vector_scale = self._robot_vector_scale / max(
-            float(np.linalg.norm(landmarks[self._vector_scale_landmark_idx])),
-            1e-6,
-        )
-        distance_scale = self._robot_distance_scale / max(self._human_distance_scale(landmarks), 1e-6)
-        for index, (origin_idx, target_idx) in enumerate(self.human_vector_pairs):
-            vector = landmarks[target_idx] - landmarks[origin_idx]
-            norm = np.linalg.norm(vector)
-            scale = vector_scale
-            if self._per_vector_loss_scales[index] > 0.0:
-                scale = vector_scale * self._per_vector_loss_scales[index]
-            target_vectors[index] = scale * vector
-            if norm < 1e-8:
-                directions[index] = 0.0
-            else:
-                directions[index] = vector / norm
-        self._target_directions = directions
-        self._target_vectors = target_vectors
-        if self._frame_human_indices:
-            frame_primary = np.empty((len(self._frame_human_indices), 3), dtype=np.float64)
-            frame_secondary = np.empty((len(self._frame_human_indices), 3), dtype=np.float64)
-            for index, (origin_idx, primary_idx, secondary_idx) in enumerate(self._frame_human_indices):
-                primary_vector = landmarks[primary_idx] - landmarks[origin_idx]
-                secondary_vector = landmarks[secondary_idx] - landmarks[origin_idx]
-                primary_axis, secondary_axis = self._orthonormalize_frame_axes(primary_vector, secondary_vector)
-                frame_primary[index] = 0.0 if primary_axis is None else primary_axis
-                frame_secondary[index] = 0.0 if secondary_axis is None else secondary_axis
-            self._target_frame_primary_directions = frame_primary
-            self._target_frame_secondary_directions = frame_secondary
-        else:
-            self._target_frame_primary_directions = None
-            self._target_frame_secondary_directions = None
-
-        if self._angle_landmarks:
-            target_angles = np.zeros(len(self._angle_landmarks))
-            for index, (a, b, c) in enumerate(self._angle_landmarks):
-                v_ba = landmarks[a] - landmarks[b]
-                v_bc = landmarks[c] - landmarks[b]
-                norm_ba = np.linalg.norm(v_ba)
-                norm_bc = np.linalg.norm(v_bc)
-                if norm_ba < 1e-8 or norm_bc < 1e-8:
-                    flexion = 0.0
-                else:
-                    cos_angle = np.clip(np.dot(v_ba, v_bc) / (norm_ba * norm_bc), -1.0, 1.0)
-                    flexion = np.pi - np.arccos(cos_angle)
-                low, high = self._angle_joint_ranges[index]
-                normalized = flexion / np.pi
-                if self._angle_inverts[index]:
-                    normalized = 1.0 - normalized
-                normalized = np.clip(normalized * self._angle_scales[index], 0.0, 1.0)
-                target_angles[index] = low + normalized * (high - low)
-            self._target_angles = target_angles
-        else:
-            self._target_angles = None
-
-        if self._dist_human_pairs:
-            target_distances = np.zeros(len(self._dist_human_pairs))
-            raw_human_distances = np.zeros(len(self._dist_human_pairs))
-            smoothed_activations = np.zeros(len(self._dist_human_pairs))
-            for index, (a, b) in enumerate(self._dist_human_pairs):
-                raw_dist = float(np.linalg.norm(landmarks[a] - landmarks[b]))
-                raw_human_distances[index] = raw_dist
-                if self._dist_scale_modes[index] == "hand_scaled":
-                    target_distances[index] = self._dist_scales[index] * raw_dist * distance_scale
-                else:
-                    target_distances[index] = self._dist_scales[index] * raw_dist
-                raw_act = self._dist_activation(index, raw_dist)
-                if self._prev_activations is not None:
-                    smoothed_activations[index] = (
-                        self._activation_alpha * raw_act
-                        + (1.0 - self._activation_alpha) * self._prev_activations[index]
-                    )
-                else:
-                    smoothed_activations[index] = raw_act
-            self._target_distances = target_distances
-            self._raw_human_distances = raw_human_distances
-            self._smoothed_activations = smoothed_activations
-            self._prev_activations = smoothed_activations.copy()
-        else:
-            self._target_distances = None
-            self._raw_human_distances = None
-            self._smoothed_activations = None
+        build_target_state(self, landmarks_3d, hand_side=hand_side)
 
     def solve(self) -> np.ndarray:
         if self._target_directions is None:
