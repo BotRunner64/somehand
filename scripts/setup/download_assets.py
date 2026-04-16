@@ -58,10 +58,17 @@ def _safe_extract_tar(archive_path: Path, dst: Path) -> None:
     ):
         extracted_root = extracted_children[0]
 
-    _remove_path(dst)
-    extracted_root.replace(dst)
-    if extracted_root != tmp_dst:
+    if dst.is_dir() and extracted_root.is_dir():
+        for child in extracted_root.iterdir():
+            target = dst / child.name
+            _remove_path(target)
+            child.replace(target)
         _remove_path(tmp_dst)
+    else:
+        _remove_path(dst)
+        extracted_root.replace(dst)
+        if extracted_root != tmp_dst:
+            _remove_path(tmp_dst)
 
 
 def _resolve_entry_source(repo_cache: Path, entry: AssetEntry) -> Path:
