@@ -19,25 +19,32 @@
 
 | 公司 | 型号 | 自由度 | 关节数量 |
 | --- | --- | ---: | ---: |
-| DexRobot | DexHand021 | 20 | 20 |
-| LinkerHand | L6 | 6 | 11 |
-| LinkerHand | L10 | 10 | 20 |
-| LinkerHand | L20 | 16 | 21 |
-| LinkerHand | L20 Pro | 17 | 21 |
-| LinkerHand | L21 | 17 | 17 |
-| LinkerHand | L25 | 21 | 21 |
-| LinkerHand | L30 | 20 | 20 |
-| LinkerHand | LHG20 | 16 | 21 |
-| LinkerHand | O6 | 6 | 11 |
-| LinkerHand | O7 | 7 | 17 |
-| LinkerHand | T12 | 14 | 19 |
-| BrainCo | Revo2 | 6 | 11 |
-| Wuji | Wuji Hand | 20 | 20 |
+| 灵心巧手 | L6 | 6 | 11 |
+| 灵心巧手 | L10 | 10 | 20 |
+| 灵心巧手 | L20 | 16 | 21 |
+| 灵心巧手 | L20 Pro | 17 | 21 |
+| 灵心巧手 | L21 | 17 | 17 |
+| 灵心巧手 | L25 | 21 | 21 |
+| 灵心巧手 | L30 | 20 | 20 |
+| 灵心巧手 | LHG20 | 16 | 21 |
+| 灵心巧手 | O6 | 6 | 11 |
+| 灵心巧手 | O7 | 7 | 17 |
+| 灵心巧手 | T12 | 14 | 19 |
+| 灵巧智能 | DexHand021 | 20 | 20 |
+| 宇树科技 | Dex5 | 20 | 20 |
+| 因时机器人 | DFQ | 6 | 12 |
+| 因时机器人 | FTP | 6 | 12 |
+| 智元 | T2 | 10 | 16 |
+| 强脑科技 | Revo2 | 6 | 11 |
+| 傲意科技 | RoHand | 6 | 25 |
+| Sharpa | Wave 01 | 22 | 22 |
+| 舞肌科技 | Wuji Hand | 20 | 20 |
 
 说明：
 
 - 这张表描述的是 **retargeting 配置支持**，不等同于所有机型都具备真机 `real` backend 支持。
-- 自由度按 `URDF` 中“非固定、非 `mimic`”关节统计；关节数量按 `URDF` 中非固定关节统计。
+- 自由度按当前 `assets/mjcf/*/model.xml` 中“非固定、非 `mimic` / equality”关节统计；关节数量按当前模型中的非固定关节统计。
+- 当前侧别覆盖以 `configs/retargeting/{left,right,bihand}` 为准；并非所有型号都同时提供左右手配置。
 - 云端默认分发的是运行所需的 `MJCF` 资产，不是 `URDF` 源文件。
 - 本仓库不提交 `assets/` 实际内容；本地仅保留占位目录，所有资产统一放在云端资产仓。
 
