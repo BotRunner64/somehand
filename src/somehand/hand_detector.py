@@ -41,7 +41,6 @@ class HandDetector:
         target_hand: Optional[str] = None,
         swap_handedness: bool = False,
     ):
-        import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions
         from mediapipe.tasks.python.vision import (
             HandLandmarker,
@@ -124,7 +123,7 @@ class HandDetector:
         result = self.landmarker.detect_for_video(mp_image, self._timestamp_ms)
 
         if not result.hand_landmarks:
-            return None
+            return []
 
         normalized_handedness = [
             self._normalize_handedness(handedness_list[0].category_name)

@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import queue
+import shutil
 import signal
+import sys
 import time
+from multiprocessing.context import BaseContext
+from pathlib import Path
 
 import numpy as np
 
@@ -15,6 +20,41 @@ from .viewer_landmarks import BiHandLandmarkVisualizer, LandmarkVisualizer
 from .viewer_hand import HandVisualizer
 
 VIEWER_LOOP_PERIOD_S = 1.0 / 120.0
+
+
+def _resolve_mjpython_executable() -> str | None:
+    candidates = [Path(sys.executable).with_name("mjpython")]
+
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        candidates.append(Path(conda_prefix) / "bin" / "mjpython")
+
+    path_executable = shutil.which("mjpython")
+    if path_executable:
+        candidates.append(Path(path_executable))
+
+    mjpython_bin = os.environ.get("MJPYTHON_BIN")
+    if mjpython_bin:
+        candidates.append(Path(mjpython_bin))
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        resolved = str(candidate)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return resolved
+    return None
+
+
+def _viewer_spawn_context() -> BaseContext:
+    ctx = mp.get_context("spawn")
+    if sys.platform == "darwin":
+        mjpython = _resolve_mjpython_executable()
+        if mjpython is not None:
+            ctx.set_executable(mjpython)
+    return ctx
 
 
 def landmark_viewer_worker(frame_queue: mp.queues.Queue, window_title: str | None) -> None:
@@ -87,7 +127,7 @@ class AsyncLandmarkVisualizer:
     """Landmark viewer running in a separate process for stability."""
 
     def __init__(self, *, window_title: str | None = None):
-        ctx = mp.get_context("spawn")
+        ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=landmark_viewer_worker,
@@ -154,7 +194,7 @@ class AsyncRobotHandVisualizer:
         overlay_label: str | None = None,
         window_title: str | None = None,
     ):
-        ctx = mp.get_context("spawn")
+        ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=robot_hand_viewer_worker,
@@ -209,7 +249,7 @@ class AsyncBiHandLandmarkVisualizer:
     """Bi-hand landmark viewer running in a separate process for stability."""
 
     def __init__(self):
-        ctx = mp.get_context("spawn")
+        ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=bihand_landmark_viewer_worker,

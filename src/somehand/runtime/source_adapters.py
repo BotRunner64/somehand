@@ -102,7 +102,7 @@ class BiHandMediaPipeInputSource:
             self._available = False
             raise StopIteration from exc
 
-        detections = self._detector.detect_all(preview_frame)
+        detections = self._detector.detect_all(preview_frame) or []
         left_detection = next((item for item in detections if item.hand_side == "left"), None)
         right_detection = next((item for item in detections if item.hand_side == "right"), None)
         detection = to_bihand_frame(left=left_detection, right=right_detection)
