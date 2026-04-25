@@ -89,7 +89,7 @@ You should see a MuJoCo viewer replaying the sample recording.
 ```bash
 somehand webcam
 
-# On MacOS, use the following command
+# On macOS, use the following command
 /opt/homebrew/anaconda3/envs/somehand/bin/mjpython \
 /opt/homebrew/anaconda3/envs/somehand/bin/somehand webcam --hand both
 ```
