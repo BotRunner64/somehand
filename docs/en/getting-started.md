@@ -60,6 +60,12 @@ Only needed for specific input/backend modes:
 somehand webcam
 ```
 
+On macOS, run MuJoCo viewers through `mjpython`:
+
+```bash
+mjpython "$(command -v somehand)" webcam --hand both
+```
+
 **Replay a saved recording:**
 
 ```bash

@@ -136,8 +136,10 @@ class BiHandLandmarkVisualizer:
     def update(self, hands: np.ndarray):
         with self.viewer.lock():
             mujoco.mj_forward(self.model, self.data)
-            finite_points = hands[np.isfinite(hands).all(axis=2)]
-            if finite_points.size > 0 and not self._camera_initialized and try_frame_camera_to_points(
+            finite_mask = np.isfinite(hands).all(axis=2)
+            has_both_hands = bool(np.any(finite_mask[0]) and np.any(finite_mask[1]))
+            finite_points = hands[finite_mask]
+            if has_both_hands and not self._camera_initialized and try_frame_camera_to_points(
                 self.viewer.cam,
                 model=self.model,
                 points=finite_points.reshape(-1, 3),

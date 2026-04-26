@@ -60,6 +60,12 @@ python scripts/setup/download_assets.py --only mjcf mediapipe
 somehand webcam
 ```
 
+在 macOS 上，请通过 `mjpython` 启动 MuJoCo viewer：
+
+```bash
+mjpython "$(command -v somehand)" webcam --hand both
+```
+
 **回放已有录制：**
 
 ```bash
