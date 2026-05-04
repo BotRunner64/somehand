@@ -48,7 +48,7 @@ Only needed for specific input/backend modes:
 | Integration | Setup command | When needed |
 | --- | --- | --- |
 | **LinkerHand** real backend | `bash scripts/setup_linkerhand_sdk.sh` | Controlling real LinkerHand hardware |
-| **PICO** / XRoboToolkit input | `bash scripts/setup_xrobotoolkit.sh` | Live PICO hand tracking |
+| **PICO Bridge** input | Installed by `pip install -e .` from the release wheel dependency | Live PICO hand tracking |
 
 ---
 

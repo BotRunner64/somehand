@@ -28,15 +28,15 @@ python scripts/setup/download_assets.py --only examples
 
 **Checklist:**
 
-- [ ] XRoboToolkit is installed
-- [ ] The required submodule is present
-- [ ] PICO side is actively publishing hand-tracking data
+- [ ] The PICO Bridge PC receiver package is installed
+- [ ] The PICO Bridge headset app is running and connected to the PC receiver
+- [ ] `--pico-host`, `--pico-port`, and `--pico-advertise-ip` match your network setup
 - [ ] Timeout is long enough (`--pico-timeout`)
 
 **Setup command:**
 
 ```bash
-bash scripts/setup_xrobotoolkit.sh
+pip install -e .
 ```
 
 ---

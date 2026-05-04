@@ -8,7 +8,7 @@
 | **`video`** | Offline tracking from video file | MP4 etc. | viewer / sim / real |
 | **`replay`** | Replay a saved recording | `.pkl` file | viewer / sim / real |
 | **`dump-video`** | Render a recording to MP4 | `.pkl` file | MP4 file |
-| **`pico`** | Live tracking via XRoboToolkit | XRoboToolkit stream | viewer / sim / real |
+| **`pico`** | Live tracking via PICO Bridge | PICO Bridge stream | viewer / sim / real |
 | **`hc-mocap`** | Live tracking from hc_mocap UDP | UDP packets | viewer / sim / real |
 
 ---
@@ -77,7 +77,7 @@ somehand dump-video \
 
 ### `pico`
 
-Live hand tracking via XRoboToolkit / PICO.
+Live hand tracking via PICO Bridge.
 
 ```bash
 somehand pico --hand right
@@ -86,9 +86,13 @@ somehand pico --hand right
 | Option | Description |
 | --- | --- |
 | `--signal-fps` | Resample the incoming stream |
-| `--pico-timeout` | Startup waiting time |
+| `--pico-host` / `--pico-port` | PICO Bridge PC receiver bind address |
+| `--pico-advertise-ip` | PC IPv4 address advertised to the headset |
+| `--no-pico-discovery` | Disable PICO Bridge UDP discovery |
+| `--pico-timeout` | Startup and frame waiting time |
 
-> Requires XRoboToolkit installed and actively publishing hand-tracking data.
+> Requires the PICO Bridge PC receiver package and headset app.
+> `somehand pico` starts the PC receiver in-process; do not run standalone `pico-bridge-receiver` on the same port.
 
 ### `hc-mocap`
 
@@ -112,5 +116,5 @@ somehand hc-mocap --hand right --udp-port 1118
 - **Bi-hand (`--hand both`)** is only supported with `--backend viewer` for live and replay commands
 - **`dump-video`** supports bi-hand rendering, but it is recording-based, not live
 - **Real backend** is currently single-hand only
-- **`pico`** depends on XRoboToolkit availability
+- **`pico`** depends on PICO Bridge receiver and headset app availability
 - **LinkerHand real control** depends on LinkerHand SDK and correct `model_family` mapping

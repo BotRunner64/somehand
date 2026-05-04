@@ -28,15 +28,15 @@ python scripts/setup/download_assets.py --only examples
 
 **检查清单：**
 
-- [ ] XRoboToolkit 是否已安装
-- [ ] 相关 submodule 是否存在
-- [ ] PICO 端是否正在发送手部追踪数据
+- [ ] 是否已安装 PICO Bridge PC receiver 包
+- [ ] 头显端是否已启动 PICO Bridge app 并连接到 PC receiver
+- [ ] `--pico-host`、`--pico-port`、`--pico-advertise-ip` 是否匹配当前网络
 - [ ] timeout 是否足够长（`--pico-timeout`）
 
 **配置命令：**
 
 ```bash
-bash scripts/setup_xrobotoolkit.sh
+pip install -e .
 ```
 
 ---

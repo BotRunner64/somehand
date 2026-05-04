@@ -23,7 +23,7 @@
 ## Highlights
 
 - **20+ hand models** — LinkerHand, Inspire, OmniHand, RoHand, Dex5, and more, all driven by YAML configs
-- **Multiple input sources** — webcam (MediaPipe), video file, PICO VR (XRoboToolkit), hc_mocap UDP, saved recordings
+- **Multiple input sources** — webcam (MediaPipe), video file, PICO Bridge, hc_mocap UDP, saved recordings
 - **Flexible backends** — MuJoCo viewer, MuJoCo sim, or real-hand hardware control
 - **Bi-hand visualization** — side-by-side dual-hand replay and rendering
 - **Asset-light** — large runtime assets hosted externally (ModelScope / HuggingFace), not in Git

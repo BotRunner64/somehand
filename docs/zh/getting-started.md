@@ -48,7 +48,7 @@ python scripts/setup/download_assets.py --only mjcf mediapipe
 | 集成 | 配置命令 | 使用场景 |
 | --- | --- | --- |
 | **LinkerHand** 真机 backend | `bash scripts/setup_linkerhand_sdk.sh` | 控制 LinkerHand 真机硬件 |
-| **PICO** / XRoboToolkit 输入 | `bash scripts/setup_xrobotoolkit.sh` | PICO 实时手部追踪 |
+| **PICO Bridge** 输入 | 由 `pip install -e .` 通过 release wheel 依赖安装 | PICO 实时手部追踪 |
 
 ---
 

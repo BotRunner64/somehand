@@ -57,7 +57,7 @@ pytest -q tests/test_cli.py tests/test_config_model.py tests/test_download_asset
 
 | Integration | Bootstrap script | Notes |
 | --- | --- | --- |
-| **XRoboToolkit** | `scripts/setup_xrobotoolkit.sh` | Required for `pico` mode |
+| **PICO Bridge** | `pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.1.0/pico_bridge-0.1.0-py3-none-any.whl` | Required for `pico` mode |
 | **LinkerHand SDK** | `scripts/setup_linkerhand_sdk.sh` | Required for `real` backend |
 
 > Upstream SDK docs remain upstream — this repo only documents the integration path used here.

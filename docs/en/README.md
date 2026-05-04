@@ -10,7 +10,7 @@
 | --- | --- |
 | **MediaPipe webcam** | Live hand tracking from a camera |
 | **MediaPipe video** | Offline tracking from a video file |
-| **PICO VR** | Live hand tracking via XRoboToolkit |
+| **PICO VR** | Live hand tracking via PICO Bridge |
 | **hc_mocap UDP** | Live hand data over UDP |
 | **Saved recordings** | Replay `.pkl` recordings from any source above |
 

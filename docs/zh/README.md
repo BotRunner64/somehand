@@ -10,7 +10,7 @@
 | --- | --- |
 | **MediaPipe 摄像头** | 从摄像头实时手部追踪 |
 | **MediaPipe 视频** | 对视频文件离线追踪 |
-| **PICO VR** | 通过 XRoboToolkit 接实时手部输入 |
+| **PICO VR** | 通过 PICO Bridge 接实时手部输入 |
 | **hc_mocap UDP** | 通过 UDP 接实时手部数据 |
 | **已录制数据** | 回放以上任意来源生成的 `.pkl` 录制 |
 

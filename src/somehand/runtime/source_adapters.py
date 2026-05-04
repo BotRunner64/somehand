@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import time
-
 import numpy as np
 
 from somehand.core import BiHandFrame, BiHandSourceFrame, HandFrame, SourceFrame, normalize_hand_side
 from somehand.hand_detector import HandDetection, HandDetector
 from somehand.hc_mocap_input import _DirectHCMocapUDPProvider, create_hc_mocap_udp_provider, hc_mocap_frame_to_landmarks
-from somehand.pico_input import create_pico_provider
+from somehand.pico_input import PicoBridgeReceiver, create_pico_provider, pico_frame_to_detection
 
 from .source_transforms import annotate_bihand_preview, annotate_preview, copy_bihand_frame, to_bihand_frame, to_hand_frame
 
@@ -179,70 +177,65 @@ class HCMocapInputSource:
 
 
 class BiHandPicoInputSource:
-    def __init__(self, *, timeout: float):
+    def __init__(
+        self,
+        *,
+        timeout: float,
+        host: str = "0.0.0.0",
+        port: int = 63901,
+        discovery: bool = True,
+        advertise_ip: str | None = None,
+    ):
         self.source_desc = "pico://both"
-        self._timeout = timeout
-        self._left_provider = create_pico_provider(hand_side="left", timeout=timeout)
-        self._right_provider = create_pico_provider(hand_side="right", timeout=timeout)
-        self._last_frame_index = 0
+        self._timeout = float(timeout)
+        self._receiver = PicoBridgeReceiver(
+            host=host,
+            port=port,
+            discovery=discovery,
+            advertise_ip=advertise_ip,
+            timeout=timeout,
+        )
+        self._last_served_seq = 0
 
     @property
     def fps(self) -> int:
-        return min(self._left_provider.fps, self._right_provider.fps)
+        return self._receiver.fps
 
     def is_available(self) -> bool:
-        return self._left_provider.is_available() or self._right_provider.is_available()
+        return self._receiver.is_available()
 
     def get_frame(self) -> BiHandSourceFrame:
-        deadline = time.monotonic() + self._timeout
-        while time.monotonic() < deadline:
-            left_snapshot = self._left_provider.latest_detection_snapshot()
-            right_snapshot = self._right_provider.latest_detection_snapshot()
-            latest_index = max(
-                left_snapshot[0] if left_snapshot is not None else 0,
-                right_snapshot[0] if right_snapshot is not None else 0,
-            )
-            if latest_index > self._last_frame_index:
-                self._last_frame_index = latest_index
-                detection = to_bihand_frame(
-                    left=None if left_snapshot is None else left_snapshot[1],
-                    right=None if right_snapshot is None else right_snapshot[1],
-                )
-                return BiHandSourceFrame(detection=detection if detection.has_detection else None)
-            time.sleep(0.002)
-
-        raise TimeoutError(f"No new PICO bi-hand frame within {self._timeout}s")
+        frame = self._receiver.wait_frame(
+            timeout=self._timeout,
+            after_seq=self._last_served_seq if self._last_served_seq > 0 else None,
+        )
+        self._last_served_seq = int(getattr(frame, "seq", self._last_served_seq + 1))
+        detection = to_bihand_frame(
+            left=pico_frame_to_detection(frame, "left"),
+            right=pico_frame_to_detection(frame, "right"),
+        )
+        return BiHandSourceFrame(detection=detection if detection.has_detection else None)
 
     def latest_bihand_frame_snapshot(self) -> tuple[int, BiHandFrame] | None:
-        left_snapshot = self._left_provider.latest_detection_snapshot()
-        right_snapshot = self._right_provider.latest_detection_snapshot()
-        latest_index = max(
-            left_snapshot[0] if left_snapshot is not None else 0,
-            right_snapshot[0] if right_snapshot is not None else 0,
-        )
-        if latest_index <= 0:
+        frame = self._receiver.latest_frame()
+        if frame is None:
             return None
         detection = to_bihand_frame(
-            left=None if left_snapshot is None else left_snapshot[1],
-            right=None if right_snapshot is None else right_snapshot[1],
+            left=pico_frame_to_detection(frame, "left"),
+            right=pico_frame_to_detection(frame, "right"),
         )
-        return latest_index, detection
+        if not detection.has_detection:
+            return None
+        return int(getattr(frame, "seq", 0)), detection
 
     def reset(self) -> bool:
         return False
 
     def close(self) -> None:
-        self._left_provider.close()
-        self._right_provider.close()
+        self._receiver.close()
 
     def stats_snapshot(self) -> dict[str, object]:
-        left_stats = self._left_provider.stats_snapshot()
-        right_stats = self._right_provider.stats_snapshot()
-        return {
-            "left": left_stats,
-            "right": right_stats,
-            "active_frames": int(left_stats.get("active_frames", 0)) + int(right_stats.get("active_frames", 0)),
-        }
+        return self._receiver.stats_snapshot()
 
 
 class BiHCMocapInputSource:
@@ -325,17 +318,45 @@ def create_hc_mocap_udp_source(
     )
 
 
-def create_pico_source(*, hand_side: str, timeout: float) -> HCMocapInputSource:
+def create_pico_source(
+    *,
+    hand_side: str,
+    timeout: float,
+    host: str = "0.0.0.0",
+    port: int = 63901,
+    discovery: bool = True,
+    advertise_ip: str | None = None,
+) -> HCMocapInputSource:
     normalized_side = normalize_hand_side(hand_side)
-    provider = create_pico_provider(hand_side=normalized_side, timeout=timeout)
+    provider = create_pico_provider(
+        hand_side=normalized_side,
+        timeout=timeout,
+        host=host,
+        port=port,
+        discovery=discovery,
+        advertise_ip=advertise_ip,
+    )
     return HCMocapInputSource(
         provider,
         source_desc=f"pico://{normalized_side}",
     )
 
 
-def create_bihand_pico_source(*, timeout: float) -> BiHandPicoInputSource:
-    return BiHandPicoInputSource(timeout=timeout)
+def create_bihand_pico_source(
+    *,
+    timeout: float,
+    host: str = "0.0.0.0",
+    port: int = 63901,
+    discovery: bool = True,
+    advertise_ip: str | None = None,
+) -> BiHandPicoInputSource:
+    return BiHandPicoInputSource(
+        timeout=timeout,
+        host=host,
+        port=port,
+        discovery=discovery,
+        advertise_ip=advertise_ip,
+    )
 
 
 def create_bihand_hc_mocap_udp_source(
