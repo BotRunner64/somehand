@@ -1,9 +1,9 @@
-"""Adapter for PICO VR hand tracking data via xrobotoolkit_sdk."""
+"""Adapter for PICO Bridge PC receiver hand tracking data."""
 
 from __future__ import annotations
 
-import threading
 import time
+from typing import Any
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from .domain.hand_side import normalize_hand_side
 from .hand_detector import HandDetection
 
 PICO_HAND_JOINT_NAMES: list[str] = [
-    "Wrist", "Palm",
+    "Palm", "Wrist",
     "ThumbMetacarpal", "ThumbProximal", "ThumbDistal", "ThumbTip",
     "IndexMetacarpal", "IndexProximal", "IndexIntermediate", "IndexDistal", "IndexTip",
     "MiddleMetacarpal", "MiddleProximal", "MiddleIntermediate", "MiddleDistal", "MiddleTip",
@@ -19,10 +19,10 @@ PICO_HAND_JOINT_NAMES: list[str] = [
     "LittleMetacarpal", "LittleProximal", "LittleIntermediate", "LittleDistal", "LittleTip",
 ]
 
-# PICO 26-joint indices -> MediaPipe 21-landmark indices.
-# Skips Palm(1), *Metacarpal joints (6,11,16,21).
-_PICO_TO_MEDIAPIPE: list[int] = [
-    0,   # MP[0]  wrist       <- PICO[0]
+# PICO Bridge 26-joint indices -> MediaPipe 21-landmark indices.
+# Skips Palm(0), *Metacarpal joints (6, 11, 16, 21).
+_PICO_BRIDGE_TO_MEDIAPIPE: list[int] = [
+    1,   # MP[0]  wrist       <- PICO[1]
     2,   # MP[1]  thumb_cmc   <- PICO[2]
     3,   # MP[2]  thumb_mcp   <- PICO[3]
     4,   # MP[3]  thumb_ip    <- PICO[4]
@@ -45,199 +45,201 @@ _PICO_TO_MEDIAPIPE: list[int] = [
     25,  # MP[20] little_tip  <- PICO[25]
 ]
 
-# Unity -> right-hand coordinate system (same as xrobot_utils).
+# PICO Bridge preserves Unity/PICO coordinates. Convert positions to the
+# right-handed coordinate system consumed by the existing retargeting pipeline.
 _UNITY_TO_RH = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
     dtype=np.float64,
 )
 
-_SDK_LOCK = threading.Lock()
-_SDK_REFCOUNT = 0
-
 
 def _transform_positions(positions: np.ndarray) -> np.ndarray:
-    """Transform (N,3) positions from Unity to right-hand coordinate system."""
     return positions @ _UNITY_TO_RH.T
 
 
-def _acquire_xrobotoolkit_sdk():
-    global _SDK_REFCOUNT
-
+def _load_pico_bridge_cls():
     try:
-        import xrobotoolkit_sdk as xrt
+        from pico_bridge import PicoBridge
     except ImportError as exc:
         raise RuntimeError(
-            "xrobotoolkit_sdk is not installed. "
-            "Install it to use PICO hand tracking input."
+            "pico_bridge is not installed. Install the PICO Bridge PC receiver package, "
+            "for example by reinstalling somehand with dependencies: pip install -e ."
         ) from exc
-
-    with _SDK_LOCK:
-        if _SDK_REFCOUNT == 0:
-            xrt.init()
-        _SDK_REFCOUNT += 1
-
-    return xrt
-
-
-def _release_xrobotoolkit_sdk(xrt) -> None:
-    global _SDK_REFCOUNT
-
-    should_close = False
-    with _SDK_LOCK:
-        if _SDK_REFCOUNT <= 0:
-            return
-        _SDK_REFCOUNT -= 1
-        should_close = _SDK_REFCOUNT == 0
-
-    if should_close:
-        try:
-            xrt.close()
-        except BaseException:
-            pass
+    return PicoBridge
 
 
 def pico_hand_to_landmarks(hand_state: np.ndarray) -> np.ndarray:
-    """Convert a PICO (26,7) hand state to MediaPipe-style (21,3) landmarks.
-
-    Positions are transformed from Unity to right-hand coordinate system.
-    """
-    positions_unity = hand_state[:, :3]  # (26, 3)
-    positions = _transform_positions(positions_unity)
+    """Convert a PICO Bridge (26,7) hand state to MediaPipe-style (21,3) landmarks."""
+    state = np.asarray(hand_state, dtype=np.float64)
+    if state.shape != (26, 7):
+        state = state.reshape(26, 7)
+    positions = _transform_positions(state[:, :3])
     landmarks = np.empty((21, 3), dtype=np.float64)
-    for mp_idx, pico_idx in enumerate(_PICO_TO_MEDIAPIPE):
+    for mp_idx, pico_idx in enumerate(_PICO_BRIDGE_TO_MEDIAPIPE):
         landmarks[mp_idx] = positions[pico_idx]
     return landmarks
 
 
-class PicoHandProvider:
-    """Adapter that exposes PICO VR hand tracking as a hand landmark detector."""
+def _hand_frame_from_pico_frame(frame: Any, hand_side: str):
+    side = normalize_hand_side(hand_side)
+    return frame.left_hand if side == "left" else frame.right_hand
 
-    def __init__(self, hand_side: str, timeout: float = 60.0):
-        self.hand_side = normalize_hand_side(hand_side)
-        self._timeout = timeout
-        self._xrt = _acquire_xrobotoolkit_sdk()
 
-        self._running = True
-        self._lock = threading.Lock()
-        self._cond = threading.Condition(self._lock)
-        self._ready = threading.Event()
-        self._latest_state: np.ndarray | None = None
-        self._frame_index = 0
-        self._last_served = 0
-        self._stats = {
-            "polls": 0,
-            "active_frames": 0,
-            "inactive_frames": 0,
-        }
+def pico_frame_to_detection(frame: Any, hand_side: str) -> HandDetection | None:
+    side = normalize_hand_side(hand_side)
+    hand = _hand_frame_from_pico_frame(frame, side)
+    if not bool(getattr(hand, "active", False)):
+        return None
+    landmarks_3d = pico_hand_to_landmarks(getattr(hand, "joints"))
+    landmarks_2d = np.zeros((21, 2), dtype=np.float64)
+    return HandDetection(
+        landmarks_3d=landmarks_3d,
+        landmarks_2d=landmarks_2d,
+        hand_side=side,
+    )
 
-        self._thread = threading.Thread(target=self._poll_loop, daemon=True)
-        self._thread.start()
+
+class PicoBridgeReceiver:
+    """Owns one in-process PICO Bridge PC receiver."""
+
+    def __init__(
+        self,
+        *,
+        host: str = "0.0.0.0",
+        port: int = 63901,
+        discovery: bool = True,
+        advertise_ip: str | None = None,
+        timeout: float = 60.0,
+    ):
+        self.host = host
+        self.port = int(port)
+        self.discovery = bool(discovery)
+        self.advertise_ip = advertise_ip
+        self.timeout = float(timeout)
+        self._closed = False
+        bridge_cls = _load_pico_bridge_cls()
+        self._bridge = bridge_cls(
+            host=self.host,
+            port=self.port,
+            discovery=self.discovery,
+            advertise_ip=self.advertise_ip,
+            video=None,
+            start_timeout=self.timeout,
+        )
+        self._bridge.start()
 
     @property
     def fps(self) -> int:
-        return 80
+        stats = self.stats_snapshot()
+        fps = float(stats.get("fps", 0.0) or 0.0)
+        return int(round(fps)) if fps > 0 else 80
 
     def is_available(self) -> bool:
-        return self._running and self._thread.is_alive()
+        return not self._closed
 
-    def get_detection(self) -> HandDetection:
-        if not self._ready.wait(timeout=self._timeout):
-            stats = self.stats_snapshot()
-            raise TimeoutError(
-                f"No PICO hand tracking data received within {self._timeout}s. "
-                f"SDK polls={stats.get('polls', 0)}, active_frames={stats.get('active_frames', 0)}, "
-                f"inactive_frames={stats.get('inactive_frames', 0)}. "
-                "This usually means the SDK connected, but the headset is not outputting gesture data yet "
-                "(for example: XRoboToolkit client not connected/foreground, hand tracking permission off, "
-                "or the headset is still in controller mode instead of gesture mode)."
-            )
-        deadline = time.monotonic() + self._timeout
-        with self._cond:
-            while self._running and self._frame_index <= self._last_served:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError(
-                        f"No new PICO hand frame within {self._timeout}s"
-                    )
-                self._cond.wait(timeout=remaining)
+    def wait_frame(self, *, timeout: float | None = None, after_seq: int | None = None):
+        return self._bridge.wait_frame(timeout=self.timeout if timeout is None else timeout, after_seq=after_seq)
 
-            assert self._latest_state is not None
-            self._last_served = self._frame_index
-            state = self._latest_state.copy()
-
-        return self._state_to_detection(state)
-
-    def latest_detection_snapshot(self) -> tuple[int, HandDetection] | None:
-        with self._lock:
-            if self._latest_state is None or self._frame_index <= 0:
-                return None
-            frame_index = self._frame_index
-            state = self._latest_state.copy()
-        return frame_index, self._state_to_detection(state)
+    def latest_frame(self):
+        return self._bridge.latest_frame()
 
     def close(self) -> None:
-        self._running = False
-        with self._cond:
-            self._cond.notify_all()
-        self._thread.join(timeout=2.0)
-        _release_xrobotoolkit_sdk(self._xrt)
+        self._closed = True
+        self._bridge.close()
 
     def stats_snapshot(self) -> dict[str, object]:
-        with self._lock:
-            return dict(self._stats)
+        stats_fn = getattr(self._bridge, "stats", None)
+        if not callable(stats_fn):
+            return {}
+        stats = stats_fn()
+        if hasattr(stats, "__dataclass_fields__"):
+            return {name: getattr(stats, name) for name in stats.__dataclass_fields__}
+        if hasattr(stats, "_asdict"):
+            return dict(stats._asdict())
+        return dict(stats) if isinstance(stats, dict) else {}
 
-    def _state_to_detection(self, state: np.ndarray) -> HandDetection:
-        landmarks_3d = pico_hand_to_landmarks(state)
-        landmarks_2d = np.zeros((21, 2), dtype=np.float64)
-        return HandDetection(
-            landmarks_3d=landmarks_3d,
-            landmarks_2d=landmarks_2d,
-            hand_side=self.hand_side,
-        )
 
-    def _poll_loop(self) -> None:
-        xrt = self._xrt
-        get_state = (
-            xrt.get_left_hand_tracking_state
-            if self.hand_side == "left"
-            else xrt.get_right_hand_tracking_state
-        )
-        get_active = (
-            xrt.get_left_hand_is_active
-            if self.hand_side == "left"
-            else xrt.get_right_hand_is_active
-        )
+class PicoHandProvider:
+    """Expose one hand from PICO Bridge as a hand landmark detector."""
 
-        while self._running:
+    def __init__(
+        self,
+        hand_side: str,
+        timeout: float = 60.0,
+        *,
+        host: str = "0.0.0.0",
+        port: int = 63901,
+        discovery: bool = True,
+        advertise_ip: str | None = None,
+    ):
+        self.hand_side = normalize_hand_side(hand_side)
+        self._timeout = float(timeout)
+        self._receiver = PicoBridgeReceiver(
+            host=host,
+            port=port,
+            discovery=discovery,
+            advertise_ip=advertise_ip,
+            timeout=timeout,
+        )
+        self._last_served_seq = 0
+
+    @property
+    def fps(self) -> int:
+        return self._receiver.fps
+
+    def is_available(self) -> bool:
+        return self._receiver.is_available()
+
+    def get_detection(self) -> HandDetection:
+        deadline = time.monotonic() + self._timeout
+        after_seq = self._last_served_seq if self._last_served_seq > 0 else None
+        last_timeout: TimeoutError | None = None
+        while time.monotonic() < deadline:
+            remaining = max(deadline - time.monotonic(), 0.0)
             try:
-                is_active = get_active()
-                with self._lock:
-                    self._stats["polls"] += 1
-                if not is_active:
-                    with self._lock:
-                        self._stats["inactive_frames"] += 1
-                    time.sleep(0.002)
-                    continue
+                frame = self._receiver.wait_frame(timeout=remaining, after_seq=after_seq)
+            except TimeoutError as exc:
+                last_timeout = exc
+                break
+            self._last_served_seq = int(getattr(frame, "seq", self._last_served_seq + 1))
+            detection = pico_frame_to_detection(frame, self.hand_side)
+            if detection is not None:
+                return detection
+            after_seq = self._last_served_seq
+        raise TimeoutError(
+            f"No active PICO Bridge {self.hand_side} hand frame within {self._timeout}s"
+        ) from last_timeout
 
-                raw = get_state()
-                state = np.asarray(raw, dtype=np.float64).reshape(26, 7)
+    def latest_detection_snapshot(self) -> tuple[int, HandDetection] | None:
+        frame = self._receiver.latest_frame()
+        if frame is None:
+            return None
+        detection = pico_frame_to_detection(frame, self.hand_side)
+        if detection is None:
+            return None
+        return int(getattr(frame, "seq", 0)), detection
 
-                with self._cond:
-                    self._latest_state = state
-                    self._frame_index += 1
-                    self._stats["active_frames"] += 1
-                    self._cond.notify_all()
-                self._ready.set()
-                time.sleep(1.0 / 80)
-            except Exception:
-                if not self._running:
-                    break
-                time.sleep(0.01)
+    def close(self) -> None:
+        self._receiver.close()
+
+    def stats_snapshot(self) -> dict[str, object]:
+        return self._receiver.stats_snapshot()
 
 
 def create_pico_provider(
     hand_side: str,
     timeout: float = 60.0,
+    *,
+    host: str = "0.0.0.0",
+    port: int = 63901,
+    discovery: bool = True,
+    advertise_ip: str | None = None,
 ) -> PicoHandProvider:
-    """Factory: create a PicoHandProvider."""
-    return PicoHandProvider(hand_side=hand_side, timeout=timeout)
+    return PicoHandProvider(
+        hand_side=hand_side,
+        timeout=timeout,
+        host=host,
+        port=port,
+        discovery=discovery,
+        advertise_ip=advertise_ip,
+    )

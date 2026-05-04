@@ -122,14 +122,26 @@ def build_parser() -> argparse.ArgumentParser:
     dump_video = subparsers.add_parser("dump-video", help="Render a replay recording to MP4 as fast as possible")
     add_dump_video_args(dump_video)
 
-    pico = subparsers.add_parser("pico", help="Retarget from live PICO hand tracking via XRoboToolkit")
+    pico = subparsers.add_parser("pico", help="Retarget from live PICO hand tracking via PICO Bridge")
     add_common_args(pico)
     add_live_sampling_args(pico)
+    pico.add_argument("--pico-host", default="0.0.0.0", help="PICO Bridge receiver bind host")
+    pico.add_argument("--pico-port", type=int, default=63901, help="PICO Bridge receiver TCP port")
+    pico.add_argument(
+        "--pico-advertise-ip",
+        default=None,
+        help="Optional PC IPv4 address advertised to the headset",
+    )
+    pico.add_argument(
+        "--no-pico-discovery",
+        action="store_true",
+        help="Disable PICO Bridge UDP discovery broadcasts",
+    )
     pico.add_argument(
         "--pico-timeout",
         type=float,
         default=60.0,
-        help="Timeout in seconds while waiting for PICO hand-tracking frames",
+        help="Timeout in seconds while waiting for PICO Bridge hand-tracking frames",
     )
 
     hc_mocap = subparsers.add_parser("hc-mocap", help="Retarget from a live hc_mocap UDP stream")

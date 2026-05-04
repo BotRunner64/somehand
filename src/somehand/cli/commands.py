@@ -207,7 +207,14 @@ def _run_dump_video(args: argparse.Namespace) -> None:
 def _run_pico(args: argparse.Namespace) -> None:
     source, recording_controller = _wrap_source_for_interactive_recording(
         _wrap_live_hand_source(
-            create_pico_source(hand_side=args.hand, timeout=args.pico_timeout),
+            create_pico_source(
+                hand_side=args.hand,
+                timeout=args.pico_timeout,
+                host=args.pico_host,
+                port=args.pico_port,
+                discovery=not args.no_pico_discovery,
+                advertise_ip=args.pico_advertise_ip,
+            ),
             args=args,
         ),
         record_output_path=args.record_output,
@@ -223,7 +230,8 @@ def _run_pico(args: argparse.Namespace) -> None:
     extra_lines = [
         f"Backend: {args.backend}",
         f"Signal sampling: {source.fps} fps",
-        "Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode.",
+        f"PICO Bridge receiver: {args.pico_host}:{args.pico_port}",
+        "Requires the PICO Bridge PC receiver package and headset app.",
     ]
     if recording_controller is not None:
         extra_lines.append("Press 'r' in the terminal or robot-hand viewer to start recording.")
@@ -390,7 +398,13 @@ def _run_bihand_dump_video(args: argparse.Namespace) -> None:
 def _run_bihand_pico(args: argparse.Namespace) -> None:
     source, recording_controller = _wrap_bihand_source_for_interactive_recording(
         _wrap_live_bihand_source(
-            create_bihand_pico_source(timeout=args.pico_timeout),
+            create_bihand_pico_source(
+                timeout=args.pico_timeout,
+                host=args.pico_host,
+                port=args.pico_port,
+                discovery=not args.no_pico_discovery,
+                advertise_ip=args.pico_advertise_ip,
+            ),
             args=args,
         ),
         record_output_path=args.record_output,
@@ -402,14 +416,18 @@ def _run_bihand_pico(args: argparse.Namespace) -> None:
         show_preview=False,
         key_callback=None if recording_controller is None else recording_controller.handle_keypress,
     )
-    extra_lines = [f"Signal sampling: {source.fps} fps", "Requires xrobotoolkit_sdk plus active PICO hand tracking / gesture mode."]
+    extra_lines = [
+        f"Signal sampling: {source.fps} fps",
+        f"PICO Bridge receiver: {args.pico_host}:{args.pico_port}",
+        "Requires the PICO Bridge PC receiver package and headset app.",
+    ]
     if recording_controller is not None:
         extra_lines.append("Press 'r' in the terminal or bi-hand viewer to start recording.")
         extra_lines.append("Press 's' in the terminal or bi-hand viewer to stop recording, save, and exit.")
     _print_bihand_startup(
         engine,
         source_desc=source.source_desc,
-        tracking_desc="Tracking hands: Left+Right | Source fps: 120",
+        tracking_desc=f"Tracking hands: Left+Right | Source fps: {source.fps}",
         extra_lines=extra_lines,
     )
     if recording_controller is not None:

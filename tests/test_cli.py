@@ -406,7 +406,32 @@ def test_pico_command_uses_default_timeout():
 
     assert args.command == "pico"
     assert args.pico_timeout == 60.0
+    assert args.pico_host == "0.0.0.0"
+    assert args.pico_port == 63901
+    assert args.pico_advertise_ip is None
+    assert args.no_pico_discovery is False
     assert args.hand == "left"
+
+
+def test_pico_command_accepts_pico_bridge_receiver_args():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "pico",
+            "--pico-host",
+            "127.0.0.1",
+            "--pico-port",
+            "64000",
+            "--pico-advertise-ip",
+            "192.168.1.10",
+            "--no-pico-discovery",
+        ]
+    )
+
+    assert args.pico_host == "127.0.0.1"
+    assert args.pico_port == 64000
+    assert args.pico_advertise_ip == "192.168.1.10"
+    assert args.no_pico_discovery is True
 
 
 def test_webcam_command_uses_current_common_args():

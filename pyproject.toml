@@ -12,6 +12,7 @@ dependencies = [
     "scipy>=1.10.0",
     "pyyaml>=6.0",
     "daqp",
+    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.1.0/pico_bridge-0.1.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]

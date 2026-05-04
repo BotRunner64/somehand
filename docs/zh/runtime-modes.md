@@ -8,7 +8,7 @@
 | **`video`** | 对视频文件离线追踪 | MP4 等 | viewer / sim / real |
 | **`replay`** | 回放已保存的录制 | `.pkl` 文件 | viewer / sim / real |
 | **`dump-video`** | 把录制渲染成 MP4 | `.pkl` 文件 | MP4 文件 |
-| **`pico`** | 通过 XRoboToolkit 实时追踪 | XRoboToolkit 数据流 | viewer / sim / real |
+| **`pico`** | 通过 PICO Bridge 实时追踪 | PICO Bridge 数据流 | viewer / sim / real |
 | **`hc-mocap`** | 从 hc_mocap UDP 接数据 | UDP 数据包 | viewer / sim / real |
 
 ---
@@ -77,7 +77,7 @@ somehand dump-video \
 
 ### `pico`
 
-通过 XRoboToolkit 接 PICO 实时手部追踪。
+通过 PICO Bridge 接 PICO 实时手部追踪。
 
 ```bash
 somehand pico --hand right
@@ -86,9 +86,13 @@ somehand pico --hand right
 | 参数 | 说明 |
 | --- | --- |
 | `--signal-fps` | 对实时输入做固定频率重采样 |
-| `--pico-timeout` | 控制启动等待时间 |
+| `--pico-host` / `--pico-port` | PICO Bridge PC receiver 监听地址 |
+| `--pico-advertise-ip` | 向头显广播的 PC IPv4 地址 |
+| `--no-pico-discovery` | 关闭 PICO Bridge UDP discovery |
+| `--pico-timeout` | 控制启动与帧等待时间 |
 
-> 需要 XRoboToolkit 已安装，且正在提供实时手部数据。
+> 需要安装 PICO Bridge PC receiver 包，并在头显端启动 PICO Bridge app。
+> `somehand pico` 会在进程内启动 PC receiver；不要在同一端口同时运行 standalone `pico-bridge-receiver`。
 
 ### `hc-mocap`
 
@@ -112,5 +116,5 @@ somehand hc-mocap --hand right --udp-port 1118
 - **双手模式（`--hand both`）** 仅在 `--backend viewer` 下支持
 - **`dump-video`** 支持双手渲染，但基于录制文件，不是实时双手控制
 - **真机 backend** 当前仅支持单手
-- **`pico`** 依赖 XRoboToolkit
+- **`pico`** 依赖 PICO Bridge receiver 和头显端 app
 - **LinkerHand 真机控制** 依赖 LinkerHand SDK 与正确的 `model_family` 映射
