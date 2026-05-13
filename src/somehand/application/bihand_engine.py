@@ -27,7 +27,7 @@ def _copy_step_result(result: RetargetingStepResult) -> RetargetingStepResult:
 class BiHandRetargetingEngine:
     """Stable application-layer entry for one-step bi-hand retargeting."""
 
-    def __init__(self, config: BiHandRetargetingConfig, *, input_type: str):
+    def __init__(self, config: BiHandRetargetingConfig, *, input_type: str = "landmarks"):
         self.config = config
         self.input_type = input_type
         self.left_engine = RetargetingEngine.from_config_path(config.left_config_path, input_type=input_type)
@@ -36,7 +36,7 @@ class BiHandRetargetingEngine:
         self._right_result = self._neutral_result(self.right_engine, hand_side="right")
 
     @classmethod
-    def from_config_path(cls, config_path: str, *, input_type: str) -> "BiHandRetargetingEngine":
+    def from_config_path(cls, config_path: str, *, input_type: str = "landmarks") -> "BiHandRetargetingEngine":
         return cls(load_bihand_config(config_path), input_type=input_type)
 
     def describe(self) -> dict[str, object]:

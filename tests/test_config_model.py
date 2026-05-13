@@ -237,6 +237,14 @@ def test_top_level_loader_exports_work():
     assert bihand.left_config_path.endswith("configs/retargeting/left/linkerhand_l20_left.yaml")
 
 
+def test_public_api_exports_library_entrypoints():
+    from somehand.api import HandFrame, RetargetingEngine, load_retargeting_config
+
+    assert HandFrame.__name__ == "HandFrame"
+    assert RetargetingEngine.__name__ == "RetargetingEngine"
+    assert callable(load_retargeting_config)
+
+
 def test_config_classes_do_not_expose_loader_classmethods():
     from somehand.core import BiHandRetargetingConfig, RetargetingConfig
 
@@ -249,6 +257,23 @@ def test_top_level_package_is_metadata_only():
 
     assert hasattr(somehand, "__version__")
     assert not hasattr(somehand, "load_retargeting_config")
+
+
+def test_pyproject_keeps_optional_cli_dependencies_out_of_core():
+    text = Path("pyproject.toml").read_text()
+    dependencies = text.split("dependencies = [", 1)[1].split("]", 1)[0]
+    cli_extra = text.split("cli = [", 1)[1].split("]", 1)[0]
+    dev_extra = text.split("dev = [", 1)[1].split("]", 1)[0]
+
+    assert "mediapipe" not in dependencies
+    assert "opencv-python" not in dependencies
+    assert "pico-bridge" not in dependencies
+    assert "mediapipe" in cli_extra
+    assert "opencv-python" in cli_extra
+    assert "pico-bridge" in cli_extra
+    assert "mediapipe" in dev_extra
+    assert "opencv-python" in dev_extra
+    assert "pico-bridge" in dev_extra
 
 
 def test_all_mjcf_assets_have_side_specific_configs():

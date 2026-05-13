@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from . import commands
 from .parser import build_parser
+
+
+def _load_commands():
+    try:
+        from . import commands
+    except ImportError as exc:
+        raise RuntimeError(
+            "somehand CLI optional dependencies are missing. "
+            "Install them with `pip install 'somehand[cli]'`."
+        ) from exc
+    return commands
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    commands = _load_commands()
 
     if args.command == "webcam":
         if args.hand == "both":
