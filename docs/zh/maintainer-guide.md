@@ -57,7 +57,7 @@ pytest -q tests/test_cli.py tests/test_config_model.py tests/test_download_asset
 
 | 集成 | 引导脚本 | 说明 |
 | --- | --- | --- |
-| **PICO Bridge** | `pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.1.0/pico_bridge-0.1.0-py3-none-any.whl` | `pico` 模式所需 |
+| **PICO Bridge** | `pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.0/pico_bridge-0.2.0-py3-none-any.whl` | `pico` 模式所需 |
 | **LinkerHand SDK** | `scripts/setup_linkerhand_sdk.sh` | `real` backend 所需 |
 
 > 上游 SDK 的详细文档仍以上游为准 —— 本仓库只说明这里实际使用的集成路径。
