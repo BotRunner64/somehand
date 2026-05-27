@@ -1,48 +1,34 @@
 # somehand 文档
 
-**somehand** 将人手动作映射到可配置的机器人灵巧手模型 —— 从摄像头输入一路到真机控制。
+按入口找文档。CLI 用于运行打包好的工具，API 用于在 Python 里嵌入 retargeting。
 
 ---
 
-## 支持的输入源
+## 从这里开始
 
-| 来源 | 说明 |
+| 我想做什么 | 阅读 |
 | --- | --- |
-| **MediaPipe 摄像头** | 从摄像头实时手部追踪 |
-| **MediaPipe 视频** | 对视频文件离线追踪 |
-| **PICO VR** | 通过 PICO Bridge 接实时手部输入 |
-| **hc_mocap UDP** | 通过 UDP 接实时手部数据 |
-| **已录制数据** | 回放以上任意来源生成的 `.pkl` 录制 |
-
-## 支持的 Backend
-
-| Backend | 说明 |
-| --- | --- |
-| **viewer** | MuJoCo 可视化（单手或双手） |
-| **sim** | MuJoCo 物理仿真 |
-| **real** | 真机硬件控制（仅支持单手） |
+| 安装依赖并验证一次运行 | [快速开始](getting-started.md) |
+| 从终端运行 | [CLI 用法](runtime-modes.md) |
+| 在 Python 中嵌入 retargeting | [API 用法](api.md) |
+| 选择手模型或修改 YAML 配置 | [配置说明](configuration.md) |
+| 下载运行时资产或查看模型覆盖 | [资产与模型](assets-and-models.md) |
 
 ---
 
-## 文档导航
+## 参考
 
 | 文档 | 内容 |
 | --- | --- |
-| [快速开始](getting-started.md) | 安装、资产下载、可选 SDK 配置、首次运行 |
-| [运行模式](runtime-modes.md) | 各 CLI 模式的用途、适用场景、全部参数 |
-| [配置说明](configuration.md) | YAML 配置结构、schema、该改哪个文件 |
-| [资产与模型](assets-and-models.md) | 资产分组、外部仓库、20+ 支持手模型 |
-| [常见问题](troubleshooting.md) | 常见安装与运行问题及解决方式 |
-| [维护指南](maintainer-guide.md) | 更新流程、验证方式、维护规则 |
+| [快速开始](getting-started.md) | 安装、资产、首次运行、可选 SDK 配置 |
+| [CLI 用法](runtime-modes.md) | 直播、回放、导出和硬件用途的终端命令 |
+| [API 用法](api.md) | 稳定 Python import、单步 engine、session hook |
+| [配置说明](configuration.md) | 该改哪个配置文件，以及通常需要关注的字段 |
+| [资产与模型](assets-and-models.md) | 下载命令、本地路径、已覆盖的配置家族 |
+| [维护指南](maintainer-guide.md) | 文档规则、验证命令、模型更新流程 |
 
 ---
 
 ## 项目范围
 
-本仓库当前主要面向：
-
-- **单手 retargeting** —— 基于 YAML 配置驱动
-- **双手可视化** —— `viewer` 模式下的双手回放与渲染
-- **轻量仓库** —— 大体积运行时资产托管在外部
-
-> 在假设某个输入源 + backend 组合可用之前，请先阅读 [运行模式](runtime-modes.md)。
+CLI 常用路径是单手 retargeting。双手能力主要用于 `viewer` 回放/渲染，真机控制当前仅支持单手。API 用户通常自己提供 landmark frame，并直接调用 engine。
