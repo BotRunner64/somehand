@@ -1,48 +1,34 @@
 # somehand Documentation
 
-**somehand** maps human hand motion to configurable robot dexterous-hand models — from webcam input all the way to real hardware control.
+Use this index by entrypoint. CLI is for running the packaged tool; API is for embedding retargeting in Python.
 
 ---
 
-## Supported Inputs
+## Start Here
 
-| Source | Description |
+| I want to... | Read |
 | --- | --- |
-| **MediaPipe webcam** | Live hand tracking from a camera |
-| **MediaPipe video** | Offline tracking from a video file |
-| **PICO VR** | Live hand tracking via PICO Bridge |
-| **hc_mocap UDP** | Live hand data over UDP |
-| **Saved recordings** | Replay `.pkl` recordings from any source above |
-
-## Supported Backends
-
-| Backend | Description |
-| --- | --- |
-| **viewer** | MuJoCo visualization (single or bi-hand) |
-| **sim** | MuJoCo simulation with physics |
-| **real** | Real-hand hardware control (single-hand only) |
+| Install dependencies and verify one run | [Getting Started](getting-started.md) |
+| Run from the terminal | [CLI Usage](runtime-modes.md) |
+| Embed retargeting in Python | [API Usage](api.md) |
+| Select a hand model or change a YAML config | [Configuration](configuration.md) |
+| Download runtime assets or check model availability | [Assets & Models](assets-and-models.md) |
 
 ---
 
-## Documentation Map
+## Reference
 
 | Doc | What it covers |
 | --- | --- |
-| [Getting Started](getting-started.md) | Install, asset download, optional SDK setup, first run |
-| [Runtime Modes](runtime-modes.md) | What each CLI mode does, when to use it, all options |
-| [Configuration](configuration.md) | YAML config layout, schema, and which file to edit |
-| [Assets & Models](assets-and-models.md) | Asset groups, external repos, 20+ supported hand models |
-| [Troubleshooting](troubleshooting.md) | Common setup and runtime issues with fixes |
-| [Maintainer Guide](maintainer-guide.md) | Update workflow, verification, maintenance rules |
+| [Getting Started](getting-started.md) | Install, assets, first run, optional SDK setup |
+| [CLI Usage](runtime-modes.md) | Terminal commands for live, replay, export, and hardware use |
+| [API Usage](api.md) | Stable Python imports, one-step engines, and session hooks |
+| [Configuration](configuration.md) | Which config file to edit and the fields that usually matter |
+| [Assets & Models](assets-and-models.md) | Download commands, local paths, supported config families |
+| [Maintainer Guide](maintainer-guide.md) | Docs rules, verification commands, model-update workflow |
 
 ---
 
 ## Scope
 
-This repository is optimized for:
-
-- **Single-hand retargeting** with configurable YAML models
-- **Bi-hand visualization** and replay in `viewer` mode
-- **Asset-light** source control — large runtime assets hosted externally
-
-> Read [Runtime Modes](runtime-modes.md) before assuming a specific input + backend combination is supported.
+The common CLI path is single-hand retargeting. Bi-hand support is for `viewer` replay/render workflows, and real-hardware control is single-hand only. API users normally provide their own landmark frames and call the engine directly.

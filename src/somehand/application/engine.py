@@ -11,14 +11,14 @@ from somehand.infrastructure.vector_solver import VectorRetargeter
 class RetargetingEngine:
     """Stable application-layer entry for one-step retargeting."""
 
-    def __init__(self, config: RetargetingConfig, *, input_type: str):
+    def __init__(self, config: RetargetingConfig, *, input_type: str = "landmarks"):
         self.config = config
         self.input_type = input_type
         self.hand_model = HandModel(config.hand.mjcf_path)
         self.retargeter = VectorRetargeter(self.hand_model, config)
 
     @classmethod
-    def from_config_path(cls, config_path: str, *, input_type: str) -> "RetargetingEngine":
+    def from_config_path(cls, config_path: str, *, input_type: str = "landmarks") -> "RetargetingEngine":
         return cls(load_retargeting_config(config_path), input_type=input_type)
 
     def describe(self) -> dict[str, int | str]:

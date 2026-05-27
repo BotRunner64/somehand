@@ -182,6 +182,19 @@ def test_custom_config_is_preserved_for_both_hand_selector():
     assert args.config == "custom_both.yaml"
 
 
+def test_cli_help_does_not_load_optional_command_dependencies(monkeypatch):
+    monkeypatch.setattr(
+        cli_main_module,
+        "_load_commands",
+        lambda: (_ for _ in ()).throw(AssertionError("commands should not be loaded for --help")),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main_module.main(["--help"])
+
+    assert exc_info.value.code == 0
+
+
 def test_webcam_both_dispatches_to_bihand(monkeypatch):
     called = []
 

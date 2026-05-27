@@ -1,120 +1,47 @@
-# Runtime Modes
+# CLI Usage
 
-## CLI Overview
+Use the CLI when you want somehand to own the input loop, viewer, recorder, or hardware backend. Use [API Usage](api.md) when another Python program owns those pieces.
 
-| Command | Purpose | Input | Output |
-| --- | --- | --- | --- |
-| **`webcam`** | Live hand tracking from camera | Webcam device | viewer / sim / real |
-| **`video`** | Offline tracking from video file | MP4 etc. | viewer / sim / real |
-| **`replay`** | Replay a saved recording | `.pkl` file | viewer / sim / real |
-| **`dump-video`** | Render a recording to MP4 | `.pkl` file | MP4 file |
-| **`pico`** | Live tracking via PICO Bridge | PICO Bridge stream | viewer / sim / real |
-| **`hc-mocap`** | Live tracking from hc_mocap UDP | UDP packets | viewer / sim / real |
-
----
-
-## Common Options
-
-Shared by most commands:
-
-| Option | Description |
-| --- | --- |
-| `--config` | Retargeting config YAML path |
-| `--hand {left,right,both}` | Hand selector |
-| `--backend {viewer,sim,real}` | Output backend |
-| `--record-output` | Save input as replayable `.pkl` recording |
-
-Additional control options (live commands):
-
-`--control-rate` · `--sim-rate` · `--transport` · `--can-interface` · `--modbus-port` · `--sdk-root` · `--model-family`
+| Task | Command | Notes |
+| --- | --- | --- |
+| Live camera retargeting | `somehand webcam --camera 0` | Add `--swap-hands` if MediaPipe reports the opposite side. |
+| Retarget an existing video | `somehand video --video input.mp4` | Uses the same backends as live camera input. |
+| Replay a saved recording | `somehand replay --recording recordings/webcam_hand.pkl` | Add `--loop` for continuous replay. |
+| Render a recording to MP4 | `somehand dump-video --recording input.pkl --output output.mp4` | Renders from a recording, not from a live stream. |
+| Receive live PICO hand tracking | `somehand pico --hand right` | Requires the PICO Bridge package and headset app. |
+| Receive live hc_mocap UDP | `somehand hc-mocap --hand right --udp-port 1118` | Use `--reference-bvh` only when the joint order differs. |
+| Drive a real hand | `somehand webcam --backend real --hand right` | Currently single-hand only; configure transport and SDK flags as needed. |
 
 ---
 
-## Mode Details
+## Common Flags
 
-### `webcam`
-
-Live retargeting from a webcam.
-
-```bash
-somehand webcam --camera 0
-```
-
-| Option | Description |
+| Flag | Use |
 | --- | --- |
-| `--swap-hands` | Fix inverted left/right labels from MediaPipe |
-| `--record-output <path>` | Save the session for later replay |
-
-### `video`
-
-Offline retargeting from a video file.
-
-```bash
-somehand video --video input.mp4
-```
-
-Use `--swap-hands` for mirrored or mislabeled footage.
-
-### `replay`
-
-Replay a saved recording in real time.
-
-```bash
-somehand replay --recording recordings/webcam_hand.pkl
-```
-
-Use `--loop` for continuous replay.
-
-### `dump-video`
-
-Render a recording to MP4 (as fast as possible, not real-time).
-
-```bash
-somehand dump-video \
-    --recording recordings/webcam_hand.pkl \
-    --output recordings/webcam_hand_replay.mp4
-```
-
-### `pico`
-
-Live hand tracking via PICO Bridge.
-
-```bash
-somehand pico --hand right
-```
-
-| Option | Description |
-| --- | --- |
-| `--signal-fps` | Resample the incoming stream |
-| `--pico-host` / `--pico-port` | PICO Bridge PC receiver bind address |
-| `--pico-advertise-ip` | PC IPv4 address advertised to the headset |
-| `--no-pico-discovery` | Disable PICO Bridge UDP discovery |
-| `--pico-timeout` | Startup and frame waiting time |
-
-> Requires the PICO Bridge PC receiver package and headset app.
-> `somehand pico` starts the PC receiver in-process; do not run standalone `pico-bridge-receiver` on the same port.
-
-### `hc-mocap`
-
-Live hand data from hc_mocap UDP.
-
-```bash
-somehand hc-mocap --hand right --udp-port 1118
-```
-
-| Option | Description |
-| --- | --- |
-| `--signal-fps` | Resample the live stream |
-| `--reference-bvh` | Override the built-in joint ordering |
-| `--udp-host` / `--udp-port` | Network settings |
-| `--udp-timeout` / `--udp-stats-every` | Connection tuning |
+| `--config <path>` | Select a retargeting YAML config. |
+| `--hand left|right|both` | Select hand side; `both` switches to the default bi-hand config if no config is passed. |
+| `--backend viewer|sim|real` | Choose MuJoCo viewer, MuJoCo sim, or real hardware. |
+| `--record-output <path>` | Save tracked input as a replayable `.pkl` file. |
+| `--control-rate`, `--sim-rate` | Tune control/simulation rates. |
+| `--transport`, `--can-interface`, `--modbus-port`, `--sdk-root`, `--model-family` | Real-hardware settings. |
 
 ---
 
-## Important Limitations
+## Input-Specific Flags
 
-- **Bi-hand (`--hand both`)** is only supported with `--backend viewer` for live and replay commands
-- **`dump-video`** supports bi-hand rendering, but it is recording-based, not live
-- **Real backend** is currently single-hand only
-- **`pico`** depends on PICO Bridge receiver and headset app availability
-- **LinkerHand real control** depends on LinkerHand SDK and correct `model_family` mapping
+| Input | Useful flags |
+| --- | --- |
+| `webcam` | `--camera`, `--swap-hands` |
+| `video` | `--video`, `--swap-hands` |
+| `pico` | `--signal-fps`, `--pico-host`, `--pico-port`, `--pico-advertise-ip`, `--no-pico-discovery`, `--pico-timeout` |
+| `hc-mocap` | `--signal-fps`, `--reference-bvh`, `--udp-host`, `--udp-port`, `--udp-timeout`, `--udp-stats-every` |
+
+---
+
+## Limits
+
+- `--hand both` is supported with `--backend viewer` for live and replay commands.
+- `dump-video` can render bi-hand recordings, but it is recording-based.
+- `real` backend is currently single-hand only.
+- `pico` starts the PC receiver in-process; do not run another receiver on the same port.
+- LinkerHand real control requires the LinkerHand SDK and the correct `model_family`.

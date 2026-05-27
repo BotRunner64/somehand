@@ -39,6 +39,56 @@ def test_pico_hand_to_landmarks_uses_pico_bridge_joint_order():
     np.testing.assert_allclose(landmarks[8], [10.0, -30.0, 20.0])
 
 
+def test_pico_bridge_receiver_constructs_pico_bridge_021_api(monkeypatch):
+    created = []
+
+    class _FakeBridge:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+            self.closed = False
+
+        def start(self):
+            return None
+
+        def wait_frame(self, *, timeout=None, after_seq=None):
+            return _frame(seq=7)
+
+        def latest_frame(self):
+            return _frame(seq=8)
+
+        def close(self):
+            self.closed = True
+
+        def stats(self):
+            return {"fps": 72.0, "connected": True, "video_source": None}
+
+    monkeypatch.setattr(pico_input, "_load_pico_bridge_cls", lambda: _FakeBridge)
+
+    receiver = pico_input.PicoBridgeReceiver(
+        host="127.0.0.1",
+        port=64000,
+        discovery=False,
+        advertise_ip="192.168.1.2",
+        timeout=3.0,
+    )
+
+    assert created == [
+        {
+            "host": "127.0.0.1",
+            "port": 64000,
+            "discovery": False,
+            "advertise_ip": "192.168.1.2",
+            "video": None,
+            "start_timeout": 3.0,
+        }
+    ]
+    assert receiver.fps == 72
+    assert receiver.wait_frame(timeout=0.5, after_seq=6).seq == 7
+    assert receiver.latest_frame().seq == 8
+    receiver.close()
+    assert receiver.is_available() is False
+
+
 def test_pico_provider_reads_active_hand_from_pico_bridge(monkeypatch):
     class _FakeReceiver:
         fps = 72

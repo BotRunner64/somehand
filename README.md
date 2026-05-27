@@ -14,19 +14,17 @@
   <a href="docs/en/README.md">English Docs</a> •
   <a href="docs/zh/README.md">中文文档</a> •
   <a href="docs/en/getting-started.md">Getting Started</a> •
-  <a href="docs/en/runtime-modes.md">Runtime Modes</a> •
-  <a href="docs/en/configuration.md">Configuration</a>
+  <a href="docs/en/runtime-modes.md">CLI</a> •
+  <a href="docs/en/api.md">API</a>
 </p>
 
 ---
 
-## Highlights
+## What It Does
 
-- **20+ hand models** — LinkerHand, Inspire, OmniHand, RoHand, Dex5, and more, all driven by YAML configs
-- **Multiple input sources** — webcam (MediaPipe), video file, PICO Bridge, hc_mocap UDP, saved recordings
-- **Flexible backends** — MuJoCo viewer, MuJoCo sim, or real-hand hardware control
-- **Bi-hand visualization** — side-by-side dual-hand replay and rendering
-- **Asset-light** — large runtime assets hosted externally (ModelScope / HuggingFace), not in Git
+- Retarget hand motion from webcam, video, PICO Bridge, hc_mocap UDP, or saved recordings.
+- View results in MuJoCo, run MuJoCo sim, or drive supported real hardware.
+- Switch hand models through YAML configs; large runtime assets are downloaded separately.
 
 ---
 
@@ -55,55 +53,30 @@
 | Sharpa | Wave 01 | 22 | 22 |
 | Wuji | Wuji Hand | 20 | 20 |
 
+Use `configs/retargeting/{left,right,bihand}` as the source of truth for current side and bi-hand availability.
+
 ---
 
-## Quick Start
-
-**1. Install**
+## CLI Quick Start
 
 ```bash
 git submodule update --init --recursive
 pip install -e .
-```
-
-**2. Download assets**
-
-```bash
-python scripts/setup/download_assets.py
-```
-
-**3. Run**
-
-```bash
+python scripts/setup/download_assets.py --only mjcf mediapipe examples
 somehand replay --recording recordings/pico_right.pkl
 ```
 
-You should see a MuJoCo viewer replaying the sample recording.
+## API Quick Start
 
----
+See [API Usage](docs/en/api.md) for stable imports, one-step retargeting, and session orchestration.
 
-## More Examples
-
-**Live webcam retargeting**
+For a live camera check:
 
 ```bash
 somehand webcam
-
-# On macOS, run MuJoCo viewers through mjpython.
-mjpython "$(command -v somehand)" webcam --hand both
 ```
 
-**Replay in MuJoCo sim**
-
-```bash
-somehand replay \
-    --backend sim \
-    --hand right \
-    --config configs/retargeting/right/linkerhand_o6_right.yaml \
-    --recording recordings/pico_right.pkl
-```
-
-**Render a recording to MP4**
+Render a recording to MP4:
 
 ```bash
 somehand dump-video \
@@ -111,29 +84,21 @@ somehand dump-video \
     --output recordings/webcam_hand_replay.mp4
 ```
 
-**Offline acceptance check**
-
-```bash
-python scripts/acceptance_check.py \
-    --config configs/retargeting/right/linkerhand_l20_right.yaml \
-    --video recordings/acceptance.mp4 \
-    --hand right
-```
-
 ---
 
 ## Documentation
 
-Full docs covering installation, runtime modes, configuration, assets, and troubleshooting:
+Start with the task you need:
 
-| Topic | English | 中文 |
+| Task | English | 中文 |
 | --- | --- | --- |
-| Getting Started | [getting-started.md](docs/en/getting-started.md) | [快速开始](docs/zh/getting-started.md) |
-| Runtime Modes | [runtime-modes.md](docs/en/runtime-modes.md) | [运行模式](docs/zh/runtime-modes.md) |
-| Configuration | [configuration.md](docs/en/configuration.md) | [配置说明](docs/zh/configuration.md) |
-| Assets & Models | [assets-and-models.md](docs/en/assets-and-models.md) | [资产与模型](docs/zh/assets-and-models.md) |
-| Troubleshooting | [troubleshooting.md](docs/en/troubleshooting.md) | [常见问题](docs/zh/troubleshooting.md) |
-| Maintainer Guide | [maintainer-guide.md](docs/en/maintainer-guide.md) | [维护指南](docs/zh/maintainer-guide.md) |
+| Set up and run once | [Getting Started](docs/en/getting-started.md) | [快速开始](docs/zh/getting-started.md) |
+| Run from the terminal | [CLI Usage](docs/en/runtime-modes.md) | [CLI 用法](docs/zh/runtime-modes.md) |
+| Embed retargeting in Python | [API Usage](docs/en/api.md) | [API 用法](docs/zh/api.md) |
+| Choose or edit a hand model config | [Configuration](docs/en/configuration.md) | [配置说明](docs/zh/configuration.md) |
+| Download assets or check supported models | [Assets & Models](docs/en/assets-and-models.md) | [资产与模型](docs/zh/assets-and-models.md) |
+
+Full indexes: [English](docs/en/README.md) / [中文](docs/zh/README.md).
 
 ## License
 

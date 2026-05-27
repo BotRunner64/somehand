@@ -6,17 +6,23 @@ requires-python = ">=3.10"
 dependencies = [
     "mujoco>=3.0.0",
     "mink>=0.2.0",
-    "mediapipe>=0.10.0",
-    "opencv-python>=4.8.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
     "pyyaml>=6.0",
     "daqp",
-    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.1.0/pico_bridge-0.1.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]
+cli = [
+    "mediapipe>=0.10.0",
+    "opencv-python>=4.8.0",
+    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.1/pico_bridge-0.2.1-py3-none-any.whl",
+]
 dev = [
+    "build>=1.0",
+    "mediapipe>=0.10.0",
+    "opencv-python>=4.8.0",
+    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.1/pico_bridge-0.2.1-py3-none-any.whl",
     "pytest>=7.0",
     "ruff>=0.8.0",
 ]

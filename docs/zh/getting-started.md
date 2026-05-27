@@ -84,6 +84,7 @@ somehand dump-video \
 
 ## 下一步
 
-- 缺少资产？→ [常见问题](troubleshooting.md)
+- 需要资产或模型？→ [资产与模型](assets-and-models.md)
 - 要接新手模型？→ [配置说明](configuration.md)
-- 要接真机或 PICO？→ [运行模式](runtime-modes.md)
+- 需要终端命令？→ [CLI 用法](runtime-modes.md)
+- 要在 Python 中嵌入？→ [API 用法](api.md)

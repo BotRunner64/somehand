@@ -84,6 +84,7 @@ somehand dump-video \
 
 ## Next Steps
 
-- Missing assets? → [Troubleshooting](troubleshooting.md)
+- Need assets or models? → [Assets & Models](assets-and-models.md)
 - Need another hand model? → [Configuration](configuration.md)
-- Need real hardware or PICO input? → [Runtime Modes](runtime-modes.md)
+- Need terminal commands? → [CLI Usage](runtime-modes.md)
+- Embedding in Python? → [API Usage](api.md)

@@ -1,120 +1,47 @@
-# 运行模式
+# CLI 用法
 
-## CLI 总览
+当你希望 somehand 接管输入循环、viewer、录制或硬件 backend 时，用 CLI。当这些部分由另一个 Python 程序接管时，看 [API 用法](api.md)。
 
-| 命令 | 用途 | 输入 | 输出 |
-| --- | --- | --- | --- |
-| **`webcam`** | 从摄像头实时手部追踪 | 摄像头设备 | viewer / sim / real |
-| **`video`** | 对视频文件离线追踪 | MP4 等 | viewer / sim / real |
-| **`replay`** | 回放已保存的录制 | `.pkl` 文件 | viewer / sim / real |
-| **`dump-video`** | 把录制渲染成 MP4 | `.pkl` 文件 | MP4 文件 |
-| **`pico`** | 通过 PICO Bridge 实时追踪 | PICO Bridge 数据流 | viewer / sim / real |
-| **`hc-mocap`** | 从 hc_mocap UDP 接数据 | UDP 数据包 | viewer / sim / real |
+| 用途 | 命令 | 备注 |
+| --- | --- | --- |
+| 实时摄像头 retargeting | `somehand webcam --camera 0` | MediaPipe 左右手判断反了时加 `--swap-hands`。 |
+| 对已有视频 retargeting | `somehand video --video input.mp4` | 可使用与摄像头相同的 backend。 |
+| 回放已保存的录制 | `somehand replay --recording recordings/webcam_hand.pkl` | 连续回放加 `--loop`。 |
+| 把录制渲染成 MP4 | `somehand dump-video --recording input.pkl --output output.mp4` | 输入是录制文件，不是实时流。 |
+| 接 PICO 实时手部追踪 | `somehand pico --hand right` | 需要 PICO Bridge 包和头显端 app。 |
+| 接 hc_mocap UDP | `somehand hc-mocap --hand right --udp-port 1118` | joint 顺序不一致时才用 `--reference-bvh`。 |
+| 控制真机 | `somehand webcam --backend real --hand right` | 当前仅支持单手；按硬件配置 transport 和 SDK 参数。 |
 
 ---
 
 ## 通用参数
 
-多数命令共享：
-
-| 参数 | 说明 |
+| 参数 | 用途 |
 | --- | --- |
-| `--config` | retargeting 配置 YAML 路径 |
-| `--hand {left,right,both}` | 选择手别 |
-| `--backend {viewer,sim,real}` | 输出 backend |
-| `--record-output` | 保存当前输入为可回放的 `.pkl` 录制 |
-
-实时命令的附加控制参数：
-
-`--control-rate` · `--sim-rate` · `--transport` · `--can-interface` · `--modbus-port` · `--sdk-root` · `--model-family`
+| `--config <path>` | 选择 retargeting YAML 配置。 |
+| `--hand left|right|both` | 选择手别；未显式传配置时，`both` 会切到默认双手配置。 |
+| `--backend viewer|sim|real` | 选择 MuJoCo viewer、MuJoCo sim 或真机硬件。 |
+| `--record-output <path>` | 把追踪输入保存成可回放的 `.pkl` 文件。 |
+| `--control-rate`, `--sim-rate` | 调整控制/仿真频率。 |
+| `--transport`, `--can-interface`, `--modbus-port`, `--sdk-root`, `--model-family` | 真机硬件参数。 |
 
 ---
 
-## 各模式详细说明
+## 输入专用参数
 
-### `webcam`
-
-从摄像头实时做人手 retargeting。
-
-```bash
-somehand webcam --camera 0
-```
-
-| 参数 | 说明 |
+| 输入 | 常用参数 |
 | --- | --- |
-| `--swap-hands` | 当 MediaPipe 左右手判断反了时使用 |
-| `--record-output <path>` | 把当前输入录成回放文件 |
-
-### `video`
-
-对已有操作视频做离线 retargeting。
-
-```bash
-somehand video --video input.mp4
-```
-
-视频镜像或左右手判断错误时，可加 `--swap-hands`。
-
-### `replay`
-
-按真实时间回放已保存的手部录制。
-
-```bash
-somehand replay --recording recordings/webcam_hand.pkl
-```
-
-使用 `--loop` 循环回放。
-
-### `dump-video`
-
-把录制尽快渲染成 MP4（非实时）。
-
-```bash
-somehand dump-video \
-    --recording recordings/webcam_hand.pkl \
-    --output recordings/webcam_hand_replay.mp4
-```
-
-### `pico`
-
-通过 PICO Bridge 接 PICO 实时手部追踪。
-
-```bash
-somehand pico --hand right
-```
-
-| 参数 | 说明 |
-| --- | --- |
-| `--signal-fps` | 对实时输入做固定频率重采样 |
-| `--pico-host` / `--pico-port` | PICO Bridge PC receiver 监听地址 |
-| `--pico-advertise-ip` | 向头显广播的 PC IPv4 地址 |
-| `--no-pico-discovery` | 关闭 PICO Bridge UDP discovery |
-| `--pico-timeout` | 控制启动与帧等待时间 |
-
-> 需要安装 PICO Bridge PC receiver 包，并在头显端启动 PICO Bridge app。
-> `somehand pico` 会在进程内启动 PC receiver；不要在同一端口同时运行 standalone `pico-bridge-receiver`。
-
-### `hc-mocap`
-
-从 `hc_mocap` UDP 接实时手部数据。
-
-```bash
-somehand hc-mocap --hand right --udp-port 1118
-```
-
-| 参数 | 说明 |
-| --- | --- |
-| `--signal-fps` | 对实时输入做固定频率重采样 |
-| `--reference-bvh` | 覆盖内置 joint 顺序 |
-| `--udp-host` / `--udp-port` | 网络设置 |
-| `--udp-timeout` / `--udp-stats-every` | 连接调优 |
+| `webcam` | `--camera`, `--swap-hands` |
+| `video` | `--video`, `--swap-hands` |
+| `pico` | `--signal-fps`, `--pico-host`, `--pico-port`, `--pico-advertise-ip`, `--no-pico-discovery`, `--pico-timeout` |
+| `hc-mocap` | `--signal-fps`, `--reference-bvh`, `--udp-host`, `--udp-port`, `--udp-timeout`, `--udp-stats-every` |
 
 ---
 
-## 重要限制
+## 限制
 
-- **双手模式（`--hand both`）** 仅在 `--backend viewer` 下支持
-- **`dump-video`** 支持双手渲染，但基于录制文件，不是实时双手控制
-- **真机 backend** 当前仅支持单手
-- **`pico`** 依赖 PICO Bridge receiver 和头显端 app
-- **LinkerHand 真机控制** 依赖 LinkerHand SDK 与正确的 `model_family` 映射
+- `--hand both` 只支持 live/replay 命令配合 `--backend viewer`。
+- `dump-video` 可以渲染双手录制，但它基于录制文件。
+- `real` backend 当前仅支持单手。
+- `pico` 会在进程内启动 PC receiver；不要在同一端口再启动另一个 receiver。
+- LinkerHand 真机控制需要 LinkerHand SDK 和正确的 `model_family`。

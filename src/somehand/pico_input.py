@@ -45,16 +45,17 @@ _PICO_BRIDGE_TO_MEDIAPIPE: list[int] = [
     25,  # MP[20] little_tip  <- PICO[25]
 ]
 
-# PICO Bridge preserves Unity/PICO coordinates. Convert positions to the
-# right-handed coordinate system consumed by the existing retargeting pipeline.
-_UNITY_TO_RH = np.array(
+# PICO Bridge hands are emitted in PICO native tracking coordinates.
+# Convert positions to the right-handed coordinate system consumed by the
+# existing retargeting pipeline.
+_PICO_NATIVE_TO_RH = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],
     dtype=np.float64,
 )
 
 
 def _transform_positions(positions: np.ndarray) -> np.ndarray:
-    return positions @ _UNITY_TO_RH.T
+    return positions @ _PICO_NATIVE_TO_RH.T
 
 
 def _load_pico_bridge_cls():
