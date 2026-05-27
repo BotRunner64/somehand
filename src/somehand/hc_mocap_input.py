@@ -11,8 +11,8 @@ from typing import Final
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+from .domain.hand_detection import HandDetection
 from .domain.hand_side import normalize_hand_side
-from .hand_detector import HandDetection
 from .paths import DEFAULT_HC_MOCAP_REFERENCE_BVH
 _OUTPUT_ROTATION_MATRIX = np.array(
     [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]],

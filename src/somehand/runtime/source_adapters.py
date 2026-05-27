@@ -5,11 +5,22 @@ from __future__ import annotations
 import numpy as np
 
 from somehand.core import BiHandFrame, BiHandSourceFrame, HandFrame, SourceFrame, normalize_hand_side
-from somehand.hand_detector import HandDetection, HandDetector
+from somehand.domain.hand_detection import HandDetection
 from somehand.hc_mocap_input import _DirectHCMocapUDPProvider, create_hc_mocap_udp_provider, hc_mocap_frame_to_landmarks
 from somehand.pico_input import PicoBridgeReceiver, create_pico_provider, pico_frame_to_detection
 
 from .source_transforms import annotate_bihand_preview, annotate_preview, copy_bihand_frame, to_bihand_frame, to_hand_frame
+
+HandDetector = None
+
+
+def _load_hand_detector_cls():
+    global HandDetector
+    if HandDetector is None:
+        from somehand.hand_detector import HandDetector as detector_cls
+
+        HandDetector = detector_cls
+    return HandDetector
 
 
 class MediaPipeInputSource:
@@ -21,10 +32,11 @@ class MediaPipeInputSource:
         swap_handedness: bool,
         source_desc: str,
     ):
+        detector_cls = _load_hand_detector_cls()
         self.source_desc = source_desc
         self.hand_side = None if hand_side is None else normalize_hand_side(hand_side)
-        self._frames = HandDetector.create_source(source)
-        self._detector = HandDetector(
+        self._frames = detector_cls.create_source(source)
+        self._detector = detector_cls(
             target_hand=self.hand_side,
             swap_handedness=swap_handedness,
         )
@@ -73,9 +85,10 @@ class BiHandMediaPipeInputSource:
         swap_handedness: bool,
         source_desc: str,
     ):
+        detector_cls = _load_hand_detector_cls()
         self.source_desc = source_desc
-        self._frames = HandDetector.create_source(source)
-        self._detector = HandDetector(
+        self._frames = detector_cls.create_source(source)
+        self._detector = detector_cls(
             num_hands=2,
             target_hand=None,
             swap_handedness=swap_handedness,
