@@ -1,32 +1,18 @@
 """MediaPipe hand tracking wrapper using Tasks API."""
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
 import cv2
 import numpy as np
 
-from .domain.hand_side import display_hand_side, normalize_hand_side
+from .domain.hand_detection import HandDetection
+from .domain.hand_side import normalize_hand_side
 from .external_assets import build_missing_asset_message
 from .paths import DEFAULT_HAND_LANDMARKER_MODEL
 
 # Default model path relative to project root
 _DEFAULT_MODEL_PATH = DEFAULT_HAND_LANDMARKER_MODEL
-
-
-@dataclass
-class HandDetection:
-    landmarks_3d: np.ndarray  # (21, 3)
-    landmarks_2d: np.ndarray  # (21, 2)
-    hand_side: str  # "left" or "right"
-
-    def __post_init__(self) -> None:
-        self.hand_side = normalize_hand_side(self.hand_side)
-
-    @property
-    def handedness(self) -> str:
-        return display_hand_side(self.hand_side)
 
 
 class HandDetector:

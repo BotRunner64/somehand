@@ -14,6 +14,7 @@ from .config import (
     VectorLossConfig,
 )
 from .control import ControllerBackend, HandCommand, HandState
+from .hand_detection import HandDetection
 from .hand_side import HAND_SIDES, HandSide, display_hand_side, normalize_hand_side
 from .models import (
     BiHandFrame,
@@ -52,6 +53,7 @@ __all__ = [
     "HandConfig",
     "HandCommand",
     "HandFrame",
+    "HandDetection",
     "HandFrameSink",
     "HAND_SIDES",
     "HandSide",

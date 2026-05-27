@@ -7,8 +7,8 @@ from typing import Any
 
 import numpy as np
 
+from .domain.hand_detection import HandDetection
 from .domain.hand_side import normalize_hand_side
-from .hand_detector import HandDetection
 
 PICO_HAND_JOINT_NAMES: list[str] = [
     "Palm", "Wrist",

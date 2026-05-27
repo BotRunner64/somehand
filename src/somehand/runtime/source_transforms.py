@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import cv2
 import numpy as np
 
 from somehand.core import BiHandFrame, HandFrame
-from somehand.hand_detector import HandDetection
+from somehand.domain.hand_detection import HandDetection
 
 HAND_CONNECTIONS = (
     (0, 1), (1, 2), (2, 3), (3, 4),
@@ -49,6 +48,8 @@ def copy_bihand_frame(frame: BiHandFrame) -> BiHandFrame:
 
 
 def annotate_preview(frame: np.ndarray, detection: HandFrame) -> np.ndarray:
+    import cv2
+
     annotated = frame.copy()
     if detection.landmarks_2d is None:
         return annotated
@@ -62,6 +63,8 @@ def annotate_preview(frame: np.ndarray, detection: HandFrame) -> np.ndarray:
 
 
 def _annotate_single_hand(frame: np.ndarray, detection: HandFrame, *, color: tuple[int, int, int]) -> np.ndarray:
+    import cv2
+
     annotated = frame.copy()
     if detection.landmarks_2d is None:
         return annotated
@@ -75,6 +78,8 @@ def _annotate_single_hand(frame: np.ndarray, detection: HandFrame, *, color: tup
 
 
 def annotate_bihand_preview(frame: np.ndarray, detection: BiHandFrame) -> np.ndarray:
+    import cv2
+
     annotated = frame.copy()
     if detection.left is not None:
         annotated = _annotate_single_hand(annotated, detection.left, color=(255, 140, 0))
