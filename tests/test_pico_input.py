@@ -39,7 +39,7 @@ def test_pico_hand_to_landmarks_uses_pico_bridge_joint_order():
     np.testing.assert_allclose(landmarks[8], [10.0, -30.0, 20.0])
 
 
-def test_pico_bridge_receiver_constructs_pico_bridge_020_api(monkeypatch):
+def test_pico_bridge_receiver_constructs_pico_bridge_021_api(monkeypatch):
     created = []
 
     class _FakeBridge:

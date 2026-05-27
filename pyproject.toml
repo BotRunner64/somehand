@@ -16,13 +16,13 @@ dependencies = [
 cli = [
     "mediapipe>=0.10.0",
     "opencv-python>=4.8.0",
-    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.0/pico_bridge-0.2.0-py3-none-any.whl",
+    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.1/pico_bridge-0.2.1-py3-none-any.whl",
 ]
 dev = [
     "build>=1.0",
     "mediapipe>=0.10.0",
     "opencv-python>=4.8.0",
-    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.0/pico_bridge-0.2.0-py3-none-any.whl",
+    "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.1/pico_bridge-0.2.1-py3-none-any.whl",
     "pytest>=7.0",
     "ruff>=0.8.0",
 ]
