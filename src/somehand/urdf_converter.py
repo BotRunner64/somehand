@@ -1,4 +1,4 @@
-"""Convert URDF hand models to MJCF for use with MuJoCo/Mink."""
+"""Convert URDF hand models to MJCF for use with MuJoCo."""
 
 import os
 import re
