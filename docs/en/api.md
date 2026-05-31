@@ -65,20 +65,22 @@ assets/mjcf/linkerhand_l6_right/model.xml
 
 ## Stable Imports
 
-Prefer `somehand.api` for embedding:
+Use `somehand.api` for embedding. It is the supported external API surface.
 
 ```python
-from somehand.api import BiHandFrame, BiHandRetargetingEngine, HandFrame
+from somehand.api import (
+    BiHandFrame,
+    BiHandRetargetingConfig,
+    BiHandRetargetingEngine,
+    BiHandRetargetingResult,
+    HandFrame,
+    RetargetingConfig,
+    RetargetingEngine,
+    RetargetingStepResult,
+    load_bihand_config,
+    load_retargeting_config,
+)
 ```
-
-Related namespaces:
-
-| Namespace | Use |
-| --- | --- |
-| `somehand.api` | Stable embedding surface: configs, frames, one-step engines. |
-| `somehand.core` | Pure domain models and transformations. |
-| `somehand.app` | Application sessions when you want source -> engine -> sink orchestration. |
-| `somehand.runtime` / `somehand.infrastructure` | Runtime adapters and implementation details; use only when you need those concrete adapters. |
 
 ---
 
@@ -113,17 +115,11 @@ print(result.right.qpos)
 
 ---
 
-## When to Use Sessions
+## One-Step Use
 
-Use `BiHandRetargetingEngine.process()` when your program already owns the loop. Use `somehand.app.BiHandRetargetingSession` only when you want somehand's source -> engine -> sink loop:
+Use `RetargetingEngine.process()` or `BiHandRetargetingEngine.process()` when your program already owns the loop:
 
 ```python
-from somehand.app import BiHandRetargetingSession
-from somehand.api import BiHandRetargetingEngine
-
 engine = BiHandRetargetingEngine.from_config_path("configs/retargeting/bihand/linkerhand_l6_bihand.yaml")
-session = BiHandRetargetingSession(engine, sinks=[my_sink])
-summary = session.run(my_source, input_type="custom")
+result = engine.process(BiHandFrame(left=left_frame, right=right_frame))
 ```
-
-`my_source` and `my_sink` must implement the same methods used by the built-in runtime sources and sinks.
