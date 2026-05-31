@@ -65,20 +65,22 @@ assets/mjcf/linkerhand_l6_right/model.xml
 
 ## 稳定导入
 
-嵌入使用优先从 `somehand.api` 导入：
+嵌入使用从 `somehand.api` 导入。它是受支持的外部 API 面。
 
 ```python
-from somehand.api import BiHandFrame, BiHandRetargetingEngine, HandFrame
+from somehand.api import (
+    BiHandFrame,
+    BiHandRetargetingConfig,
+    BiHandRetargetingEngine,
+    BiHandRetargetingResult,
+    HandFrame,
+    RetargetingConfig,
+    RetargetingEngine,
+    RetargetingStepResult,
+    load_bihand_config,
+    load_retargeting_config,
+)
 ```
-
-相关 namespace：
-
-| Namespace | 用途 |
-| --- | --- |
-| `somehand.api` | 稳定嵌入入口：配置、frame、单步 engine。 |
-| `somehand.core` | 纯 domain model 和转换函数。 |
-| `somehand.app` | 需要 source -> engine -> sink 编排时使用的 application session。 |
-| `somehand.runtime` / `somehand.infrastructure` | 运行时 adapter 和实现细节；只有需要具体 adapter 时再用。 |
 
 ---
 
@@ -113,17 +115,11 @@ print(result.right.qpos)
 
 ---
 
-## 什么时候用 Session
+## 单步调用
 
-如果你的程序已经有自己的循环，用 `BiHandRetargetingEngine.process()`。只有想复用 somehand 的 source -> engine -> sink 循环时，才用 `somehand.app.BiHandRetargetingSession`：
+如果你的程序已经有自己的循环，使用 `RetargetingEngine.process()` 或 `BiHandRetargetingEngine.process()`：
 
 ```python
-from somehand.app import BiHandRetargetingSession
-from somehand.api import BiHandRetargetingEngine
-
 engine = BiHandRetargetingEngine.from_config_path("configs/retargeting/bihand/linkerhand_l6_bihand.yaml")
-session = BiHandRetargetingSession(engine, sinks=[my_sink])
-summary = session.run(my_source, input_type="custom")
+result = engine.process(BiHandFrame(left=left_frame, right=right_frame))
 ```
-
-`my_source` 和 `my_sink` 需要实现内置 runtime source/sink 使用的同类方法。

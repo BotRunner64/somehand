@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Mapping
 
-import mink
 import mujoco
 import numpy as np
 
@@ -38,15 +37,15 @@ def mimic_joint_derivative(mimic: Mapping[str, object], source_value: float) -> 
 
 
 class HandModel:
-    """Wraps a MuJoCo hand model and provides kinematic queries via Mink."""
+    """Wraps a MuJoCo hand model and provides kinematic queries."""
 
     def __init__(self, mjcf_path: str):
         self.mjcf_path = str(Path(mjcf_path).resolve())
         self.model = mujoco.MjModel.from_xml_path(self.mjcf_path)
-        self.configuration = mink.Configuration(self.model)
-        self.data = self.configuration.data
+        self.data = mujoco.MjData(self.model)
         self.mimic_joints = self._collect_mimic_joints()
         self.apply_mimic_constraints(self.data.qpos)
+        mujoco.mj_forward(self.model, self.data)
 
     def _collect_mimic_joints(self) -> list[dict[str, object]]:
         mimic_joints: list[dict[str, object]] = []
@@ -146,4 +145,4 @@ class HandModel:
     def reset(self) -> None:
         mujoco.mj_resetData(self.model, self.data)
         self.apply_mimic_constraints(self.data.qpos)
-        self.configuration.update()
+        mujoco.mj_forward(self.model, self.data)
