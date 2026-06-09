@@ -61,7 +61,7 @@ Use `configs/retargeting/{left,right,bihand}` as the source of truth for current
 
 ```bash
 git submodule update --init --recursive
-pip install -e .
+pip install -e ".[cli]"
 python scripts/setup/download_assets.py --only mjcf mediapipe examples
 somehand replay --recording recordings/pico_right.pkl
 ```

@@ -64,7 +64,7 @@ def _load_pico_bridge_cls():
     except ImportError as exc:
         raise RuntimeError(
             "pico_bridge is not installed. Install the PICO Bridge PC receiver package, "
-            "for example by reinstalling somehand with dependencies: pip install -e ."
+            "for example by reinstalling somehand with CLI dependencies: pip install -e '.[cli]'"
         ) from exc
     return PicoBridge
 

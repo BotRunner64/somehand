@@ -13,7 +13,7 @@
 
 ```bash
 git submodule update --init --recursive
-pip install -e .
+pip install -e ".[cli]"
 ```
 
 Verify:
@@ -48,7 +48,7 @@ Only needed for specific input/backend modes:
 | Integration | Setup command | When needed |
 | --- | --- | --- |
 | **LinkerHand** real backend | `bash scripts/setup_linkerhand_sdk.sh` | Controlling real LinkerHand hardware |
-| **PICO Bridge** input | Installed by `pip install -e .` from the release wheel dependency | Live PICO hand tracking |
+| **PICO Bridge** input | Installed by `pip install -e ".[cli]"` from the release wheel dependency | Live PICO hand tracking |
 
 ---
 
