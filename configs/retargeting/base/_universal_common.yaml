@@ -1,19 +1,6 @@
 retargeting:
   type: vector
   preset: universal
-  vector_loss:
-    type: direction
-    huber_delta: 0.02
-    scaling: 1.0
-    scale_landmarks:
-    - 0
-    - 9
-    scale_bodies:
-    - middle_base
-    - middle_tip
-    scale_body_types:
-    - body
-    - site
   preprocess:
     temporal_filter_alpha: 0.65
   solver:

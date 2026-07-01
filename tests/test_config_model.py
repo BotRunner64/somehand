@@ -104,7 +104,7 @@ def test_angle_constraint_parses_scale_and_invert(tmp_path):
     assert config.angle_constraints[0].invert is True
 
 
-def test_vector_loss_parses_residual_settings(tmp_path):
+def test_removed_vector_loss_is_rejected(tmp_path):
     mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
     config_path = tmp_path / "vector_loss.yaml"
     config_path.write_text(
@@ -121,20 +121,39 @@ def test_vector_loss_parses_residual_settings(tmp_path):
                 '      robot_types: ["body", "site"]',
                 "      weight: 1.0",
                 "  vector_loss:",
-                '    type: "residual"',
-                "    huber_delta: 0.03",
-                "    scaling: 1.2",
-                "    scale_landmarks: [0, 9]",
-                '    scale_bodies: ["world", "middle_proximal"]',
-                '    scale_body_types: ["body", "body"]',
+                '    type: "direction"',
             ]
         )
     )
 
-    config = load_retargeting_config(str(config_path))
-    assert config.vector_loss.type == "residual"
-    assert config.vector_loss.huber_delta == pytest.approx(0.03)
-    assert config.vector_loss.scaling == pytest.approx(1.2)
+    with pytest.raises(ValueError, match="vector_loss"):
+        load_retargeting_config(str(config_path))
+
+
+def test_removed_vector_constraint_loss_override_is_rejected(tmp_path):
+    mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
+    config_path = tmp_path / "vector_loss_override.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "hand:",
+                '  name: "ok"',
+                '  side: "right"',
+                f'  mjcf_path: "{mjcf_path}"',
+                "retargeting:",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
+                '      loss_type: "residual"',
+                "      loss_scale: 1.0",
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="scaled keyvector residual loss"):
+        load_retargeting_config(str(config_path))
 
 
 def test_frame_constraint_parses_thumb_cmc_axes(tmp_path):
@@ -315,11 +334,11 @@ def test_universal_preset_loads_minimal_constraint_set():
     thumb_mid_tip = next(
         constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_tip"]
     )
-    assert thumb_mid_tip.loss_type == "residual"
+    assert thumb_mid_tip.weight == pytest.approx(1.0)
     thumb_distal_tip = next(
         constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_tip"]
     )
-    assert thumb_distal_tip.loss_type == "residual"
+    assert thumb_distal_tip.weight == pytest.approx(0.9)
     assert len(config.distance_constraints) == 4
     assert {tuple(constraint.robot) for constraint in config.distance_constraints} == {
         ("thumb_tip", "index_tip"),

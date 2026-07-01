@@ -55,8 +55,6 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
             robot=["thumb_mid", "thumb_tip"],
             robot_types=["body", "site"],
             weight=1.0,
-            loss_type="residual",
-            loss_scale=1.0,
             optional=True,
         ),
         VectorConstraint(
@@ -64,8 +62,6 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
             robot=["thumb_distal", "thumb_tip"],
             robot_types=["body", "site"],
             weight=0.9,
-            loss_type="residual",
-            loss_scale=1.0,
             optional=True,
         ),
     ]

@@ -43,16 +43,6 @@ class ControllerConfig:
 
 
 @dataclass
-class VectorLossConfig:
-    type: str = "direction"
-    huber_delta: float = 0.02
-    scaling: float = 1.0
-    scale_landmarks: list[int] = field(default_factory=lambda: [0, 9])
-    scale_bodies: list[str] = field(default_factory=lambda: ["world", "middle_proximal"])
-    scale_body_types: list[str] = field(default_factory=lambda: ["body", "body"])
-
-
-@dataclass
 class AngleConstraint:
     landmarks: list[int] = field(default_factory=list)
     joint: str = ""
@@ -68,8 +58,6 @@ class VectorConstraint:
     robot: list[str] = field(default_factory=list)
     robot_types: list[str] = field(default_factory=lambda: ["body", "body"])
     weight: float = 1.0
-    loss_type: str = ""
-    loss_scale: float = 0.0
     optional: bool = False
 
 
@@ -109,7 +97,6 @@ class RetargetingConfig:
     vector_constraints: list[VectorConstraint] = field(default_factory=list)
     frame_constraints: list[FrameConstraint] = field(default_factory=list)
     distance_constraints: list[DistanceConstraint] = field(default_factory=list)
-    vector_loss: VectorLossConfig = field(default_factory=VectorLossConfig)
     angle_constraints: list[AngleConstraint] = field(default_factory=list)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     solver: SolverConfig = field(default_factory=SolverConfig)
@@ -155,8 +142,6 @@ class RetargetingConfig:
                 raise ValueError("vector constraint robot_types must only contain 'body' or 'site'")
             if constraint.weight < 0.0:
                 raise ValueError("vector constraint weight must be >= 0")
-            if constraint.loss_type and constraint.loss_type not in {"direction", "residual"}:
-                raise ValueError("vector constraint loss_type must be 'direction', 'residual', or empty")
         for constraint in self.frame_constraints:
             if len(constraint.robot_types) != 3:
                 raise ValueError("frame constraint robot_types must have length 3")
@@ -188,20 +173,6 @@ class RetargetingConfig:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
             raise ValueError("solver.output_alpha must be in (0, 1]")
-        if self.vector_loss.type not in {"direction", "residual"}:
-            raise ValueError("vector_loss.type must be 'direction' or 'residual'")
-        if self.vector_loss.huber_delta <= 0.0:
-            raise ValueError("vector_loss.huber_delta must be > 0")
-        if self.vector_loss.scaling <= 0.0:
-            raise ValueError("vector_loss.scaling must be > 0")
-        if len(self.vector_loss.scale_landmarks) != 2:
-            raise ValueError("vector_loss.scale_landmarks must have length 2")
-        if len(self.vector_loss.scale_bodies) != 2:
-            raise ValueError("vector_loss.scale_bodies must have length 2")
-        if len(self.vector_loss.scale_body_types) != 2:
-            raise ValueError("vector_loss.scale_body_types must have length 2")
-        if any(link_type not in {"body", "site"} for link_type in self.vector_loss.scale_body_types):
-            raise ValueError("vector_loss.scale_body_types must only contain 'body' or 'site'")
         for constraint in self.angle_constraints:
             if constraint.scale <= 0.0:
                 raise ValueError("angle constraint scale must be > 0")

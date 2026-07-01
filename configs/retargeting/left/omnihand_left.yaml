@@ -17,8 +17,6 @@ retargeting:
       robot: ["L_thumb_pip_link", "L_thumb_dip_link_tip"]
       robot_types: ["body", "site"]
       weight: 1.0
-      loss_type: "residual"
-      loss_scale: 1.0
     - human: [5, 8]
       robot: ["L_index_abad_link", "L_index_dip_link_tip"]
       robot_types: ["body", "site"]
@@ -145,13 +143,6 @@ retargeting:
       joint: "L_pinky_dip_joint"
       weight: 1.2
       scale: 1.0
-  vector_loss:
-    type: direction
-    huber_delta: 0.02
-    scaling: 1.0
-    scale_landmarks: [0, 9]
-    scale_bodies: ["world", "L_middle_pip_link"]
-    scale_body_types: ["body", "body"]
   preprocess:
     temporal_filter_alpha: 0.65
   solver:

@@ -18,7 +18,6 @@ from somehand.domain.config import (
     RetargetingConfig,
     SolverConfig,
     VectorConstraint,
-    VectorLossConfig,
 )
 from somehand.domain.hand_side import normalize_hand_side
 from somehand.infrastructure.universal_config import apply_universal_preset
@@ -107,14 +106,19 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
             "retargeting legacy vector schema is no longer supported; "
             f"use vector_constraints instead of {', '.join(legacy_keys_present)}"
         )
+    for item in retargeting_data.get("vector_constraints", []):
+        removed_keys = sorted(key for key in ("loss_type", "loss_scale") if key in item)
+        if removed_keys:
+            raise ValueError(
+                "scaled keyvector residual loss is no longer supported; "
+                f"remove vector constraint keys: {', '.join(removed_keys)}"
+            )
     config.vector_constraints = [
         VectorConstraint(
             human=[int(value) for value in item["human"]],
             robot=[str(value) for value in item["robot"]],
             robot_types=[str(value) for value in item.get("robot_types", ["body", "body"])],
             weight=float(item.get("weight", 1.0)),
-            loss_type=str(item.get("loss_type", "")),
-            loss_scale=float(item.get("loss_scale", 0.0)),
             optional=bool(item.get("optional", False)),
         )
         for item in retargeting_data.get("vector_constraints", [])
@@ -149,15 +153,8 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         )
         for item in retargeting_data.get("frame_constraints", [])
     ]
-    vector_loss_data = retargeting_data.get("vector_loss", {})
-    config.vector_loss = VectorLossConfig(
-        type=vector_loss_data.get("type", "direction"),
-        huber_delta=vector_loss_data.get("huber_delta", 0.02),
-        scaling=vector_loss_data.get("scaling", 1.0),
-        scale_landmarks=vector_loss_data.get("scale_landmarks", [0, 9]),
-        scale_bodies=vector_loss_data.get("scale_bodies", ["world", "middle_proximal"]),
-        scale_body_types=vector_loss_data.get("scale_body_types", ["body", "body"]),
-    )
+    if "vector_loss" in retargeting_data:
+        raise ValueError("retargeting.vector_loss is no longer supported")
 
     config.angle_constraints = [
         AngleConstraint(
