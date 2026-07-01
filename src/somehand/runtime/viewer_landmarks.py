@@ -17,7 +17,13 @@ from .viewer_camera import (
     try_frame_camera_to_points,
 )
 from .viewer_passive import ManagedPassiveViewer, set_viewer_window_title
-from .vector_visualization import VectorPair, append_landmark_vector_geoms
+from .vector_visualization import (
+    DISTANCE_RGBA,
+    VectorPair,
+    append_landmark_angle_geoms,
+    append_landmark_frame_geoms,
+    append_landmark_vector_geoms,
+)
 
 
 class LandmarkVisualizer:
@@ -28,10 +34,16 @@ class LandmarkVisualizer:
         *,
         window_title: str | None = None,
         vector_pairs: list[VectorPair] | None = None,
+        distance_pairs: list[VectorPair] | None = None,
+        frame_triples: list[tuple[int, int, int]] | None = None,
+        angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         self.model = mujoco.MjModel.from_xml_string(LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
         self._vector_pairs = [] if vector_pairs is None else [tuple(pair) for pair in vector_pairs]
+        self._distance_pairs = [] if distance_pairs is None else [tuple(pair) for pair in distance_pairs]
+        self._frame_triples = [] if frame_triples is None else [tuple(triple) for triple in frame_triples]
+        self._angle_triples = [] if angle_triples is None else [tuple(triple) for triple in angle_triples]
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -40,7 +52,14 @@ class LandmarkVisualizer:
             window_title=window_title,
         )
         set_viewer_window_title(self.viewer, window_title)
-        self._max_overlay_geoms = len(LANDMARK_COLORS) + len(HAND_CONNECTIONS) + 2 * len(self._vector_pairs)
+        self._max_overlay_geoms = (
+            len(LANDMARK_COLORS)
+            + len(HAND_CONNECTIONS)
+            + 2 * len(self._vector_pairs)
+            + 2 * len(self._distance_pairs)
+            + 4 * len(self._frame_triples)
+            + 4 * len(self._angle_triples)
+        )
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
         if self.viewer.user_scn.maxgeom < self._max_overlay_geoms:
@@ -88,6 +107,9 @@ class LandmarkVisualizer:
         scene.ngeom = 0
         append_single_landmark_geoms(scene, landmarks)
         append_landmark_vector_geoms(scene, landmarks, self._vector_pairs)
+        append_landmark_vector_geoms(scene, landmarks, self._distance_pairs, rgba=DISTANCE_RGBA)
+        append_landmark_frame_geoms(scene, landmarks, self._frame_triples)
+        append_landmark_angle_geoms(scene, landmarks, self._angle_triples)
 
     @property
     def is_running(self) -> bool:
@@ -107,11 +129,23 @@ class BiHandLandmarkVisualizer:
         window_title: str | None = None,
         left_vector_pairs: list[VectorPair] | None = None,
         right_vector_pairs: list[VectorPair] | None = None,
+        left_distance_pairs: list[VectorPair] | None = None,
+        right_distance_pairs: list[VectorPair] | None = None,
+        left_frame_triples: list[tuple[int, int, int]] | None = None,
+        right_frame_triples: list[tuple[int, int, int]] | None = None,
+        left_angle_triples: list[tuple[int, int, int]] | None = None,
+        right_angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         self.model = mujoco.MjModel.from_xml_string(LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
         self._left_vector_pairs = [] if left_vector_pairs is None else [tuple(pair) for pair in left_vector_pairs]
         self._right_vector_pairs = [] if right_vector_pairs is None else [tuple(pair) for pair in right_vector_pairs]
+        self._left_distance_pairs = [] if left_distance_pairs is None else [tuple(pair) for pair in left_distance_pairs]
+        self._right_distance_pairs = [] if right_distance_pairs is None else [tuple(pair) for pair in right_distance_pairs]
+        self._left_frame_triples = [] if left_frame_triples is None else [tuple(triple) for triple in left_frame_triples]
+        self._right_frame_triples = [] if right_frame_triples is None else [tuple(triple) for triple in right_frame_triples]
+        self._left_angle_triples = [] if left_angle_triples is None else [tuple(triple) for triple in left_angle_triples]
+        self._right_angle_triples = [] if right_angle_triples is None else [tuple(triple) for triple in right_angle_triples]
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -124,6 +158,12 @@ class BiHandLandmarkVisualizer:
             2 * (len(LANDMARK_COLORS) + len(HAND_CONNECTIONS))
             + 2 * len(self._left_vector_pairs)
             + 2 * len(self._right_vector_pairs)
+            + 2 * len(self._left_distance_pairs)
+            + 2 * len(self._right_distance_pairs)
+            + 4 * len(self._left_frame_triples)
+            + 4 * len(self._right_frame_triples)
+            + 4 * len(self._left_angle_triples)
+            + 4 * len(self._right_angle_triples)
         )
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
@@ -179,6 +219,12 @@ class BiHandLandmarkVisualizer:
         append_bihand_landmark_geoms(scene, hands)
         append_landmark_vector_geoms(scene, hands[0], self._left_vector_pairs)
         append_landmark_vector_geoms(scene, hands[1], self._right_vector_pairs)
+        append_landmark_vector_geoms(scene, hands[0], self._left_distance_pairs, rgba=DISTANCE_RGBA)
+        append_landmark_vector_geoms(scene, hands[1], self._right_distance_pairs, rgba=DISTANCE_RGBA)
+        append_landmark_frame_geoms(scene, hands[0], self._left_frame_triples)
+        append_landmark_frame_geoms(scene, hands[1], self._right_frame_triples)
+        append_landmark_angle_geoms(scene, hands[0], self._left_angle_triples)
+        append_landmark_angle_geoms(scene, hands[1], self._right_angle_triples)
 
     @property
     def is_running(self) -> bool:

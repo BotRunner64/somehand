@@ -425,7 +425,14 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
             None,
             None,
             "Retargeting",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
         (
             "state",
@@ -433,7 +440,14 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
             None,
             None,
             "Sim State",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
     ]
 
@@ -531,7 +545,14 @@ def test_build_runtime_session_can_skip_target_viewer_for_sim(monkeypatch):
             None,
             None,
             "Retargeting",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
     ]
 
@@ -641,7 +662,14 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
             None,
             None,
             "Retargeting",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
         (
             "state",
@@ -649,7 +677,14 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
             None,
             None,
             "Sim State",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
     ]
 

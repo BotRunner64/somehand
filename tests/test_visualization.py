@@ -1,6 +1,7 @@
 import sys
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -143,7 +144,7 @@ def test_robot_hand_viewer_worker_plain_qpos_clears_cached_target_directions(mon
         def is_running(self):
             return len(updates) < 2
 
-        def update(self, qpos, target_directions=None):
+        def update(self, qpos, target_directions=None, **kwargs):
             updates.append(
                 (
                     np.asarray(qpos, dtype=np.float64).copy(),
@@ -560,3 +561,83 @@ def test_hand_visualizer_overlay_geoms_are_mode_gated():
     visualizer._update_vector_overlay(np.array([[0.0, 1.0, 0.0]], dtype=np.float64))
 
     assert scene.ngeom > 0
+
+
+def test_hand_visualizer_draws_all_robot_constraint_types():
+    model, data = _diagnostic_test_model()
+    scene = viewer_hand.mujoco.MjvScene(model, maxgeom=128)
+    fake_viewer = type("Viewer", (), {"user_scn": scene})()
+    visualizer = object.__new__(viewer_hand.HandVisualizer)
+    visualizer.model = model
+    visualizer.data = data
+    visualizer.viewer = fake_viewer
+    visualizer._vector_points = viewer_hand.resolve_robot_vector_points(
+        model,
+        [(0, "palm", "body", "tip_site", "site")],
+        hand_side="right",
+    )
+    visualizer._distance_points = viewer_hand.resolve_robot_distance_points(
+        model,
+        [(0, "palm", "body", "tip_site", "site")],
+        hand_side="right",
+    )
+    visualizer._frame_points = viewer_hand.resolve_robot_frame_points(
+        model,
+        [(0, "palm", "body", "tip_site", "site", "slider_body", "body")],
+        hand_side="right",
+    )
+    visualizer._angle_points = viewer_hand.resolve_robot_angle_points(
+        model,
+        [(0, "finger_hinge")],
+        hand_side="right",
+    )
+    visualizer._variable_markers = []
+
+    visualizer._update_vector_overlay(
+        np.array([[0.0, 1.0, 0.0]], dtype=np.float64),
+        target_frame_primary_directions=np.array([[1.0, 0.0, 0.0]], dtype=np.float64),
+        target_frame_secondary_directions=np.array([[0.0, 1.0, 0.0]], dtype=np.float64),
+        target_distances=np.array([0.03], dtype=np.float64),
+        target_angles=np.array([0.5], dtype=np.float64),
+    )
+
+    assert scene.ngeom >= 16
+
+
+def test_bihand_visualizer_rotates_target_direction_overlays_into_scene_frame():
+    model, data = _diagnostic_test_model()
+    scene = viewer_hand.mujoco.MjvScene(model, maxgeom=64)
+    fake_viewer = type("Viewer", (), {"user_scn": scene})()
+    visualizer = object.__new__(viewer_hand.BiHandVisualizer)
+    visualizer.model = model
+    visualizer.data = data
+    visualizer.viewer = fake_viewer
+    left_rotation = viewer_hand._quat_to_rotation_matrix(
+        (np.sqrt(0.5), 0.0, 0.0, np.sqrt(0.5))
+    )
+    visualizer.scene = SimpleNamespace(
+        left_rotation=left_rotation,
+        right_rotation=np.eye(3),
+        left_vector_points=viewer_hand.resolve_robot_vector_points(
+            model,
+            [(0, "palm", "body", "tip_site", "site")],
+            hand_side="right",
+        ),
+        right_vector_points=[],
+        left_distance_points=[],
+        right_distance_points=[],
+        left_frame_points=[],
+        right_frame_points=[],
+        left_angle_points=[],
+        right_angle_points=[],
+        left_variable_markers=[],
+        right_variable_markers=[],
+    )
+
+    visualizer._update_vector_overlay(
+        np.array([[1.0, 0.0, 0.0]], dtype=np.float64),
+        None,
+    )
+
+    assert scene.ngeom == 4
+    np.testing.assert_allclose(scene.geoms[3].pos, [0.0, 0.035, 0.0], atol=1e-12)

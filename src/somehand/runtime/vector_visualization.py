@@ -14,12 +14,19 @@ VectorPair = tuple[int, int]
 HUMAN_VECTOR_RGBA = np.array([0.05, 0.85, 1.0, 0.92], dtype=np.float32)
 ROBOT_VECTOR_RGBA = np.array([1.0, 0.58, 0.12, 0.88], dtype=np.float32)
 TARGET_VECTOR_RGBA = np.array([0.0, 0.95, 1.0, 0.72], dtype=np.float32)
+DISTANCE_RGBA = np.array([0.8, 0.25, 1.0, 0.78], dtype=np.float32)
+FRAME_PRIMARY_RGBA = np.array([1.0, 0.08, 0.05, 0.82], dtype=np.float32)
+FRAME_SECONDARY_RGBA = np.array([0.1, 0.9, 0.18, 0.82], dtype=np.float32)
+FRAME_NORMAL_RGBA = np.array([0.15, 0.35, 1.0, 0.82], dtype=np.float32)
+ANGLE_RGBA = np.array([1.0, 0.92, 0.12, 0.9], dtype=np.float32)
 VARIABLE_LOW_RGBA = np.array([0.22, 0.38, 0.62, 0.88], dtype=np.float32)
 VARIABLE_HIGH_RGBA = np.array([1.0, 0.08, 0.04, 0.9], dtype=np.float32)
 VECTOR_RADIUS = 0.002
 TARGET_VECTOR_RADIUS = 0.0013
+DIAGNOSTIC_THIN_RADIUS = 0.0014
 TIP_RADIUS = 0.0035
 VARIABLE_MARKER_RADIUS = 0.005
+ANGLE_MARKER_RADIUS = 0.0065
 
 
 def append_vector_segments(
@@ -103,6 +110,53 @@ def append_landmark_vector_geoms(
     )
 
 
+def append_landmark_frame_geoms(
+    scene,
+    landmarks: np.ndarray,
+    frame_triples: Sequence[tuple[int, int, int]],
+) -> None:
+    points = np.asarray(landmarks, dtype=np.float64)
+    for origin_idx, primary_idx, secondary_idx in frame_triples:
+        if max(origin_idx, primary_idx, secondary_idx) >= len(points):
+            continue
+        origin = points[origin_idx]
+        primary = points[primary_idx]
+        secondary = points[secondary_idx]
+        append_vector_segments(
+            scene,
+            np.asarray([origin], dtype=np.float64),
+            np.asarray([primary], dtype=np.float64),
+            rgba=FRAME_PRIMARY_RGBA,
+            radius=DIAGNOSTIC_THIN_RADIUS,
+        )
+        append_vector_segments(
+            scene,
+            np.asarray([origin], dtype=np.float64),
+            np.asarray([secondary], dtype=np.float64),
+            rgba=FRAME_SECONDARY_RGBA,
+            radius=DIAGNOSTIC_THIN_RADIUS,
+        )
+
+
+def append_landmark_angle_geoms(
+    scene,
+    landmarks: np.ndarray,
+    angle_triples: Sequence[tuple[int, int, int]],
+) -> None:
+    points = np.asarray(landmarks, dtype=np.float64)
+    for first_idx, middle_idx, second_idx in angle_triples:
+        if max(first_idx, middle_idx, second_idx) >= len(points):
+            continue
+        middle = points[middle_idx]
+        append_vector_segments(
+            scene,
+            np.asarray([middle, middle], dtype=np.float64),
+            np.asarray([points[first_idx], points[second_idx]], dtype=np.float64),
+            rgba=ANGLE_RGBA,
+            radius=DIAGNOSTIC_THIN_RADIUS,
+        )
+
+
 def target_direction_ends(
     starts: np.ndarray,
     current_ends: np.ndarray,
@@ -175,6 +229,13 @@ def append_variable_markers(
 
 
 __all__ = [
+    "ANGLE_MARKER_RADIUS",
+    "ANGLE_RGBA",
+    "DIAGNOSTIC_THIN_RADIUS",
+    "DISTANCE_RGBA",
+    "FRAME_NORMAL_RGBA",
+    "FRAME_PRIMARY_RGBA",
+    "FRAME_SECONDARY_RGBA",
     "HUMAN_VECTOR_RGBA",
     "ROBOT_VECTOR_RGBA",
     "TARGET_VECTOR_RGBA",
@@ -185,6 +246,8 @@ __all__ = [
     "VARIABLE_MARKER_RADIUS",
     "VECTOR_RADIUS",
     "VectorPair",
+    "append_landmark_angle_geoms",
+    "append_landmark_frame_geoms",
     "append_landmark_vector_geoms",
     "append_variable_markers",
     "append_vector_segments",

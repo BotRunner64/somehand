@@ -256,6 +256,12 @@ def test_build_bihand_session_adds_landmark_frame_sink(monkeypatch):
         "right_quat": (0.5, 0.6, 0.7, 0.8),
         "left_vector_pairs": None,
         "right_vector_pairs": None,
+        "left_distance_pairs": None,
+        "right_distance_pairs": None,
+        "left_frame_triples": None,
+        "right_frame_triples": None,
+        "left_angle_triples": None,
+        "right_angle_triples": None,
     }
 
 
@@ -284,6 +290,21 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                     SimpleNamespace(robot=["world", "palm"], robot_types=["body", "body"]),
                     SimpleNamespace(robot=["palm", "tip"], robot_types=["body", "site"]),
                 ],
+                distance_constraints=[
+                    SimpleNamespace(human=[2, 3], robot=["a", "b"], robot_types=["site", "site"]),
+                ],
+                frame_constraints=[
+                    SimpleNamespace(
+                        human_origin=0,
+                        human_primary=5,
+                        human_secondary=9,
+                        robot_origin="palm",
+                        robot_primary="index",
+                        robot_secondary="middle",
+                        robot_types=["body", "site", "site"],
+                    )
+                ],
+                angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="left_joint")],
             ),
         ),
         right_engine=SimpleNamespace(
@@ -294,6 +315,11 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                 vector_constraints=[
                     SimpleNamespace(robot=["base", "tip"], robot_types=["body", "site"]),
                 ],
+                distance_constraints=[
+                    SimpleNamespace(human=[4, 6], robot=["c", "d"], robot_types=["site", "site"]),
+                ],
+                frame_constraints=[],
+                angle_constraints=[SimpleNamespace(landmarks=[3, 4, 5], joint="right_joint")],
             ),
         ),
         config=SimpleNamespace(
@@ -321,11 +347,23 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
     assert session.sinks == ["result_sink"]
     assert frame_created["left_vector_pairs"] == [(0, 1)]
     assert frame_created["right_vector_pairs"] == [(0, 5)]
+    assert frame_created["left_distance_pairs"] == [(2, 3)]
+    assert frame_created["right_distance_pairs"] == [(4, 6)]
+    assert frame_created["left_frame_triples"] == [(0, 5, 9)]
+    assert frame_created["right_frame_triples"] == []
+    assert frame_created["left_angle_triples"] == [(1, 2, 3)]
+    assert frame_created["right_angle_triples"] == [(3, 4, 5)]
     assert result_created["viewer_mode"] == "diagnostic"
     assert result_created["left_hand_side"] == "left"
     assert result_created["right_hand_side"] == "right"
     assert result_created["left_robot_vector_specs"] == [(1, "palm", "body", "tip", "site")]
     assert result_created["right_robot_vector_specs"] == [(0, "base", "body", "tip", "site")]
+    assert result_created["left_robot_distance_specs"] == [(0, "a", "site", "b", "site")]
+    assert result_created["right_robot_distance_specs"] == [(0, "c", "site", "d", "site")]
+    assert result_created["left_robot_frame_specs"] == [(0, "palm", "body", "index", "site", "middle", "site")]
+    assert result_created["right_robot_frame_specs"] == []
+    assert result_created["left_robot_angle_specs"] == [(0, "left_joint")]
+    assert result_created["right_robot_angle_specs"] == [(0, "right_joint")]
 
 
 def test_bihand_output_window_sink_uses_mujoco_visualizer(monkeypatch):

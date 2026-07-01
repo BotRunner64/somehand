@@ -452,5 +452,15 @@ class VectorRetargeter:
         )
         return primary, secondary
 
+    def get_target_distances(self) -> np.ndarray | None:
+        if self._target_distances is None:
+            return None
+        return self._target_distances.copy()
+
+    def get_target_angles(self) -> np.ndarray | None:
+        if self._target_angles is None:
+            return None
+        return self._target_angles.copy()
+
     def get_robot_scale(self) -> float:
         return float(self._robot_distance_scale)

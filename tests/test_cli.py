@@ -284,8 +284,8 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
     created = []
 
     class _FakeLandmarkSink:
-        def __init__(self, *, window_title=None, vector_pairs=None):
-            created.append(("landmark", window_title, vector_pairs))
+        def __init__(self, *, window_title=None, vector_pairs=None, **kwargs):
+            created.append(("landmark", window_title, vector_pairs, kwargs))
 
         @property
         def is_running(self):
@@ -325,14 +325,26 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
 
     assert len(session.frame_sinks) == 1
     assert created == [
-        ("landmark", "Input Landmarks", None),
+        (
+            "landmark",
+            "Input Landmarks",
+            None,
+            {"distance_pairs": None, "frame_triples": None, "angle_triples": None},
+        ),
         (
             "robot",
             engine.hand_model,
             None,
             None,
             "Retargeting",
-            {"viewer_mode": "normal", "hand_side": None, "robot_vector_specs": None},
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
         ),
     ]
 
@@ -341,8 +353,8 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
     created = []
 
     class _FakeLandmarkSink:
-        def __init__(self, *, window_title=None, vector_pairs=None):
-            created.append(("landmark", window_title, vector_pairs))
+        def __init__(self, *, window_title=None, vector_pairs=None, **kwargs):
+            created.append(("landmark", window_title, vector_pairs, kwargs))
 
         @property
         def is_running(self):
@@ -375,6 +387,21 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
             hand=SimpleNamespace(side="right"),
             human_vector_pairs=[(0, 1)],
             vector_constraints=constraints,
+            distance_constraints=[
+                SimpleNamespace(human=[2, 3], robot=["a", "b"], robot_types=["site", "site"]),
+            ],
+            frame_constraints=[
+                SimpleNamespace(
+                    human_origin=0,
+                    human_primary=5,
+                    human_secondary=9,
+                    robot_origin="palm",
+                    robot_primary="index",
+                    robot_secondary="middle",
+                    robot_types=["body", "site", "site"],
+                )
+            ],
+            angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="finger_joint")],
         ),
     )
 
@@ -388,7 +415,16 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
 
     assert len(session.frame_sinks) == 1
     assert created == [
-        ("landmark", "Input Landmarks", [(0, 1)]),
+        (
+            "landmark",
+            "Input Landmarks",
+            [(0, 1)],
+            {
+                "distance_pairs": [(2, 3)],
+                "frame_triples": [(0, 5, 9)],
+                "angle_triples": [(1, 2, 3)],
+            },
+        ),
         (
             "robot",
             engine.hand_model,
@@ -399,6 +435,9 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
                 "viewer_mode": "diagnostic",
                 "hand_side": "right",
                 "robot_vector_specs": [(1, "palm", "body", "tip", "site")],
+                "robot_distance_specs": [(0, "a", "site", "b", "site")],
+                "robot_frame_specs": [(0, "palm", "body", "index", "site", "middle", "site")],
+                "robot_angle_specs": [(0, "finger_joint")],
             },
         ),
     ]

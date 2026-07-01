@@ -21,6 +21,14 @@ def _copy_step_result(result: RetargetingStepResult) -> RetargetingStepResult:
         target_directions=None if result.target_directions is None else np.array(result.target_directions, copy=True),
         processed_landmarks=np.array(result.processed_landmarks, copy=True),
         hand_side=result.hand_side,
+        target_frame_primary_directions=None
+        if result.target_frame_primary_directions is None
+        else np.array(result.target_frame_primary_directions, copy=True),
+        target_frame_secondary_directions=None
+        if result.target_frame_secondary_directions is None
+        else np.array(result.target_frame_secondary_directions, copy=True),
+        target_distances=None if result.target_distances is None else np.array(result.target_distances, copy=True),
+        target_angles=None if result.target_angles is None else np.array(result.target_angles, copy=True),
     )
 
 
