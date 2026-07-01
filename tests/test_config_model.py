@@ -330,7 +330,7 @@ def test_universal_preset_loads_minimal_constraint_set():
     config = load_retargeting_config("configs/retargeting/right/linkerhand_o6_right.yaml")
 
     assert config.preset == "universal"
-    assert len(config.vector_constraints) == 16
+    assert len(config.vector_constraints) == 11
     thumb_mid_tip = next(
         constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_tip"]
     )

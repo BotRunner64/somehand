@@ -6,10 +6,6 @@ hand:
 retargeting:
   type: vector
   vector_constraints:
-    - human: [0, 4]
-      robot: ["world", "R_thumb_dip_link_tip"]
-      robot_types: ["body", "site"]
-      weight: 1.5
     - human: [1, 2]
       robot: ["R_thumb_abad_link", "R_thumb_pip_link"]
       weight: 1.0

@@ -23,7 +23,6 @@ from somehand.constants import (
     THUMB_IP,
     THUMB_MCP,
     THUMB_TIP,
-    WRIST,
 )
 from somehand.domain.config import DistanceConstraint, FrameConstraint, RetargetingConfig, VectorConstraint
 
@@ -38,12 +37,6 @@ _FINGERS = (
 
 def apply_universal_preset(config: RetargetingConfig) -> None:
     vector_constraints: list[VectorConstraint] = [
-        VectorConstraint(
-            human=[WRIST, THUMB_TIP],
-            robot=["world", "thumb_tip"],
-            robot_types=["body", "site"],
-            weight=1.5,
-        ),
         VectorConstraint(
             human=[THUMB_CMC, THUMB_MCP],
             robot=["thumb_base", "thumb_mid"],
@@ -125,13 +118,6 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
     for finger_name, mcp, pip, dip, tip, pinch_weight in _FINGERS:
         vector_constraints.extend(
             [
-                VectorConstraint(
-                    human=[WRIST, mcp],
-                    robot=["world", f"{finger_name}_base"],
-                    robot_types=["body", "body"],
-                    weight=0.8,
-                    optional=True,
-                ),
                 VectorConstraint(
                     human=[mcp, pip],
                     robot=[f"{finger_name}_base", f"{finger_name}_mid"],
