@@ -18,6 +18,7 @@ from somehand.infrastructure.hand_model import HandModel
 
 from .viewer_landmarks import BiHandLandmarkVisualizer, LandmarkVisualizer
 from .viewer_hand import HandVisualizer
+from .vector_visualization import VectorPair
 
 VIEWER_LOOP_PERIOD_S = 1.0 / 120.0
 
@@ -59,9 +60,13 @@ def _viewer_spawn_context() -> BaseContext:
     return ctx
 
 
-def landmark_viewer_worker(frame_queue: mp.queues.Queue, window_title: str | None) -> None:
+def landmark_viewer_worker(
+    frame_queue: mp.queues.Queue,
+    window_title: str | None,
+    vector_pairs: list[VectorPair],
+) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    visualizer = LandmarkVisualizer(window_title=window_title)
+    visualizer = LandmarkVisualizer(window_title=window_title, vector_pairs=vector_pairs)
     latest_landmarks = np.zeros((21, 3), dtype=np.float64)
 
     try:
@@ -128,12 +133,12 @@ class AsyncProcessHandle:
 class AsyncLandmarkVisualizer:
     """Landmark viewer running in a separate process for stability."""
 
-    def __init__(self, *, window_title: str | None = None):
+    def __init__(self, *, window_title: str | None = None, vector_pairs: list[VectorPair] | None = None):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=landmark_viewer_worker,
-            args=(self._queue, window_title),
+            args=(self._queue, window_title, [] if vector_pairs is None else [tuple(pair) for pair in vector_pairs]),
             name="somehand-landmark-viewer",
         )
         self._process.start()
@@ -155,11 +160,22 @@ def robot_hand_viewer_worker(
     qpos_queue: mp.queues.Queue,
     overlay_label: str | None,
     window_title: str | None,
+    viewer_mode: str,
+    hand_side: str | None,
+    robot_vector_specs: list[tuple[int, str, str, str, str]],
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     hand_model = HandModel(mjcf_path)
-    visualizer = HandVisualizer(hand_model, overlay_label=overlay_label, window_title=window_title)
+    visualizer = HandVisualizer(
+        hand_model,
+        overlay_label=overlay_label,
+        window_title=window_title,
+        viewer_mode=viewer_mode,
+        hand_side=hand_side,
+        robot_vector_specs=robot_vector_specs,
+    )
     latest_qpos = hand_model.get_qpos()
+    latest_target_directions = None
 
     try:
         while visualizer.is_running:
@@ -172,13 +188,18 @@ def robot_hand_viewer_worker(
 
                 if item is None:
                     return
-                latest_qpos = np.asarray(item, dtype=np.float64)
+                if isinstance(item, dict):
+                    latest_qpos = np.asarray(item["qpos"], dtype=np.float64)
+                    latest_target_directions = _optional_array(item.get("target_directions"))
+                else:
+                    latest_qpos = np.asarray(item, dtype=np.float64)
+                    latest_target_directions = None
                 drained = True
 
             if drained:
-                visualizer.update(latest_qpos)
+                visualizer.update(latest_qpos, target_directions=latest_target_directions)
             else:
-                visualizer.update(latest_qpos)
+                visualizer.update(latest_qpos, target_directions=latest_target_directions)
                 time.sleep(VIEWER_LOOP_PERIOD_S)
     except KeyboardInterrupt:
         return
@@ -195,12 +216,23 @@ class AsyncRobotHandVisualizer:
         *,
         overlay_label: str | None = None,
         window_title: str | None = None,
+        viewer_mode: str = "normal",
+        hand_side: str | None = None,
+        robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
     ):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=robot_hand_viewer_worker,
-            args=(mjcf_path, self._queue, overlay_label, window_title),
+            args=(
+                mjcf_path,
+                self._queue,
+                overlay_label,
+                window_title,
+                viewer_mode,
+                hand_side,
+                [] if robot_vector_specs is None else list(robot_vector_specs),
+            ),
             name="somehand-robot-hand-viewer",
         )
         self._process.start()
@@ -213,13 +245,28 @@ class AsyncRobotHandVisualizer:
     def update(self, qpos: np.ndarray) -> None:
         self._handle.send(np.asarray(qpos, dtype=np.float64))
 
+    def update_with_vectors(self, qpos: np.ndarray, target_directions: np.ndarray | None) -> None:
+        self._handle.send(
+            {
+                "qpos": np.asarray(qpos, dtype=np.float64),
+                "target_directions": _optional_array(target_directions),
+            }
+        )
+
     def close(self) -> None:
         self._handle.close()
 
 
-def bihand_landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
+def bihand_landmark_viewer_worker(
+    frame_queue: mp.queues.Queue,
+    left_vector_pairs: list[VectorPair],
+    right_vector_pairs: list[VectorPair],
+) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    visualizer = BiHandLandmarkVisualizer()
+    visualizer = BiHandLandmarkVisualizer(
+        left_vector_pairs=left_vector_pairs,
+        right_vector_pairs=right_vector_pairs,
+    )
     latest_landmarks = np.full((2, 21, 3), np.nan, dtype=np.float64)
 
     try:
@@ -250,12 +297,21 @@ def bihand_landmark_viewer_worker(frame_queue: mp.queues.Queue) -> None:
 class AsyncBiHandLandmarkVisualizer:
     """Bi-hand landmark viewer running in a separate process for stability."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        left_vector_pairs: list[VectorPair] | None = None,
+        right_vector_pairs: list[VectorPair] | None = None,
+    ):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
         self._process = ctx.Process(
             target=bihand_landmark_viewer_worker,
-            args=(self._queue,),
+            args=(
+                self._queue,
+                [] if left_vector_pairs is None else [tuple(pair) for pair in left_vector_pairs],
+                [] if right_vector_pairs is None else [tuple(pair) for pair in right_vector_pairs],
+            ),
             name="somehand-bihand-landmark-viewer",
         )
         self._process.start()
@@ -270,6 +326,12 @@ class AsyncBiHandLandmarkVisualizer:
 
     def close(self) -> None:
         self._handle.close()
+
+
+def _optional_array(value: object) -> np.ndarray | None:
+    if value is None:
+        return None
+    return np.asarray(value, dtype=np.float64)
 
 
 __all__ = [

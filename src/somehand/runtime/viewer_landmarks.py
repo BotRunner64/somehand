@@ -17,14 +17,21 @@ from .viewer_camera import (
     try_frame_camera_to_points,
 )
 from .viewer_passive import ManagedPassiveViewer, set_viewer_window_title
+from .vector_visualization import VectorPair, append_landmark_vector_geoms
 
 
 class LandmarkVisualizer:
     """Real-time MuJoCo visualization of the input hand landmarks."""
 
-    def __init__(self, *, window_title: str | None = None):
+    def __init__(
+        self,
+        *,
+        window_title: str | None = None,
+        vector_pairs: list[VectorPair] | None = None,
+    ):
         self.model = mujoco.MjModel.from_xml_string(LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
+        self._vector_pairs = [] if vector_pairs is None else [tuple(pair) for pair in vector_pairs]
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -33,7 +40,7 @@ class LandmarkVisualizer:
             window_title=window_title,
         )
         set_viewer_window_title(self.viewer, window_title)
-        self._max_overlay_geoms = len(LANDMARK_COLORS) + len(HAND_CONNECTIONS)
+        self._max_overlay_geoms = len(LANDMARK_COLORS) + len(HAND_CONNECTIONS) + 2 * len(self._vector_pairs)
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
         if self.viewer.user_scn.maxgeom < self._max_overlay_geoms:
@@ -80,6 +87,7 @@ class LandmarkVisualizer:
         scene = self.viewer.user_scn
         scene.ngeom = 0
         append_single_landmark_geoms(scene, landmarks)
+        append_landmark_vector_geoms(scene, landmarks, self._vector_pairs)
 
     @property
     def is_running(self) -> bool:
@@ -93,9 +101,17 @@ class LandmarkVisualizer:
 class BiHandLandmarkVisualizer:
     """Real-time MuJoCo visualization of both input-hand landmark sets."""
 
-    def __init__(self, *, window_title: str | None = None):
+    def __init__(
+        self,
+        *,
+        window_title: str | None = None,
+        left_vector_pairs: list[VectorPair] | None = None,
+        right_vector_pairs: list[VectorPair] | None = None,
+    ):
         self.model = mujoco.MjModel.from_xml_string(LANDMARK_VIEWER_XML)
         self.data = mujoco.MjData(self.model)
+        self._left_vector_pairs = [] if left_vector_pairs is None else [tuple(pair) for pair in left_vector_pairs]
+        self._right_vector_pairs = [] if right_vector_pairs is None else [tuple(pair) for pair in right_vector_pairs]
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -104,7 +120,11 @@ class BiHandLandmarkVisualizer:
             window_title=window_title,
         )
         set_viewer_window_title(self.viewer, window_title)
-        self._max_overlay_geoms = 2 * (len(LANDMARK_COLORS) + len(HAND_CONNECTIONS))
+        self._max_overlay_geoms = (
+            2 * (len(LANDMARK_COLORS) + len(HAND_CONNECTIONS))
+            + 2 * len(self._left_vector_pairs)
+            + 2 * len(self._right_vector_pairs)
+        )
         if self.viewer.user_scn is None:
             raise RuntimeError("MuJoCo passive viewer does not expose a user scene")
         if self.viewer.user_scn.maxgeom < self._max_overlay_geoms:
@@ -133,7 +153,10 @@ class BiHandLandmarkVisualizer:
             )
         self.viewer.sync(state_only=True)
 
-    def update(self, hands: np.ndarray):
+    def update(
+        self,
+        hands: np.ndarray,
+    ):
         with self.viewer.lock():
             mujoco.mj_forward(self.model, self.data)
             finite_mask = np.isfinite(hands).all(axis=2)
@@ -154,6 +177,8 @@ class BiHandLandmarkVisualizer:
         scene = self.viewer.user_scn
         scene.ngeom = 0
         append_bihand_landmark_geoms(scene, hands)
+        append_landmark_vector_geoms(scene, hands[0], self._left_vector_pairs)
+        append_landmark_vector_geoms(scene, hands[1], self._right_vector_pairs)
 
     @property
     def is_running(self) -> bool:

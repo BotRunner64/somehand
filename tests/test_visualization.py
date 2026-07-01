@@ -8,10 +8,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from somehand import visualization
+import somehand.cli.runtime as cli_runtime
 import somehand.runtime.viewer_hand as viewer_hand
 import somehand.runtime.viewer_passive as viewer_passive
 import somehand.runtime.viewer_async as viewer_async
 import somehand.runtime.viewer_landmarks as viewer_landmarks
+from somehand.runtime.vector_visualization import append_landmark_vector_geoms, target_direction_ends
 
 
 class _FakeHandle:
@@ -121,6 +123,70 @@ def test_resolve_mjpython_prefers_explicit_env(monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(env_bin))
 
     assert viewer_async._resolve_mjpython_executable() == str(explicit_mjpython)
+
+
+def test_robot_hand_viewer_worker_plain_qpos_clears_cached_target_directions(monkeypatch):
+    updates = []
+
+    class _FakeHandModel:
+        def __init__(self, mjcf_path):
+            self.mjcf_path = mjcf_path
+
+        def get_qpos(self):
+            return np.array([0.0], dtype=np.float64)
+
+    class _FakeVisualizer:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        @property
+        def is_running(self):
+            return len(updates) < 2
+
+        def update(self, qpos, target_directions=None):
+            updates.append(
+                (
+                    np.asarray(qpos, dtype=np.float64).copy(),
+                    None if target_directions is None else np.asarray(target_directions, dtype=np.float64).copy(),
+                )
+            )
+
+        def close(self):
+            return None
+
+    class _FakeQueue:
+        def __init__(self):
+            self.items = [
+                {"qpos": np.array([1.0]), "target_directions": np.array([[1.0, 0.0, 0.0]])},
+                viewer_async.queue.Empty,
+                np.array([2.0]),
+                viewer_async.queue.Empty,
+            ]
+
+        def get_nowait(self):
+            item = self.items.pop(0)
+            if item is viewer_async.queue.Empty:
+                raise viewer_async.queue.Empty
+            return item
+
+    monkeypatch.setattr(viewer_async.signal, "signal", lambda *args, **kwargs: None)
+    monkeypatch.setattr(viewer_async, "HandModel", _FakeHandModel)
+    monkeypatch.setattr(viewer_async, "HandVisualizer", _FakeVisualizer)
+
+    viewer_async.robot_hand_viewer_worker(
+        "model.xml",
+        _FakeQueue(),
+        None,
+        None,
+        "normal",
+        None,
+        [],
+    )
+
+    np.testing.assert_allclose(updates[0][0], [1.0])
+    np.testing.assert_allclose(updates[0][1], [[1.0, 0.0, 0.0]])
+    np.testing.assert_allclose(updates[1][0], [2.0])
+    assert updates[1][1] is None
 
 
 def test_set_viewer_window_title_updates_sim_filename():
@@ -341,3 +407,156 @@ def test_append_bihand_landmark_geoms_skips_nan_hand_points():
     visualization._append_bihand_landmark_geoms(scene, hands)
 
     assert scene.ngeom == 21 + len(visualization._HAND_CONNECTIONS)
+
+
+def test_append_landmark_vector_geoms_adds_segment_and_tip_geoms():
+    model = visualization.mujoco.MjModel.from_xml_string(visualization._LANDMARK_VIEWER_XML)
+    scene = visualization.mujoco.MjvScene(model, maxgeom=16)
+    landmarks = np.zeros((21, 3), dtype=np.float64)
+    landmarks[1] = [0.05, 0.0, 0.0]
+    landmarks[5] = [0.0, 0.06, 0.0]
+
+    append_landmark_vector_geoms(scene, landmarks, [(0, 1), (0, 5)])
+
+    assert scene.ngeom == 4
+
+
+def test_target_direction_ends_use_current_robot_vector_lengths():
+    starts = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+    current_ends = np.array([[1.0, 0.0, 0.2]], dtype=np.float64)
+    target_directions = np.array([[0.0, 1.0, 0.0]], dtype=np.float64)
+
+    ends = target_direction_ends(starts, current_ends, target_directions)
+
+    np.testing.assert_allclose(ends, [[1.0, 0.2, 0.0]])
+
+
+def test_target_direction_ends_are_length_capped():
+    starts = np.array([[0.0, 0.0, 0.0]], dtype=np.float64)
+    current_ends = np.array([[0.0, 0.0, 0.2]], dtype=np.float64)
+    target_directions = np.array([[1.0, 0.0, 0.0]], dtype=np.float64)
+
+    ends = target_direction_ends(starts, current_ends, target_directions, max_length=0.035)
+
+    np.testing.assert_allclose(ends, [[0.035, 0.0, 0.0]])
+
+
+def test_robot_vector_specs_filter_world_origins_preserving_original_indices():
+    config = type(
+        "Config",
+        (),
+        {
+            "vector_constraints": [
+                type("Constraint", (), {"robot": ["world", "palm"], "robot_types": ["body", "body"]})(),
+                type("Constraint", (), {"robot": ["palm", "tip"], "robot_types": ["body", "site"]})(),
+            ]
+        },
+    )()
+
+    specs = cli_runtime._robot_vector_specs(config)
+
+    assert specs == [(1, "palm", "body", "tip", "site")]
+
+
+def test_select_target_vectors_uses_original_constraint_indices():
+    starts = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ],
+        dtype=np.float64,
+    )
+    current_ends = starts + np.array([0.0, 0.0, 0.1], dtype=np.float64)
+    target_directions = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [-1.0, 0.0, 0.0],
+        ],
+        dtype=np.float64,
+    )
+    target_indices = np.array([1, 3], dtype=np.int32)
+
+    selected_starts, selected_current_ends, selected_targets = viewer_hand.select_target_vectors(
+        starts,
+        current_ends,
+        target_directions,
+        target_indices,
+    )
+
+    np.testing.assert_allclose(selected_starts, starts)
+    np.testing.assert_allclose(selected_current_ends, current_ends)
+    np.testing.assert_allclose(selected_targets, target_directions[[1, 3]])
+
+
+def _diagnostic_test_model():
+    xml = """
+    <mujoco>
+      <worldbody>
+        <body name="palm" pos="0 0 0">
+          <geom type="sphere" size="0.01"/>
+          <body name="tip" pos="0.05 0 0">
+            <joint name="finger_hinge" type="hinge" range="-1 1" limited="true"/>
+            <geom type="sphere" size="0.01"/>
+            <site name="tip_site" pos="0.01 0 0"/>
+          </body>
+          <body name="slider_body" pos="0 0.05 0">
+            <joint name="finger_slide" type="slide" range="0 0.02" limited="true"/>
+            <geom type="sphere" size="0.01"/>
+          </body>
+          <body name="ball_body" pos="0 0 0.05">
+            <joint name="ball_joint" type="ball"/>
+            <geom type="sphere" size="0.01"/>
+          </body>
+          <body name="unlimited_body" pos="0 0 -0.05">
+            <joint name="unlimited_hinge" type="hinge"/>
+            <geom type="sphere" size="0.01"/>
+          </body>
+        </body>
+      </worldbody>
+    </mujoco>
+    """
+    model = viewer_hand.mujoco.MjModel.from_xml_string(xml)
+    data = viewer_hand.mujoco.MjData(model)
+    viewer_hand.mujoco.mj_forward(model, data)
+    return model, data
+
+
+def test_variable_markers_include_only_scalar_ranged_joints():
+    model, _ = _diagnostic_test_model()
+
+    markers = viewer_hand.resolve_variable_markers(model)
+    marker_names = [
+        viewer_hand.mujoco.mj_id2name(model, viewer_hand.mujoco.mjtObj.mjOBJ_JOINT, joint_id)
+        for joint_id, _qpos_id, _low, _high in markers
+    ]
+
+    assert marker_names == ["finger_hinge", "finger_slide"]
+
+
+def test_hand_visualizer_overlay_geoms_are_mode_gated():
+    model, data = _diagnostic_test_model()
+    scene = viewer_hand.mujoco.MjvScene(model, maxgeom=64)
+    fake_viewer = type("Viewer", (), {"user_scn": scene})()
+    visualizer = object.__new__(viewer_hand.HandVisualizer)
+    visualizer.model = model
+    visualizer.data = data
+    visualizer.viewer = fake_viewer
+    visualizer._vector_points = []
+    visualizer._variable_markers = []
+
+    visualizer._update_vector_overlay(np.ones((1, 3), dtype=np.float64))
+
+    assert scene.ngeom == 0
+
+    visualizer._vector_points = viewer_hand.resolve_robot_vector_points(
+        model,
+        [(0, "palm", "body", "tip_site", "site")],
+        hand_side="right",
+    )
+    visualizer._variable_markers = viewer_hand.resolve_variable_markers(model)
+
+    visualizer._update_vector_overlay(np.array([[0.0, 1.0, 0.0]], dtype=np.float64))
+
+    assert scene.ngeom > 0

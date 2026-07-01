@@ -55,6 +55,12 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--modbus-port", default="None", help="MODBUS serial port for real-hand mode")
     parser.add_argument("--sdk-root", default=None, help="Optional LinkerHand SDK root directory")
     parser.add_argument("--model-family", default=None, help="Optional LinkerHand SDK model family override")
+    parser.add_argument(
+        "--viewer-mode",
+        choices=["normal", "diagnostic"],
+        default="normal",
+        help="Viewer display mode: normal output or diagnostic constraint overlays",
+    )
 
 
 def add_live_sampling_args(parser: argparse.ArgumentParser) -> None:

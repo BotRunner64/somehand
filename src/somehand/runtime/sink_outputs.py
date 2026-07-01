@@ -39,12 +39,18 @@ class RobotHandOutputSink(OutputSink):
         key_callback=None,
         overlay_label: str | None = None,
         window_title: str | None = None,
+        viewer_mode: str = "normal",
+        hand_side: str | None = None,
+        robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
     ):
         self._visualizer = HandVisualizer(
             hand_model,
             key_callback=key_callback,
             overlay_label=overlay_label,
             window_title=window_title,
+            viewer_mode=viewer_mode,
+            hand_side=hand_side,
+            robot_vector_specs=robot_vector_specs,
         )
 
     @property
@@ -52,7 +58,7 @@ class RobotHandOutputSink(OutputSink):
         return self._visualizer.is_running
 
     def on_result(self, result: RetargetingStepResult) -> None:
-        self._visualizer.update(result.qpos)
+        self._visualizer.update(result.qpos, target_directions=result.target_directions)
 
     def close(self) -> None:
         self._visualizer.close()
@@ -66,11 +72,17 @@ class RobotHandTargetOutputSink(OutputSink):
         key_callback=None,
         overlay_label: str | None = None,
         window_title: str | None = None,
+        viewer_mode: str = "normal",
+        hand_side: str | None = None,
+        robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
     ):
         self._visualizer = AsyncRobotHandVisualizer(
             hand_model.mjcf_path,
             overlay_label=overlay_label,
             window_title=window_title,
+            viewer_mode=viewer_mode,
+            hand_side=hand_side,
+            robot_vector_specs=robot_vector_specs,
         )
 
     @property
@@ -79,7 +91,7 @@ class RobotHandTargetOutputSink(OutputSink):
 
     def on_result(self, result: RetargetingStepResult) -> None:
         qpos = result.target_qpos if result.target_qpos is not None else result.qpos
-        self._visualizer.update(qpos)
+        self._visualizer.update_with_vectors(qpos, result.target_directions)
 
     def close(self) -> None:
         self._visualizer.close()
@@ -155,8 +167,13 @@ class RobotHandVideoOutputSink(OutputSink):
 
 
 class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
-    def __init__(self, *, window_title: str | None = None):
-        self._visualizer = AsyncLandmarkVisualizer(window_title=window_title)
+    def __init__(
+        self,
+        *,
+        window_title: str | None = None,
+        vector_pairs: list[tuple[int, int]] | None = None,
+    ):
+        self._visualizer = AsyncLandmarkVisualizer(window_title=window_title, vector_pairs=vector_pairs)
 
     @property
     def is_running(self) -> bool:
@@ -185,8 +202,13 @@ class AsyncBiHandLandmarkOutputSink(BiHandFrameSink):
         right_pos: tuple[float, float, float] = (-0.22, 0.04, 0.02),
         left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151),
         right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665),
+        left_vector_pairs: list[tuple[int, int]] | None = None,
+        right_vector_pairs: list[tuple[int, int]] | None = None,
     ):
-        self._visualizer = AsyncBiHandLandmarkVisualizer()
+        self._visualizer = AsyncBiHandLandmarkVisualizer(
+            left_vector_pairs=left_vector_pairs,
+            right_vector_pairs=right_vector_pairs,
+        )
         self._left_pos = tuple(float(value) for value in left_pos)
         self._right_pos = tuple(float(value) for value in right_pos)
         self._left_quat = tuple(float(value) for value in left_quat)
@@ -213,6 +235,19 @@ class AsyncBiHandLandmarkOutputSink(BiHandFrameSink):
             right = transform_points(right, pos=self._right_pos, quat=self._right_quat)
         self._visualizer.update(np.stack([left, right], axis=0))
 
+    def on_result(self, result) -> None:
+        left = transform_points(
+            result.left.processed_landmarks,
+            pos=self._left_pos,
+            quat=self._left_quat,
+        )
+        right = transform_points(
+            result.right.processed_landmarks,
+            pos=self._right_pos,
+            quat=self._right_quat,
+        )
+        self._visualizer.update(np.stack([left, right], axis=0))
+
     def close(self) -> None:
         self._visualizer.close()
 
@@ -232,6 +267,11 @@ class BiHandOutputWindowSink(BiHandOutputSink):
         camera_lookat: tuple[float, float, float] = (0.0, 0.04, 0.02),
         left_quat: tuple[float, float, float, float] = (0.69288325, 0.01522078, -0.05862347, 0.71850151),
         right_quat: tuple[float, float, float, float] = (0.71846417, 0.05829359, -0.01490552, 0.69295665),
+        viewer_mode: str = "normal",
+        left_hand_side: str | None = None,
+        right_hand_side: str | None = None,
+        left_robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
+        right_robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
     ):
         self._visualizer = BiHandVisualizer(
             left_hand_model,
@@ -242,6 +282,11 @@ class BiHandOutputWindowSink(BiHandOutputSink):
             camera_lookat=camera_lookat,
             left_quat=left_quat,
             right_quat=right_quat,
+            viewer_mode=viewer_mode,
+            left_hand_side=left_hand_side,
+            right_hand_side=right_hand_side,
+            left_robot_vector_specs=left_robot_vector_specs,
+            right_robot_vector_specs=right_robot_vector_specs,
         )
         self._window_name = window_name
 
@@ -250,7 +295,12 @@ class BiHandOutputWindowSink(BiHandOutputSink):
         return self._visualizer.is_running
 
     def on_result(self, result) -> None:
-        self._visualizer.update(result.left.qpos, result.right.qpos)
+        self._visualizer.update(
+            result.left.qpos,
+            result.right.qpos,
+            left_target_directions=result.left.target_directions,
+            right_target_directions=result.right.target_directions,
+        )
 
     def close(self) -> None:
         self._visualizer.close()

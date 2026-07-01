@@ -9,7 +9,6 @@ import threading
 
 import mujoco
 import mujoco.viewer
-import numpy as np
 
 
 def mujoco_key_callback(handler):
@@ -25,9 +24,11 @@ def mujoco_key_callback(handler):
 
 
 def set_viewer_overlay_label(viewer, label: str | None) -> None:
-    if not label:
+    set_texts = getattr(viewer, "set_texts", None)
+    if not callable(set_texts):
         return
-    viewer.set_texts(
+    label = "" if label is None else label
+    set_texts(
         (
             mujoco.mjtFontScale.mjFONTSCALE_150,
             mujoco.mjtGridPos.mjGRID_TOPLEFT,
@@ -79,7 +80,9 @@ def launch_passive_internal_with_window_title(
     def _loader():
         return model, data, window_title or ""
 
-    notify_loaded = lambda: handle_return.put_nowait(mujoco.viewer.Handle(simulate, cam, opt, pert, user_scn))
+    def notify_loaded():
+        handle_return.put_nowait(mujoco.viewer.Handle(simulate, cam, opt, pert, user_scn))
+
     side_thread = threading.Thread(target=mujoco.viewer._reload, args=(simulate, _loader, notify_loaded))
 
     def _exit_simulate():
