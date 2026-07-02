@@ -1,95 +1,55 @@
 extends: "./_universal_common.yaml"
 
-hand:
-  name: dexhand021_right
-  side: right
-  mjcf_path: ../../../assets/mjcf/dexhand021_right/model.xml
-
 retargeting:
   vector_constraints:
     - human: [1, 2]
       robot: ["f_link1_2", "f_link1_3"]
-      weight: 1.0
     - human: [2, 3]
       robot: ["f_link1_3", "f_link1_4"]
-      weight: 1.0
     - human: [3, 4]
       robot: ["f_link1_4", "f_link1_4_tip"]
       robot_types: ["body", "site"]
-      weight: 0.9
     - human: [5, 6]
       robot: ["f_link2_2", "f_link2_3"]
-      weight: 1.0
     - human: [6, 7]
       robot: ["f_link2_3", "f_link2_4"]
-      weight: 1.0
     - human: [7, 8]
       robot: ["f_link2_4", "f_link2_4_tip"]
       robot_types: ["body", "site"]
-      weight: 0.9
     - human: [9, 10]
       robot: ["f_link3_2", "f_link3_3"]
-      weight: 1.0
     - human: [10, 11]
       robot: ["f_link3_3", "f_link3_4"]
-      weight: 1.0
     - human: [11, 12]
       robot: ["f_link3_4", "f_link3_4_tip"]
       robot_types: ["body", "site"]
-      weight: 0.9
     - human: [13, 14]
       robot: ["f_link4_2", "f_link4_3"]
-      weight: 1.0
     - human: [14, 15]
       robot: ["f_link4_3", "f_link4_4"]
-      weight: 1.0
     - human: [15, 16]
       robot: ["f_link4_4", "f_link4_4_tip"]
       robot_types: ["body", "site"]
-      weight: 0.9
     - human: [17, 18]
       robot: ["f_link5_2", "f_link5_3"]
-      weight: 1.0
     - human: [18, 19]
       robot: ["f_link5_3", "f_link5_4"]
-      weight: 1.0
     - human: [19, 20]
       robot: ["f_link5_4", "f_link5_4_tip"]
       robot_types: ["body", "site"]
-      weight: 0.9
   distance_constraints:
     - human: [4, 8]
       robot: ["thumb_tip", "index_tip"]
       robot_types: ["site", "site"]
-      weight: 2000.0
-      scale: 1.0
-      threshold: 0.04
-      activation_type: "linear"
-      scale_mode: "hand_scaled"
     - human: [4, 12]
       robot: ["thumb_tip", "middle_tip"]
       robot_types: ["site", "site"]
-      weight: 1500.0
-      scale: 1.0
-      threshold: 0.04
-      activation_type: "linear"
-      scale_mode: "hand_scaled"
     - human: [4, 16]
       robot: ["thumb_tip", "ring_tip"]
       robot_types: ["site", "site"]
-      weight: 1000.0
-      scale: 1.0
-      threshold: 0.04
-      activation_type: "linear"
-      scale_mode: "hand_scaled"
     - human: [4, 20]
       robot: ["thumb_tip", "pinky_tip"]
       robot_types: ["site", "site"]
-      weight: 800.0
-      scale: 1.0
-      threshold: 0.04
-      activation_type: "linear"
-      scale_mode: "hand_scaled"
   frame_constraints:
     - name: "thumb_cmc_frame"
       human_origin: 1
@@ -98,5 +58,3 @@ retargeting:
       robot_origin: "f_link1_2"
       robot_primary: "f_link1_3"
       robot_secondary: "f_link2_2"
-      primary_weight: 2.0
-      secondary_weight: 1.8

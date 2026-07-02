@@ -13,6 +13,12 @@ from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from somehand.infrastructure.vector_solver import VectorRetargeter
 
 
+def _side_specific_config_paths() -> list[Path]:
+    return sorted(Path("configs/retargeting/left").glob("*_left.yaml")) + sorted(
+        Path("configs/retargeting/right").glob("*_right.yaml")
+    )
+
+
 def _quat_to_matrix(quat: np.ndarray) -> np.ndarray:
     matrix = np.zeros(9, dtype=np.float64)
     mujoco.mju_quat2Mat(matrix, quat)
@@ -305,21 +311,17 @@ def test_all_mjcf_assets_have_side_specific_configs():
 
 
 def test_side_specific_configs_load_successfully():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         assert config.hand.name == config_path.stem
 
 
 def test_side_specific_configs_instantiate_vector_retargeter():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
         retargeter = VectorRetargeter(hand_model, config)
@@ -382,8 +384,19 @@ def test_hand_config_owns_vector_topology():
         ("thumb_tip", "ring_tip"),
         ("thumb_tip", "pinky_tip"),
     }
+    distance_by_human = {tuple(constraint.human): constraint for constraint in config.distance_constraints}
+    assert distance_by_human[(4, 8)].weight == pytest.approx(2000.0)
+    assert distance_by_human[(4, 12)].weight == pytest.approx(1500.0)
+    assert distance_by_human[(4, 16)].weight == pytest.approx(1000.0)
+    assert distance_by_human[(4, 20)].weight == pytest.approx(800.0)
+    assert distance_by_human[(4, 8)].scale == pytest.approx(1.0)
+    assert distance_by_human[(4, 8)].threshold == pytest.approx(0.04)
+    assert distance_by_human[(4, 8)].activation_type == "linear"
+    assert distance_by_human[(4, 8)].scale_mode == "hand_scaled"
     assert len(config.frame_constraints) == 1
     assert config.frame_constraints[0].name == "thumb_cmc_frame"
+    assert config.frame_constraints[0].primary_weight == pytest.approx(2.0)
+    assert config.frame_constraints[0].secondary_weight == pytest.approx(1.8)
     assert config.angle_constraints == []
 
 
@@ -471,11 +484,9 @@ def test_omnihand_vectors_follow_mjcf_finger_links():
 
 
 def test_side_specific_configs_resolve_all_configured_vectors():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
         configured_vector_count = len(config.vector_constraints)
@@ -539,11 +550,9 @@ def test_linkerhand_l20pro_pinky_chain_and_mesh_are_laterally_aligned():
 def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
     expected_pairs = {(4, 8), (4, 12), (4, 16), (4, 20)}
     expected_closure_pairs = {(8, 5), (12, 9), (16, 13), (20, 17)}
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name == "bihand" or config_path.name.startswith("_"):
-            continue
         config = load_retargeting_config(str(config_path))
         if not config.distance_constraints:
             continue

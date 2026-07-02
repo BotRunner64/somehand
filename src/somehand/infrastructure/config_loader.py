@@ -53,6 +53,81 @@ def _load_yaml_with_extends(config_path_obj: Path) -> dict:
     return merged
 
 
+def _constraint_defaults(retargeting_data: dict, name: str) -> dict:
+    defaults = retargeting_data.get("constraint_defaults", {})
+    if not isinstance(defaults, dict):
+        return {}
+    section = defaults.get(name, {})
+    if not isinstance(section, dict):
+        return {}
+    return section
+
+
+def _human_pair_key(values: list[int]) -> str:
+    return f"{values[0]},{values[1]}"
+
+
+def _vector_constraint_weight(item: dict, robot_types: list[str], defaults: dict) -> float:
+    if "weight" in item:
+        return float(item["weight"])
+    if len(robot_types) == 2 and robot_types[1] == "site":
+        return float(defaults.get("terminal_weight", defaults.get("weight", 1.0)))
+    return float(defaults.get("weight", 1.0))
+
+
+def _distance_constraint_weight(item: dict, human: list[int], defaults: dict) -> float:
+    if "weight" in item:
+        return float(item["weight"])
+    weights_by_human = defaults.get("weights_by_human", {})
+    if isinstance(weights_by_human, dict):
+        weight = weights_by_human.get(_human_pair_key(human))
+        if weight is not None:
+            return float(weight)
+    return float(defaults.get("weight", 1.0))
+
+
+def _build_vector_constraint(item: dict, defaults: dict) -> VectorConstraint:
+    robot_types = [str(value) for value in item.get("robot_types", ["body", "body"])]
+    return VectorConstraint(
+        human=[int(value) for value in item["human"]],
+        robot=[str(value) for value in item["robot"]],
+        robot_types=robot_types,
+        weight=_vector_constraint_weight(item, robot_types, defaults),
+        optional=bool(item.get("optional", False)),
+    )
+
+
+def _build_distance_constraint(item: dict, defaults: dict) -> DistanceConstraint:
+    human = [int(value) for value in item["human"]]
+    return DistanceConstraint(
+        human=human,
+        robot=[str(value) for value in item["robot"]],
+        robot_types=[str(value) for value in item.get("robot_types", ["site", "site"])],
+        weight=_distance_constraint_weight(item, human, defaults),
+        scale=float(item.get("scale", defaults.get("scale", 1.0))),
+        threshold=float(item.get("threshold", defaults.get("threshold", 0.04))),
+        activation_type=str(item.get("activation_type", defaults.get("activation_type", "gaussian"))),
+        scale_mode=str(item.get("scale_mode", defaults.get("scale_mode", "raw"))),
+        optional=bool(item.get("optional", False)),
+    )
+
+
+def _build_frame_constraint(item: dict, defaults: dict) -> FrameConstraint:
+    return FrameConstraint(
+        name=str(item.get("name", "")),
+        human_origin=int(item["human_origin"]),
+        human_primary=int(item["human_primary"]),
+        human_secondary=int(item["human_secondary"]),
+        robot_origin=str(item["robot_origin"]),
+        robot_primary=str(item["robot_primary"]),
+        robot_secondary=str(item["robot_secondary"]),
+        robot_types=[str(value) for value in item.get("robot_types", ["body", "body", "body"])],
+        primary_weight=float(item.get("primary_weight", defaults.get("primary_weight", 1.0))),
+        secondary_weight=float(item.get("secondary_weight", defaults.get("secondary_weight", 1.0))),
+        optional=bool(item.get("optional", False)),
+    )
+
+
 def load_retargeting_config(config_path: str) -> RetargetingConfig:
     config_path_obj = Path(config_path)
     data = _load_yaml_with_extends(config_path_obj)
@@ -114,44 +189,19 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
                 "scaled keyvector residual loss is no longer supported; "
                 f"remove vector constraint keys: {', '.join(removed_keys)}"
             )
+    vector_defaults = _constraint_defaults(retargeting_data, "vector")
     config.vector_constraints = [
-        VectorConstraint(
-            human=[int(value) for value in item["human"]],
-            robot=[str(value) for value in item["robot"]],
-            robot_types=[str(value) for value in item.get("robot_types", ["body", "body"])],
-            weight=float(item.get("weight", 1.0)),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_vector_constraint(item, vector_defaults)
         for item in retargeting_data.get("vector_constraints", [])
     ]
+    distance_defaults = _constraint_defaults(retargeting_data, "distance")
     config.distance_constraints = [
-        DistanceConstraint(
-            human=[int(value) for value in item["human"]],
-            robot=[str(value) for value in item["robot"]],
-            robot_types=[str(value) for value in item.get("robot_types", ["site", "site"])],
-            weight=float(item.get("weight", 1.0)),
-            scale=float(item.get("scale", 1.0)),
-            threshold=float(item.get("threshold", 0.04)),
-            activation_type=str(item.get("activation_type", "gaussian")),
-            scale_mode=str(item.get("scale_mode", "raw")),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_distance_constraint(item, distance_defaults)
         for item in retargeting_data.get("distance_constraints", [])
     ]
+    frame_defaults = _constraint_defaults(retargeting_data, "frame")
     config.frame_constraints = [
-        FrameConstraint(
-            name=str(item.get("name", "")),
-            human_origin=int(item["human_origin"]),
-            human_primary=int(item["human_primary"]),
-            human_secondary=int(item["human_secondary"]),
-            robot_origin=str(item["robot_origin"]),
-            robot_primary=str(item["robot_primary"]),
-            robot_secondary=str(item["robot_secondary"]),
-            robot_types=[str(value) for value in item.get("robot_types", ["body", "body", "body"])],
-            primary_weight=float(item.get("primary_weight", 1.0)),
-            secondary_weight=float(item.get("secondary_weight", 1.0)),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_frame_constraint(item, frame_defaults)
         for item in retargeting_data.get("frame_constraints", [])
     ]
     if "vector_loss" in retargeting_data:
