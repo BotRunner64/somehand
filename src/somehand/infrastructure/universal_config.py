@@ -44,9 +44,8 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
             optional=True,
         ),
         VectorConstraint(
-            human=[THUMB_MCP, THUMB_TIP],
-            robot=["thumb_mid", "thumb_tip"],
-            robot_types=["body", "site"],
+            human=[THUMB_MCP, THUMB_IP],
+            robot=["thumb_mid", "thumb_distal"],
             weight=1.0,
             optional=True,
         ),
@@ -125,10 +124,16 @@ def apply_universal_preset(config: RetargetingConfig) -> None:
                     optional=True,
                 ),
                 VectorConstraint(
-                    human=[pip, tip],
-                    robot=[f"{finger_name}_mid", f"{finger_name}_tip"],
-                    robot_types=["body", "site"],
+                    human=[pip, dip],
+                    robot=[f"{finger_name}_mid", f"{finger_name}_distal"],
                     weight=1.0,
+                    optional=True,
+                ),
+                VectorConstraint(
+                    human=[dip, tip],
+                    robot=[f"{finger_name}_distal", f"{finger_name}_tip"],
+                    robot_types=["body", "site"],
+                    weight=0.9,
                     optional=True,
                 ),
             ]

@@ -330,15 +330,35 @@ def test_universal_preset_loads_minimal_constraint_set():
     config = load_retargeting_config("configs/retargeting/right/linkerhand_o6_right.yaml")
 
     assert config.preset == "universal"
-    assert len(config.vector_constraints) == 11
-    thumb_mid_tip = next(
-        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_tip"]
+    assert len(config.vector_constraints) == 15
+    thumb_mid_distal = next(
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_distal"]
     )
-    assert thumb_mid_tip.weight == pytest.approx(1.0)
+    assert thumb_mid_distal.human == [2, 3]
+    assert thumb_mid_distal.weight == pytest.approx(1.0)
     thumb_distal_tip = next(
         constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_tip"]
     )
+    assert thumb_distal_tip.human == [3, 4]
     assert thumb_distal_tip.weight == pytest.approx(0.9)
+    assert {
+        tuple(constraint.robot)
+        for constraint in config.vector_constraints
+        if constraint.robot[0].split("_", 1)[0] in {"index", "middle", "ring", "pinky"}
+    } == {
+        ("index_base", "index_mid"),
+        ("index_mid", "index_distal"),
+        ("index_distal", "index_tip"),
+        ("middle_base", "middle_mid"),
+        ("middle_mid", "middle_distal"),
+        ("middle_distal", "middle_tip"),
+        ("ring_base", "ring_mid"),
+        ("ring_mid", "ring_distal"),
+        ("ring_distal", "ring_tip"),
+        ("pinky_base", "pinky_mid"),
+        ("pinky_mid", "pinky_distal"),
+        ("pinky_distal", "pinky_tip"),
+    }
     assert len(config.distance_constraints) == 4
     assert {tuple(constraint.robot) for constraint in config.distance_constraints} == {
         ("thumb_tip", "index_tip"),
@@ -386,6 +406,39 @@ def test_all_fingertip_sites_align_with_mesh_surface_points():
             assert error < 1e-3, f"{model_path}:{site_name} drifted {error:.4f}m from mesh tip"
             assert model.site_size[site_id, 0] == pytest.approx(0.004)
             assert np.allclose(model.site_rgba[site_id], np.array([1.0, 0.0, 0.0, 1.0]))
+
+
+def test_linkerhand_l20pro_pinky_chain_and_mesh_are_laterally_aligned():
+    model = mujoco.MjModel.from_xml_path("assets/mjcf/linkerhand_l20pro_right/model.xml")
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+
+    points = []
+    for body_name in ("pinky_metacarpals", "pinky_middle", "pinky_distal"):
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        points.append(data.xpos[body_id])
+    tip_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "pinky_distal_tip")
+    points.append(data.site_xpos[tip_id])
+    points = np.vstack(points)
+    assert float(np.ptp(points[:, 1])) < 1e-3
+
+    mesh_centers = []
+    for body_name in ("pinky_proximal", "pinky_middle", "pinky_distal"):
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        body_rotation = data.xmat[body_id].reshape(3, 3)
+        for geom_id in range(model.ngeom):
+            if int(model.geom_bodyid[geom_id]) != body_id:
+                continue
+            if int(model.geom_type[geom_id]) != int(mujoco.mjtGeom.mjGEOM_MESH):
+                continue
+            mesh_id = int(model.geom_dataid[geom_id])
+            start = int(model.mesh_vertadr[mesh_id])
+            count = int(model.mesh_vertnum[mesh_id])
+            vertices = np.array(model.mesh_vert[start:start + count], copy=True)
+            world_vertices = data.xpos[body_id] + (model.geom_pos[geom_id] + vertices) @ body_rotation.T
+            mesh_centers.append(world_vertices.mean(axis=0))
+    mesh_centers = np.vstack(mesh_centers)
+    assert float(np.ptp(mesh_centers[:, 1])) < 1e-3
 
 
 def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
