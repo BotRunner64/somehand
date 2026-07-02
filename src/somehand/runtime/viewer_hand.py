@@ -38,6 +38,7 @@ ResolvedAnglePoint = tuple[int, int, int, float, float]
 VariableMarkerSpec = tuple[int, int, float, float]
 DIAGNOSTIC_ALPHA = 0.28
 TARGET_VECTOR_MAX_LENGTH = 0.035
+FINGERTIP_SITE_RGBA = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
 
 
 def _quat_to_rotation_matrix(quat: tuple[float, float, float, float] | np.ndarray) -> np.ndarray:
@@ -91,6 +92,7 @@ class HandVisualizer:
             self.data = hand_model.data
         if self._diagnostic:
             apply_model_alpha(self.model, DIAGNOSTIC_ALPHA)
+        set_fingertip_site_visibility(self.model, visible=self._diagnostic)
         self._overlay_label = overlay_label
         self.viewer = ManagedPassiveViewer(
             model=self.model,
@@ -283,6 +285,7 @@ class BiHandScene:
         self.model, self.data = self._build_model()
         if self._diagnostic:
             apply_model_alpha(self.model, DIAGNOSTIC_ALPHA)
+        set_fingertip_site_visibility(self.model, visible=self._diagnostic)
         self.left_qpos_indices = self._resolve_qpos_indices(left_hand_model, prefix="left_")
         self.right_qpos_indices = self._resolve_qpos_indices(right_hand_model, prefix="right_")
         self.left_vector_points = resolve_robot_vector_points(
@@ -1053,7 +1056,20 @@ def apply_model_alpha(model, alpha: float) -> None:
         model.mat_rgba[:, 3] = alpha
 
 
+def set_fingertip_site_visibility(model, *, visible: bool) -> None:
+    if not getattr(model, "nsite", 0):
+        return
+    alpha = 1.0 if visible else 0.0
+    for site_id in range(model.nsite):
+        site_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_SITE, site_id)
+        if not site_name or not site_name.endswith("_tip"):
+            continue
+        model.site_rgba[site_id] = FINGERTIP_SITE_RGBA
+        model.site_rgba[site_id, 3] = alpha
+
+
 __all__ = [
+    "FINGERTIP_SITE_RGBA",
     "HandVisualizer",
     "BiHandScene",
     "BiHandVisualizer",
@@ -1069,5 +1085,6 @@ __all__ = [
     "robot_vector_points",
     "select_target_directions",
     "select_target_vectors",
+    "set_fingertip_site_visibility",
     "variable_marker_points",
 ]

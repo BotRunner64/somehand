@@ -11,7 +11,7 @@ import numpy as np
 from somehand.core import BiHandFrame, BiHandFrameSink, BiHandOutputSink, HandFrame, HandFrameSink, OutputSink, RetargetingStepResult, preprocess_landmarks
 from somehand.runtime.viewer_async import AsyncBiHandLandmarkVisualizer, AsyncLandmarkVisualizer, AsyncRobotHandVisualizer
 from somehand.runtime.viewer_camera import configure_default_hand_camera, try_frame_hand_camera
-from somehand.runtime.viewer_hand import BiHandVisualizer, HandVisualizer
+from somehand.runtime.viewer_hand import BiHandVisualizer, HandVisualizer, set_fingertip_site_visibility
 
 from .sink_rendering import BiHandRenderHelper, create_offscreen_renderer, fit_video_size, transform_points
 
@@ -137,6 +137,7 @@ class RobotHandVideoOutputSink(OutputSink):
         self._output_path = Path(output_path)
         self._output_path.parent.mkdir(parents=True, exist_ok=True)
         self._model = hand_model.model
+        set_fingertip_site_visibility(self._model, visible=False)
         self._data = mujoco.MjData(self._model)
         width, height = fit_video_size(
             requested_width=width,

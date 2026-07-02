@@ -536,6 +536,32 @@ def test_variable_markers_include_only_scalar_ranged_joints():
     assert marker_names == ["finger_hinge", "finger_slide"]
 
 
+def test_fingertip_site_visibility_toggles_only_tip_sites():
+    xml = """
+    <mujoco>
+      <worldbody>
+        <body name="finger">
+          <site name="finger_tip" pos="0 0 0" size="0.004" rgba="0 0 1 0.5"/>
+          <site name="debug_site" pos="0 0 0.01" size="0.004" rgba="0 1 0 0.75"/>
+        </body>
+      </worldbody>
+    </mujoco>
+    """
+    model = viewer_hand.mujoco.MjModel.from_xml_string(xml)
+    tip_id = viewer_hand.mujoco.mj_name2id(model, viewer_hand.mujoco.mjtObj.mjOBJ_SITE, "finger_tip")
+    debug_id = viewer_hand.mujoco.mj_name2id(model, viewer_hand.mujoco.mjtObj.mjOBJ_SITE, "debug_site")
+
+    viewer_hand.set_fingertip_site_visibility(model, visible=False)
+
+    np.testing.assert_allclose(model.site_rgba[tip_id], [1.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(model.site_rgba[debug_id], [0.0, 1.0, 0.0, 0.75])
+
+    viewer_hand.set_fingertip_site_visibility(model, visible=True)
+
+    np.testing.assert_allclose(model.site_rgba[tip_id], [1.0, 0.0, 0.0, 1.0])
+    np.testing.assert_allclose(model.site_rgba[debug_id], [0.0, 1.0, 0.0, 0.75])
+
+
 def test_hand_visualizer_overlay_geoms_are_mode_gated():
     model, data = _diagnostic_test_model()
     scene = viewer_hand.mujoco.MjvScene(model, maxgeom=64)

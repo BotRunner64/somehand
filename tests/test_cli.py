@@ -456,6 +456,7 @@ def test_fit_video_size_scales_to_offscreen_limits():
 
 def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
     calls = []
+    visibility_calls = []
 
     class _FakeWriter:
         def __init__(self, *args, **kwargs):
@@ -508,6 +509,11 @@ def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
         lambda model, *, width, height: _FakeRenderer(model, width=width, height=height),
     )
     monkeypatch.setattr(runtime_sinks_output, "try_frame_hand_camera", _fake_try_frame_hand_camera)
+    monkeypatch.setattr(
+        runtime_sinks_output,
+        "set_fingertip_site_visibility",
+        lambda model, *, visible: visibility_calls.append((model, visible)),
+    )
 
     model = SimpleNamespace(
         vis=SimpleNamespace(global_=SimpleNamespace(offwidth=640, offheight=480)),
@@ -525,6 +531,7 @@ def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
     sink.close()
 
     assert calls == [640 / 360]
+    assert visibility_calls == [(model, False)]
 
 
 def test_create_offscreen_renderer_prefers_egl_on_linux(monkeypatch):
