@@ -24,6 +24,8 @@ VARIABLE_HIGH_RGBA = np.array([1.0, 0.08, 0.04, 0.9], dtype=np.float32)
 VECTOR_RADIUS = 0.002
 TARGET_VECTOR_RADIUS = 0.0013
 DIAGNOSTIC_THIN_RADIUS = 0.0014
+LANDMARK_FRAME_AXIS_RADIUS = 0.0028
+LANDMARK_FRAME_AXIS_LENGTH = 0.05
 TIP_RADIUS = 0.0035
 VARIABLE_MARKER_RADIUS = 0.005
 ANGLE_MARKER_RADIUS = 0.0065
@@ -114,6 +116,9 @@ def append_landmark_frame_geoms(
     scene,
     landmarks: np.ndarray,
     frame_triples: Sequence[tuple[int, int, int]],
+    *,
+    axis_length: float = LANDMARK_FRAME_AXIS_LENGTH,
+    radius: float = LANDMARK_FRAME_AXIS_RADIUS,
 ) -> None:
     points = np.asarray(landmarks, dtype=np.float64)
     for origin_idx, primary_idx, secondary_idx in frame_triples:
@@ -122,20 +127,42 @@ def append_landmark_frame_geoms(
         origin = points[origin_idx]
         primary = points[primary_idx]
         secondary = points[secondary_idx]
+        if not (np.isfinite(origin).all() and np.isfinite(primary).all() and np.isfinite(secondary).all()):
+            continue
+        primary_vector = primary - origin
+        primary_norm = np.linalg.norm(primary_vector)
+        if primary_norm < 1e-8:
+            continue
+        primary_axis = primary_vector / primary_norm
+        secondary_vector = secondary - origin
+        secondary_axis = secondary_vector - np.dot(secondary_vector, primary_axis) * primary_axis
+        secondary_norm = np.linalg.norm(secondary_axis)
+        if secondary_norm < 1e-8:
+            continue
+        secondary_axis = secondary_axis / secondary_norm
+        normal_axis = np.cross(primary_axis, secondary_axis)
+        before_ngeom = scene.ngeom
         append_vector_segments(
             scene,
-            np.asarray([origin], dtype=np.float64),
-            np.asarray([primary], dtype=np.float64),
+            np.asarray([origin, origin, origin], dtype=np.float64),
+            np.asarray(
+                [
+                    origin + primary_axis * axis_length,
+                    origin + secondary_axis * axis_length,
+                    origin + normal_axis * axis_length,
+                ],
+                dtype=np.float64,
+            ),
             rgba=FRAME_PRIMARY_RGBA,
-            radius=DIAGNOSTIC_THIN_RADIUS,
+            radius=radius,
+            tip_radius=TIP_RADIUS * 1.2,
         )
-        append_vector_segments(
-            scene,
-            np.asarray([origin], dtype=np.float64),
-            np.asarray([secondary], dtype=np.float64),
-            rgba=FRAME_SECONDARY_RGBA,
-            radius=DIAGNOSTIC_THIN_RADIUS,
-        )
+        if scene.ngeom - before_ngeom != 6:
+            continue
+        scene.geoms[scene.ngeom - 4].rgba[:] = FRAME_SECONDARY_RGBA
+        scene.geoms[scene.ngeom - 3].rgba[:] = FRAME_SECONDARY_RGBA
+        scene.geoms[scene.ngeom - 2].rgba[:] = FRAME_NORMAL_RGBA
+        scene.geoms[scene.ngeom - 1].rgba[:] = FRAME_NORMAL_RGBA
 
 
 def append_landmark_angle_geoms(
@@ -237,6 +264,8 @@ __all__ = [
     "FRAME_PRIMARY_RGBA",
     "FRAME_SECONDARY_RGBA",
     "HUMAN_VECTOR_RGBA",
+    "LANDMARK_FRAME_AXIS_LENGTH",
+    "LANDMARK_FRAME_AXIS_RADIUS",
     "ROBOT_VECTOR_RGBA",
     "TARGET_VECTOR_RGBA",
     "TARGET_VECTOR_RADIUS",

@@ -25,6 +25,9 @@ from .vector_visualization import (
     append_landmark_vector_geoms,
 )
 
+DIAGNOSTIC_BASE_POINT_ALPHA = 0.30
+DIAGNOSTIC_BASE_BONE_ALPHA = 0.16
+
 
 class LandmarkVisualizer:
     """Real-time MuJoCo visualization of the input hand landmarks."""
@@ -44,6 +47,12 @@ class LandmarkVisualizer:
         self._distance_pairs = [] if distance_pairs is None else [tuple(pair) for pair in distance_pairs]
         self._frame_triples = [] if frame_triples is None else [tuple(triple) for triple in frame_triples]
         self._angle_triples = [] if angle_triples is None else [tuple(triple) for triple in angle_triples]
+        self._diagnostic = bool(
+            self._vector_pairs
+            or self._distance_pairs
+            or self._frame_triples
+            or self._angle_triples
+        )
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -57,7 +66,7 @@ class LandmarkVisualizer:
             + len(HAND_CONNECTIONS)
             + 2 * len(self._vector_pairs)
             + 2 * len(self._distance_pairs)
-            + 4 * len(self._frame_triples)
+            + 6 * len(self._frame_triples)
             + 4 * len(self._angle_triples)
         )
         if self.viewer.user_scn is None:
@@ -105,7 +114,12 @@ class LandmarkVisualizer:
     def _update_landmark_overlay(self, landmarks: np.ndarray) -> None:
         scene = self.viewer.user_scn
         scene.ngeom = 0
-        append_single_landmark_geoms(scene, landmarks)
+        append_single_landmark_geoms(
+            scene,
+            landmarks,
+            point_alpha=DIAGNOSTIC_BASE_POINT_ALPHA if self._diagnostic else None,
+            bone_alpha=DIAGNOSTIC_BASE_BONE_ALPHA if self._diagnostic else None,
+        )
         append_landmark_vector_geoms(scene, landmarks, self._vector_pairs)
         append_landmark_vector_geoms(scene, landmarks, self._distance_pairs, rgba=DISTANCE_RGBA)
         append_landmark_frame_geoms(scene, landmarks, self._frame_triples)
@@ -146,6 +160,16 @@ class BiHandLandmarkVisualizer:
         self._right_frame_triples = [] if right_frame_triples is None else [tuple(triple) for triple in right_frame_triples]
         self._left_angle_triples = [] if left_angle_triples is None else [tuple(triple) for triple in left_angle_triples]
         self._right_angle_triples = [] if right_angle_triples is None else [tuple(triple) for triple in right_angle_triples]
+        self._diagnostic = bool(
+            self._left_vector_pairs
+            or self._right_vector_pairs
+            or self._left_distance_pairs
+            or self._right_distance_pairs
+            or self._left_frame_triples
+            or self._right_frame_triples
+            or self._left_angle_triples
+            or self._right_angle_triples
+        )
         self.viewer = ManagedPassiveViewer(
             model=self.model,
             data=self.data,
@@ -160,8 +184,8 @@ class BiHandLandmarkVisualizer:
             + 2 * len(self._right_vector_pairs)
             + 2 * len(self._left_distance_pairs)
             + 2 * len(self._right_distance_pairs)
-            + 4 * len(self._left_frame_triples)
-            + 4 * len(self._right_frame_triples)
+            + 6 * len(self._left_frame_triples)
+            + 6 * len(self._right_frame_triples)
             + 4 * len(self._left_angle_triples)
             + 4 * len(self._right_angle_triples)
         )
@@ -216,7 +240,12 @@ class BiHandLandmarkVisualizer:
     def _update_landmark_overlay(self, hands: np.ndarray) -> None:
         scene = self.viewer.user_scn
         scene.ngeom = 0
-        append_bihand_landmark_geoms(scene, hands)
+        append_bihand_landmark_geoms(
+            scene,
+            hands,
+            point_alpha=DIAGNOSTIC_BASE_POINT_ALPHA if self._diagnostic else None,
+            bone_alpha=DIAGNOSTIC_BASE_BONE_ALPHA if self._diagnostic else None,
+        )
         append_landmark_vector_geoms(scene, hands[0], self._left_vector_pairs)
         append_landmark_vector_geoms(scene, hands[1], self._right_vector_pairs)
         append_landmark_vector_geoms(scene, hands[0], self._left_distance_pairs, rgba=DISTANCE_RGBA)

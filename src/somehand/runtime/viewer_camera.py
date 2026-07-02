@@ -87,7 +87,23 @@ LANDMARK_VIEWER_XML = """
 """
 
 
-def append_single_landmark_geoms(scene, landmarks: np.ndarray) -> None:
+def _with_alpha(colors: np.ndarray, alpha: float | None) -> np.ndarray:
+    if alpha is None:
+        return colors
+    rgba = np.array(colors, copy=True)
+    rgba[:, 3] = float(alpha)
+    return rgba
+
+
+def append_single_landmark_geoms(
+    scene,
+    landmarks: np.ndarray,
+    *,
+    point_alpha: float | None = None,
+    bone_alpha: float | None = None,
+    point_radius: float = POINT_RADIUS,
+    bone_radius: float = BONE_RADIUS,
+) -> None:
     points = np.asarray(landmarks, dtype=np.float64)
     if points.shape != (21, 3):
         raise ValueError(f"Expected landmarks with shape (21, 3), got {points.shape}")
@@ -99,19 +115,22 @@ def append_single_landmark_geoms(scene, landmarks: np.ndarray) -> None:
             f"but single-hand overlay needs {scene.ngeom + required_geoms}"
         )
 
-    for point, rgba in zip(points, LANDMARK_COLORS, strict=True):
+    point_colors = _with_alpha(LANDMARK_COLORS, point_alpha)
+    bone_colors = _with_alpha(BONE_COLORS, bone_alpha)
+
+    for point, rgba in zip(points, point_colors, strict=True):
         geom = scene.geoms[scene.ngeom]
         mujoco.mjv_initGeom(
             geom,
             mujoco.mjtGeom.mjGEOM_SPHERE,
-            np.full(3, POINT_RADIUS, dtype=np.float64),
+            np.full(3, point_radius, dtype=np.float64),
             point,
             IDENTITY_MAT,
             rgba,
         )
         scene.ngeom += 1
 
-    for (start_idx, end_idx), rgba in zip(HAND_CONNECTIONS, BONE_COLORS, strict=True):
+    for (start_idx, end_idx), rgba in zip(HAND_CONNECTIONS, bone_colors, strict=True):
         geom = scene.geoms[scene.ngeom]
         mujoco.mjv_initGeom(
             geom,
@@ -124,7 +143,7 @@ def append_single_landmark_geoms(scene, landmarks: np.ndarray) -> None:
         mujoco.mjv_connector(
             geom,
             mujoco.mjtGeom.mjGEOM_CAPSULE,
-            BONE_RADIUS,
+            bone_radius,
             points[start_idx],
             points[end_idx],
         )
@@ -132,7 +151,15 @@ def append_single_landmark_geoms(scene, landmarks: np.ndarray) -> None:
         scene.ngeom += 1
 
 
-def append_bihand_landmark_geoms(scene, hands: np.ndarray) -> None:
+def append_bihand_landmark_geoms(
+    scene,
+    hands: np.ndarray,
+    *,
+    point_alpha: float | None = None,
+    bone_alpha: float | None = None,
+    point_radius: float = POINT_RADIUS,
+    bone_radius: float = BONE_RADIUS,
+) -> None:
     points = np.asarray(hands, dtype=np.float64)
     if points.shape != (2, 21, 3):
         raise ValueError(f"Expected landmarks with shape (2, 21, 3), got {points.shape}")
@@ -148,6 +175,8 @@ def append_bihand_landmark_geoms(scene, hands: np.ndarray) -> None:
         (points[0], LEFT_LANDMARK_COLORS, LEFT_BONE_COLORS),
         (points[1], RIGHT_LANDMARK_COLORS, RIGHT_BONE_COLORS),
     ):
+        point_colors = _with_alpha(point_colors, point_alpha)
+        bone_colors = _with_alpha(bone_colors, bone_alpha)
         finite_mask = np.isfinite(hand_points).all(axis=1)
         for idx, (point, rgba) in enumerate(zip(hand_points, point_colors, strict=True)):
             if not finite_mask[idx]:
@@ -156,7 +185,7 @@ def append_bihand_landmark_geoms(scene, hands: np.ndarray) -> None:
             mujoco.mjv_initGeom(
                 geom,
                 mujoco.mjtGeom.mjGEOM_SPHERE,
-                np.full(3, POINT_RADIUS, dtype=np.float64),
+                np.full(3, point_radius, dtype=np.float64),
                 point,
                 IDENTITY_MAT,
                 rgba,
@@ -178,7 +207,7 @@ def append_bihand_landmark_geoms(scene, hands: np.ndarray) -> None:
             mujoco.mjv_connector(
                 geom,
                 mujoco.mjtGeom.mjGEOM_CAPSULE,
-                BONE_RADIUS,
+                bone_radius,
                 hand_points[start_idx],
                 hand_points[end_idx],
             )

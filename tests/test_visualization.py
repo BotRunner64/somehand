@@ -14,7 +14,14 @@ import somehand.runtime.viewer_hand as viewer_hand
 import somehand.runtime.viewer_passive as viewer_passive
 import somehand.runtime.viewer_async as viewer_async
 import somehand.runtime.viewer_landmarks as viewer_landmarks
-from somehand.runtime.vector_visualization import append_landmark_vector_geoms, target_direction_ends
+from somehand.runtime.vector_visualization import (
+    FRAME_NORMAL_RGBA,
+    FRAME_PRIMARY_RGBA,
+    FRAME_SECONDARY_RGBA,
+    append_landmark_frame_geoms,
+    append_landmark_vector_geoms,
+    target_direction_ends,
+)
 
 
 class _FakeHandle:
@@ -420,6 +427,60 @@ def test_append_landmark_vector_geoms_adds_segment_and_tip_geoms():
     append_landmark_vector_geoms(scene, landmarks, [(0, 1), (0, 5)])
 
     assert scene.ngeom == 4
+
+
+def test_landmark_frame_geoms_draw_orthonormal_axes():
+    model = visualization.mujoco.MjModel.from_xml_string(visualization._LANDMARK_VIEWER_XML)
+    scene = visualization.mujoco.MjvScene(model, maxgeom=16)
+    landmarks = np.zeros((21, 3), dtype=np.float64)
+    landmarks[1] = [0.0, 0.0, 0.0]
+    landmarks[2] = [0.05, 0.0, 0.0]
+    landmarks[5] = [0.05, 0.05, 0.0]
+
+    append_landmark_frame_geoms(scene, landmarks, [(1, 2, 5)])
+
+    assert scene.ngeom == 6
+    np.testing.assert_allclose(scene.geoms[0].rgba, FRAME_PRIMARY_RGBA)
+    np.testing.assert_allclose(scene.geoms[2].rgba, FRAME_SECONDARY_RGBA)
+    np.testing.assert_allclose(scene.geoms[4].rgba, FRAME_NORMAL_RGBA)
+
+
+def test_landmark_frame_geoms_skip_nan_without_recoloring_existing_geoms():
+    model = visualization.mujoco.MjModel.from_xml_string(visualization._LANDMARK_VIEWER_XML)
+    scene = visualization.mujoco.MjvScene(model, maxgeom=16)
+    landmarks = np.zeros((21, 3), dtype=np.float64)
+    landmarks[1] = [0.05, 0.0, 0.0]
+
+    append_landmark_vector_geoms(scene, landmarks, [(0, 1)])
+    original_rgba = np.array(scene.geoms[0].rgba, copy=True)
+    landmarks[5] = [np.nan, 0.0, 0.0]
+
+    append_landmark_frame_geoms(scene, landmarks, [(0, 1, 5)])
+
+    assert scene.ngeom == 2
+    np.testing.assert_allclose(scene.geoms[0].rgba, original_rgba)
+
+
+def test_landmark_visualizer_diagnostic_mode_dims_base_links():
+    model = viewer_landmarks.mujoco.MjModel.from_xml_string(viewer_landmarks.LANDMARK_VIEWER_XML)
+    scene = viewer_landmarks.mujoco.MjvScene(model, maxgeom=128)
+    fake_viewer = type("Viewer", (), {"user_scn": scene})()
+    visualizer = object.__new__(viewer_landmarks.LandmarkVisualizer)
+    visualizer.viewer = fake_viewer
+    visualizer._vector_pairs = []
+    visualizer._distance_pairs = []
+    visualizer._frame_triples = [(1, 2, 5)]
+    visualizer._angle_triples = []
+    visualizer._diagnostic = True
+    landmarks = np.zeros((21, 3), dtype=np.float64)
+    landmarks[1] = [0.0, 0.0, 0.0]
+    landmarks[2] = [0.05, 0.0, 0.0]
+    landmarks[5] = [0.0, 0.05, 0.0]
+
+    visualizer._update_landmark_overlay(landmarks)
+
+    assert scene.geoms[0].rgba[3] == pytest.approx(viewer_landmarks.DIAGNOSTIC_BASE_POINT_ALPHA)
+    assert scene.geoms[21].rgba[3] == pytest.approx(viewer_landmarks.DIAGNOSTIC_BASE_BONE_ALPHA)
 
 
 def test_target_direction_ends_use_current_robot_vector_lengths():
