@@ -18,43 +18,43 @@ retargeting:
       robot_types: ["body", "site"]
       weight: 0.9
     - human: [5, 6]
-      robot: ["f_link2_1", "f_link2_2"]
-      weight: 1.0
-    - human: [6, 7]
       robot: ["f_link2_2", "f_link2_3"]
       weight: 1.0
+    - human: [6, 7]
+      robot: ["f_link2_3", "f_link2_4"]
+      weight: 1.0
     - human: [7, 8]
-      robot: ["f_link2_3", "f_link2_4_tip"]
+      robot: ["f_link2_4", "f_link2_4_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
     - human: [9, 10]
-      robot: ["f_link3_1", "f_link3_2"]
-      weight: 1.0
-    - human: [10, 11]
       robot: ["f_link3_2", "f_link3_3"]
       weight: 1.0
+    - human: [10, 11]
+      robot: ["f_link3_3", "f_link3_4"]
+      weight: 1.0
     - human: [11, 12]
-      robot: ["f_link3_3", "f_link3_4_tip"]
+      robot: ["f_link3_4", "f_link3_4_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
     - human: [13, 14]
-      robot: ["f_link4_1", "f_link4_2"]
-      weight: 1.0
-    - human: [14, 15]
       robot: ["f_link4_2", "f_link4_3"]
       weight: 1.0
+    - human: [14, 15]
+      robot: ["f_link4_3", "f_link4_4"]
+      weight: 1.0
     - human: [15, 16]
-      robot: ["f_link4_3", "f_link4_4_tip"]
+      robot: ["f_link4_4", "f_link4_4_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
     - human: [17, 18]
-      robot: ["f_link5_1", "f_link5_2"]
-      weight: 1.0
-    - human: [18, 19]
       robot: ["f_link5_2", "f_link5_3"]
       weight: 1.0
+    - human: [18, 19]
+      robot: ["f_link5_3", "f_link5_4"]
+      weight: 1.0
     - human: [19, 20]
-      robot: ["f_link5_3", "f_link5_4_tip"]
+      robot: ["f_link5_4", "f_link5_4_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
   distance_constraints:
@@ -97,6 +97,6 @@ retargeting:
       human_secondary: 5
       robot_origin: "f_link1_2"
       robot_primary: "f_link1_3"
-      robot_secondary: "f_link2_1"
+      robot_secondary: "f_link2_2"
       primary_weight: 2.0
       secondary_weight: 1.8

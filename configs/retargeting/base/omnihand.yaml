@@ -8,40 +8,55 @@ hand:
 retargeting:
   vector_constraints:
     - human: [1, 2]
-      robot: ["thumb_abad_link", "thumb_pip_link"]
+      robot: ["thumb_abad_link", "thumb_mcp_link"]
       weight: 1.0
-    - human: [2, 4]
-      robot: ["thumb_pip_link", "thumb_dip_link_tip"]
+    - human: [2, 3]
+      robot: ["thumb_mcp_link", "thumb_pip_link"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["thumb_pip_link", "thumb_dip_link"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["thumb_dip_link", "thumb_dip_link_tip"]
       robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [5, 6]
+      robot: ["index_abad_link", "index_pip_link"]
       weight: 1.0
-    - human: [5, 8]
-      robot: ["index_abad_link", "index_dip_link_tip"]
+    - human: [6, 7]
+      robot: ["index_pip_link", "index_dip_link"]
+      weight: 1.0
+    - human: [7, 8]
+      robot: ["index_dip_link", "index_dip_link_tip"]
       robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [10, 11]
+      robot: ["middle_pip_link", "middle_dip_link"]
       weight: 1.0
-    - human: [6, 8]
-      robot: ["index_pip_link", "index_dip_link_tip"]
+    - human: [11, 12]
+      robot: ["middle_dip_link", "middle_dip_link_tip"]
       robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [13, 14]
+      robot: ["ring_abad_link", "ring_pip_link"]
       weight: 1.0
-    - human: [9, 12]
-      robot: ["middle_pip_link", "middle_dip_link_tip"]
+    - human: [14, 15]
+      robot: ["ring_pip_link", "ring_dip_link"]
+      weight: 1.0
+    - human: [15, 16]
+      robot: ["ring_dip_link", "ring_dip_link_tip"]
       robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [17, 18]
+      robot: ["pinky_abad_link", "pinky_pip_link"]
       weight: 1.0
-    - human: [13, 16]
-      robot: ["ring_abad_link", "ring_dip_link_tip"]
+    - human: [18, 19]
+      robot: ["pinky_pip_link", "pinky_dip_link"]
+      weight: 1.0
+    - human: [19, 20]
+      robot: ["pinky_dip_link", "pinky_dip_link_tip"]
       robot_types: ["body", "site"]
-      weight: 1.0
-    - human: [14, 16]
-      robot: ["ring_pip_link", "ring_dip_link_tip"]
-      robot_types: ["body", "site"]
-      weight: 1.0
-    - human: [17, 20]
-      robot: ["pinky_abad_link", "pinky_dip_link_tip"]
-      robot_types: ["body", "site"]
-      weight: 1.0
-    - human: [18, 20]
-      robot: ["pinky_pip_link", "pinky_dip_link_tip"]
-      robot_types: ["body", "site"]
-      weight: 1.0
+      weight: 0.9
   distance_constraints:
     - human: [4, 8]
       robot: ["thumb_dip_link_tip", "index_dip_link_tip"]

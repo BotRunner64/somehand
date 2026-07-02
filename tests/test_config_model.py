@@ -414,6 +414,62 @@ def test_wujihand_four_fingers_use_three_visible_phalange_vectors():
     assert actual_pairs == expected_pairs
 
 
+def test_dexhand021_four_fingers_use_three_visible_phalange_vectors():
+    config = load_retargeting_config("configs/retargeting/right/dexhand021_right.yaml")
+
+    expected_pairs = {
+        ((5, 6), ("f_link2_2", "f_link2_3")),
+        ((6, 7), ("f_link2_3", "f_link2_4")),
+        ((7, 8), ("f_link2_4", "f_link2_4_tip")),
+        ((9, 10), ("f_link3_2", "f_link3_3")),
+        ((10, 11), ("f_link3_3", "f_link3_4")),
+        ((11, 12), ("f_link3_4", "f_link3_4_tip")),
+        ((13, 14), ("f_link4_2", "f_link4_3")),
+        ((14, 15), ("f_link4_3", "f_link4_4")),
+        ((15, 16), ("f_link4_4", "f_link4_4_tip")),
+        ((17, 18), ("f_link5_2", "f_link5_3")),
+        ((18, 19), ("f_link5_3", "f_link5_4")),
+        ((19, 20), ("f_link5_4", "f_link5_4_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+        if constraint.human[0] >= 5
+    }
+
+    assert actual_pairs == expected_pairs
+
+
+def test_omnihand_vectors_follow_mjcf_finger_links():
+    config = load_retargeting_config("configs/retargeting/right/omnihand_right.yaml")
+
+    expected_pairs = {
+        ((1, 2), ("thumb_abad_link", "thumb_mcp_link")),
+        ((2, 3), ("thumb_mcp_link", "thumb_pip_link")),
+        ((3, 4), ("thumb_pip_link", "thumb_dip_link")),
+        ((3, 4), ("thumb_dip_link", "thumb_dip_link_tip")),
+        ((5, 6), ("index_abad_link", "index_pip_link")),
+        ((6, 7), ("index_pip_link", "index_dip_link")),
+        ((7, 8), ("index_dip_link", "index_dip_link_tip")),
+        ((10, 11), ("middle_pip_link", "middle_dip_link")),
+        ((11, 12), ("middle_dip_link", "middle_dip_link_tip")),
+        ((13, 14), ("ring_abad_link", "ring_pip_link")),
+        ((14, 15), ("ring_pip_link", "ring_dip_link")),
+        ((15, 16), ("ring_dip_link", "ring_dip_link_tip")),
+        ((17, 18), ("pinky_abad_link", "pinky_pip_link")),
+        ((18, 19), ("pinky_pip_link", "pinky_dip_link")),
+        ((19, 20), ("pinky_dip_link", "pinky_dip_link_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+    }
+
+    assert actual_pairs == expected_pairs
+
+
 def test_side_specific_configs_resolve_all_configured_vectors():
     config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
     assert config_paths
