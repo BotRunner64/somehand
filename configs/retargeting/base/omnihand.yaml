@@ -30,10 +30,10 @@ retargeting:
       robot: ["index_dip_link", "index_dip_link_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
-    - human: [10, 11]
+    - human: [9, 10]
       robot: ["middle_pip_link", "middle_dip_link"]
       weight: 1.0
-    - human: [11, 12]
+    - human: [10, 12]
       robot: ["middle_dip_link", "middle_dip_link_tip"]
       robot_types: ["body", "site"]
       weight: 0.9
