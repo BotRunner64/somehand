@@ -20,7 +20,6 @@ from somehand.domain.config import (
     VectorConstraint,
 )
 from somehand.domain.hand_side import normalize_hand_side
-from somehand.infrastructure.universal_config import apply_universal_preset
 from somehand.runtime.config_validation import validate_runtime_bihand_config, validate_runtime_retargeting_config
 
 
@@ -92,6 +91,8 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
 
     retargeting_data = data.get("retargeting", {})
     config.preset = str(retargeting_data.get("preset", ""))
+    if config.preset:
+        raise ValueError("retargeting.preset is no longer supported; define explicit constraints in the hand config")
     legacy_vector_keys = {
         "human_vector_pairs",
         "origin_link_names",
@@ -167,13 +168,6 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         )
         for item in retargeting_data.get("angle_constraints", [])
     ]
-    if config.preset == "universal":
-        if any(
-            retargeting_data.get(key)
-            for key in ("vector_constraints", "distance_constraints", "frame_constraints", "angle_constraints")
-        ):
-            raise ValueError("retargeting.preset cannot be combined with explicit constraints")
-        apply_universal_preset(config)
     if "position_constraints" in retargeting_data:
         raise ValueError("retargeting.position_constraints is no longer supported")
     if "pinch" in retargeting_data:

@@ -64,14 +64,14 @@ right:
 | --- | --- |
 | `hand` | 模型名、手别、MJCF 路径、可选 URDF 来源元信息。 |
 | `controller` | backend 默认值、频率、transport、SDK 路径、硬件型号族。 |
-| `retargeting` | 标准配置用 `preset: universal`；自定义模型可显式写约束。 |
+| `retargeting` | 公共 solver/preprocess 设置，以及每个手型自己的显式约束。 |
 | `viewer` | 双手面板、相机、pose 设置。 |
 
 ---
 
 ## 校验规则
 
-- 设置 `retargeting.preset` 时只能是 `universal`
+- `retargeting.preset` 会被拒绝；vector、distance、frame 和 angle 约束应写在手型配置中
 - 旧 vector 字段会被拒绝：`human_vector_pairs`、`origin_link_names`、`task_link_names`、`vector_weights`
 - 已移除段会被拒绝：`position_constraints`、`pinch`
 - 运行时校验会检查 backend 名称、transport 名称，以及正数控制/仿真频率

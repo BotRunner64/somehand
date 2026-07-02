@@ -1,6 +1,5 @@
 retargeting:
   type: vector
-  preset: universal
   preprocess:
     temporal_filter_alpha: 0.65
   solver:

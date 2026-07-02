@@ -252,7 +252,7 @@ def test_top_level_loader_exports_work():
     bihand = load_bihand_config("configs/retargeting/bihand/linkerhand_l20_bihand.yaml")
 
     assert config.hand.name == "linkerhand_l20_right"
-    assert config.preset == "universal"
+    assert config.preset == ""
     assert bihand.left_config_path.endswith("configs/retargeting/left/linkerhand_l20_left.yaml")
 
 
@@ -326,18 +326,38 @@ def test_side_specific_configs_instantiate_vector_retargeter():
         assert retargeter.config.hand.name == config.hand.name
 
 
-def test_universal_preset_loads_minimal_constraint_set():
+def test_retargeting_preset_is_rejected(tmp_path):
+    mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
+    config_path = tmp_path / "preset.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "hand:",
+                '  name: "bad"',
+                '  side: "right"',
+                f'  mjcf_path: "{mjcf_path}"',
+                "retargeting:",
+                '  preset: "universal"',
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="preset is no longer supported"):
+        load_retargeting_config(str(config_path))
+
+
+def test_hand_config_owns_vector_topology():
     config = load_retargeting_config("configs/retargeting/right/linkerhand_o6_right.yaml")
 
-    assert config.preset == "universal"
-    assert len(config.vector_constraints) == 15
-    thumb_mid_distal = next(
-        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_distal"]
+    assert config.preset == ""
+    assert len(config.vector_constraints) == 10
+    thumb_base_distal = next(
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_metacarpals", "thumb_distal"]
     )
-    assert thumb_mid_distal.human == [2, 3]
-    assert thumb_mid_distal.weight == pytest.approx(1.0)
+    assert thumb_base_distal.human == [1, 3]
+    assert thumb_base_distal.weight == pytest.approx(1.0)
     thumb_distal_tip = next(
-        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_tip"]
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_distal_tip"]
     )
     assert thumb_distal_tip.human == [3, 4]
     assert thumb_distal_tip.weight == pytest.approx(0.9)
@@ -346,18 +366,14 @@ def test_universal_preset_loads_minimal_constraint_set():
         for constraint in config.vector_constraints
         if constraint.robot[0].split("_", 1)[0] in {"index", "middle", "ring", "pinky"}
     } == {
-        ("index_base", "index_mid"),
-        ("index_mid", "index_distal"),
-        ("index_distal", "index_tip"),
-        ("middle_base", "middle_mid"),
-        ("middle_mid", "middle_distal"),
-        ("middle_distal", "middle_tip"),
-        ("ring_base", "ring_mid"),
-        ("ring_mid", "ring_distal"),
-        ("ring_distal", "ring_tip"),
-        ("pinky_base", "pinky_mid"),
-        ("pinky_mid", "pinky_distal"),
-        ("pinky_distal", "pinky_tip"),
+        ("index_proximal", "index_distal"),
+        ("index_distal", "index_distal_tip"),
+        ("middle_proximal", "middle_distal"),
+        ("middle_distal", "middle_distal_tip"),
+        ("ring_proximal", "ring_distal"),
+        ("ring_distal", "ring_distal_tip"),
+        ("pinky_proximal", "pinky_distal"),
+        ("pinky_distal", "pinky_distal_tip"),
     }
     assert len(config.distance_constraints) == 4
     assert {tuple(constraint.robot) for constraint in config.distance_constraints} == {
@@ -371,7 +387,34 @@ def test_universal_preset_loads_minimal_constraint_set():
     assert config.angle_constraints == []
 
 
-def test_side_specific_configs_instantiate_universal_vector_retargeter():
+def test_wujihand_four_fingers_use_three_visible_phalange_vectors():
+    config = load_retargeting_config("configs/retargeting/right/wujihand_right.yaml")
+
+    expected_pairs = {
+        ((5, 6), ("finger2_link2", "finger2_link3")),
+        ((6, 7), ("finger2_link3", "finger2_link4")),
+        ((7, 8), ("finger2_link4", "finger2_link4_tip")),
+        ((9, 10), ("finger3_link2", "finger3_link3")),
+        ((10, 11), ("finger3_link3", "finger3_link4")),
+        ((11, 12), ("finger3_link4", "finger3_link4_tip")),
+        ((13, 14), ("finger4_link2", "finger4_link3")),
+        ((14, 15), ("finger4_link3", "finger4_link4")),
+        ((15, 16), ("finger4_link4", "finger4_link4_tip")),
+        ((17, 18), ("finger5_link2", "finger5_link3")),
+        ((18, 19), ("finger5_link3", "finger5_link4")),
+        ((19, 20), ("finger5_link4", "finger5_link4_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+        if constraint.human[0] >= 5
+    }
+
+    assert actual_pairs == expected_pairs
+
+
+def test_side_specific_configs_resolve_all_configured_vectors():
     config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
     assert config_paths
     for config_path in config_paths:
@@ -379,15 +422,11 @@ def test_side_specific_configs_instantiate_universal_vector_retargeter():
             continue
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
+        configured_vector_count = len(config.vector_constraints)
         retargeter = VectorRetargeter(hand_model, config)
         assert retargeter.config.hand.name == config.hand.name
-        if config.preset == "universal":
-            assert len(retargeter.config.distance_constraints) == 4
-            assert len(retargeter.config.frame_constraints) == 1
-            assert retargeter.config.frame_constraints[0].name == "thumb_cmc_frame"
-            assert retargeter.config.angle_constraints == []
-        else:
-            assert len(retargeter.config.vector_constraints) > 0
+        assert len(retargeter.config.vector_constraints) == configured_vector_count
+        assert len(retargeter.config.vector_constraints) > 0
 
 
 def test_all_fingertip_sites_align_with_mesh_surface_points():

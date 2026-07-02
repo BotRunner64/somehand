@@ -4,3 +4,87 @@ hand:
   name: inspire_ftp_right
   side: right
   mjcf_path: ../../../assets/mjcf/inspire_ftp_right/model.xml
+
+retargeting:
+  vector_constraints:
+    - human: [1, 2]
+      robot: ["thumb_2", "thumb_3"]
+      weight: 1.0
+    - human: [2, 3]
+      robot: ["thumb_3", "thumb_4"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["thumb_4", "thumb_4_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [5, 7]
+      robot: ["index_1", "index_2"]
+      weight: 1.0
+    - human: [7, 8]
+      robot: ["index_2", "index_2_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [9, 11]
+      robot: ["middle_1", "middle_2"]
+      weight: 1.0
+    - human: [11, 12]
+      robot: ["middle_2", "middle_2_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [13, 15]
+      robot: ["ring_1", "ring_2"]
+      weight: 1.0
+    - human: [15, 16]
+      robot: ["ring_2", "ring_2_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [17, 19]
+      robot: ["little_1", "little_2"]
+      weight: 1.0
+    - human: [19, 20]
+      robot: ["little_2", "little_2_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+  distance_constraints:
+    - human: [4, 8]
+      robot: ["thumb_tip", "index_tip"]
+      robot_types: ["site", "site"]
+      weight: 2000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 12]
+      robot: ["thumb_tip", "middle_tip"]
+      robot_types: ["site", "site"]
+      weight: 1500.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 16]
+      robot: ["thumb_tip", "ring_tip"]
+      robot_types: ["site", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 20]
+      robot: ["thumb_tip", "pinky_tip"]
+      robot_types: ["site", "site"]
+      weight: 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+  frame_constraints:
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "thumb_2"
+      robot_primary: "thumb_3"
+      robot_secondary: "index_1"
+      primary_weight: 2.0
+      secondary_weight: 1.8

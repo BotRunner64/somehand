@@ -4,3 +4,84 @@ hand:
   name: linkerhand_l6_right
   side: right
   mjcf_path: ../../../assets/mjcf/linkerhand_l6_right/model.xml
+
+retargeting:
+  vector_constraints:
+    - human: [1, 3]
+      robot: ["thumb_metacarpals", "thumb_distal"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["thumb_distal", "thumb_distal_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [5, 7]
+      robot: ["index_proximal", "index_distal"]
+      weight: 1.0
+    - human: [7, 8]
+      robot: ["index_distal", "index_distal_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [9, 11]
+      robot: ["middle_proximal", "middle_distal"]
+      weight: 1.0
+    - human: [11, 12]
+      robot: ["middle_distal", "middle_distal_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [13, 15]
+      robot: ["ring_proximal", "ring_distal"]
+      weight: 1.0
+    - human: [15, 16]
+      robot: ["ring_distal", "ring_distal_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [17, 19]
+      robot: ["pinky_proximal", "pinky_distal"]
+      weight: 1.0
+    - human: [19, 20]
+      robot: ["pinky_distal", "pinky_distal_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+  distance_constraints:
+    - human: [4, 8]
+      robot: ["thumb_tip", "index_tip"]
+      robot_types: ["site", "site"]
+      weight: 2000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 12]
+      robot: ["thumb_tip", "middle_tip"]
+      robot_types: ["site", "site"]
+      weight: 1500.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 16]
+      robot: ["thumb_tip", "ring_tip"]
+      robot_types: ["site", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 20]
+      robot: ["thumb_tip", "pinky_tip"]
+      robot_types: ["site", "site"]
+      weight: 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+  frame_constraints:
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "thumb_metacarpals"
+      robot_primary: "thumb_distal"
+      robot_secondary: "index_proximal"
+      primary_weight: 2.0
+      secondary_weight: 1.8

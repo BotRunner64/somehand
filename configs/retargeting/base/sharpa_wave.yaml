@@ -4,3 +4,99 @@ hand:
   name: sharpa_wave_right
   side: right
   mjcf_path: ../../../assets/mjcf/sharpa_wave_right/model.xml
+
+retargeting:
+  vector_constraints:
+    - human: [1, 2]
+      robot: ["thumb_MC", "thumb_PP"]
+      weight: 1.0
+    - human: [2, 3]
+      robot: ["thumb_PP", "thumb_DP"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["thumb_DP", "thumb_DP_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [5, 6]
+      robot: ["index_PP", "index_MP"]
+      weight: 1.0
+    - human: [6, 7]
+      robot: ["index_MP", "index_DP"]
+      weight: 1.0
+    - human: [7, 8]
+      robot: ["index_DP", "index_DP_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [9, 10]
+      robot: ["middle_PP", "middle_MP"]
+      weight: 1.0
+    - human: [10, 11]
+      robot: ["middle_MP", "middle_DP"]
+      weight: 1.0
+    - human: [11, 12]
+      robot: ["middle_DP", "middle_DP_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [13, 14]
+      robot: ["ring_PP", "ring_MP"]
+      weight: 1.0
+    - human: [14, 15]
+      robot: ["ring_MP", "ring_DP"]
+      weight: 1.0
+    - human: [15, 16]
+      robot: ["ring_DP", "ring_DP_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [17, 18]
+      robot: ["pinky_PP", "pinky_MP"]
+      weight: 1.0
+    - human: [18, 19]
+      robot: ["pinky_MP", "pinky_DP"]
+      weight: 1.0
+    - human: [19, 20]
+      robot: ["pinky_DP", "pinky_DP_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+  distance_constraints:
+    - human: [4, 8]
+      robot: ["thumb_tip", "index_tip"]
+      robot_types: ["site", "site"]
+      weight: 2000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 12]
+      robot: ["thumb_tip", "middle_tip"]
+      robot_types: ["site", "site"]
+      weight: 1500.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 16]
+      robot: ["thumb_tip", "ring_tip"]
+      robot_types: ["site", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 20]
+      robot: ["thumb_tip", "pinky_tip"]
+      robot_types: ["site", "site"]
+      weight: 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+  frame_constraints:
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "thumb_MC"
+      robot_primary: "thumb_PP"
+      robot_secondary: "index_PP"
+      primary_weight: 2.0
+      secondary_weight: 1.8

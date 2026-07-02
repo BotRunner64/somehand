@@ -64,14 +64,14 @@ Relative paths resolve from the YAML file location. `extends` can be chained.
 | --- | --- |
 | `hand` | Model name, side, MJCF path, optional URDF source metadata. |
 | `controller` | Backend defaults, rates, transport, SDK path, hardware model family. |
-| `retargeting` | `preset: universal` for standard configs, or explicit constraints for custom models. |
+| `retargeting` | Common solver/preprocess settings plus hand-specific explicit constraints. |
 | `viewer` | Bi-hand panel, camera, and pose settings. |
 
 ---
 
 ## Validation Notes
 
-- `retargeting.preset` only accepts `universal` when set
+- `retargeting.preset` is rejected; vector, distance, frame, and angle constraints belong in the hand config
 - Legacy vector keys are rejected: `human_vector_pairs`, `origin_link_names`, `task_link_names`, `vector_weights`
 - Removed sections are rejected: `position_constraints`, `pinch`
 - Runtime validation checks backend names, transport names, and positive control/sim rates

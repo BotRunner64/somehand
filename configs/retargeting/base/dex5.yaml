@@ -4,3 +4,99 @@ hand:
   name: dex5_right
   side: right
   mjcf_path: ../../../assets/mjcf/dex5_right/model.xml
+
+retargeting:
+  vector_constraints:
+    - human: [1, 2]
+      robot: ["link_12", "link_13"]
+      weight: 1.0
+    - human: [2, 3]
+      robot: ["link_13", "link_14"]
+      weight: 1.0
+    - human: [3, 4]
+      robot: ["link_14", "link_14_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [5, 6]
+      robot: ["link_22", "link_23"]
+      weight: 1.0
+    - human: [6, 7]
+      robot: ["link_23", "link_24"]
+      weight: 1.0
+    - human: [7, 8]
+      robot: ["link_24", "link_24_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [9, 10]
+      robot: ["link_32", "link_33"]
+      weight: 1.0
+    - human: [10, 11]
+      robot: ["link_33", "link_34"]
+      weight: 1.0
+    - human: [11, 12]
+      robot: ["link_34", "link_34_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [13, 14]
+      robot: ["link_42", "link_43"]
+      weight: 1.0
+    - human: [14, 15]
+      robot: ["link_43", "link_44"]
+      weight: 1.0
+    - human: [15, 16]
+      robot: ["link_44", "link_44_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+    - human: [17, 18]
+      robot: ["link_52", "link_53"]
+      weight: 1.0
+    - human: [18, 19]
+      robot: ["link_53", "link_54"]
+      weight: 1.0
+    - human: [19, 20]
+      robot: ["link_54", "link_54_tip"]
+      robot_types: ["body", "site"]
+      weight: 0.9
+  distance_constraints:
+    - human: [4, 8]
+      robot: ["thumb_tip", "index_tip"]
+      robot_types: ["site", "site"]
+      weight: 2000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 12]
+      robot: ["thumb_tip", "middle_tip"]
+      robot_types: ["site", "site"]
+      weight: 1500.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 16]
+      robot: ["thumb_tip", "ring_tip"]
+      robot_types: ["site", "site"]
+      weight: 1000.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    - human: [4, 20]
+      robot: ["thumb_tip", "pinky_tip"]
+      robot_types: ["site", "site"]
+      weight: 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+  frame_constraints:
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "link_12"
+      robot_primary: "link_13"
+      robot_secondary: "link_22"
+      primary_weight: 2.0
+      secondary_weight: 1.8
