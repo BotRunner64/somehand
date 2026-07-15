@@ -4,62 +4,39 @@ Use the API when another Python program owns input capture, scheduling, visualiz
 
 ## Install
 
-For embedding, install the core package from this repository. The CLI extras are only needed when you use built-in webcam/video/PICO commands.
+For embedding, install the core release wheel. CLI extras are only needed for built-in webcam/video/PICO commands.
+
+```bash
+pip install "somehand @ https://github.com/BotRunner64/somehand/releases/download/v0.3.0/somehand-0.3.0-py3-none-any.whl"
+```
+
+For an editable source checkout instead:
 
 ```bash
 pip install -e .
-pip install huggingface_hub
-```
-
-If you download from ModelScope instead of HuggingFace, install the ModelScope client:
-
-```bash
-pip install modelscope
 ```
 
 ---
 
 ## Prepare What You Need
 
-Use the config files from this repository, and download the matching model assets. This example uses bi-hand LinkerHand L6.
+Release wheels already contain the checked-in retargeting configs. Download the matching external MJCF assets:
 
 ```bash
-mkdir -p configs/retargeting/{base,left,right,bihand} assets/mjcf
-cp -a /path/to/somehand/configs/retargeting/base/_universal_common.yaml configs/retargeting/base/
-cp -a /path/to/somehand/configs/retargeting/base/linkerhand_l6.yaml configs/retargeting/base/
-cp -a /path/to/somehand/configs/retargeting/left/linkerhand_l6_left.yaml configs/retargeting/left/
-cp -a /path/to/somehand/configs/retargeting/right/linkerhand_l6_right.yaml configs/retargeting/right/
-cp -a /path/to/somehand/configs/retargeting/bihand/linkerhand_l6_bihand.yaml configs/retargeting/bihand/
+somehand assets download --only mjcf
 ```
 
-Download the matching model assets from HuggingFace:
+Use the bundled default paths from the supported API surface:
 
 ```python
-from huggingface_hub import snapshot_download
+from somehand.api import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, resolve_config_path
 
-snapshot_download(
-    repo_id="12e21/somehand-assets",
-    allow_patterns=[
-        "assets/mjcf/linkerhand_l6_left/**",
-        "assets/mjcf/linkerhand_l6_right/**",
-    ],
-    local_dir=".",
-)
+print(DEFAULT_CONFIG_PATH)
+print(DEFAULT_BIHAND_CONFIG_PATH)
+print(resolve_config_path("right/omnihand_right.yaml"))
 ```
 
-From ModelScope, use the same file list with `modelscope.snapshot_download` and repo `BingqianWu/somehand-assets`.
-
-The application directory should then include:
-
-```text
-configs/retargeting/bihand/linkerhand_l6_bihand.yaml
-configs/retargeting/left/linkerhand_l6_left.yaml
-configs/retargeting/right/linkerhand_l6_right.yaml
-configs/retargeting/base/linkerhand_l6.yaml
-configs/retargeting/base/_universal_common.yaml
-assets/mjcf/linkerhand_l6_left/model.xml
-assets/mjcf/linkerhand_l6_right/model.xml
-```
+Set `SOMEHAND_HOME` before importing somehand when assets live outside the default user-data directory. Custom configs can still be passed as ordinary filesystem paths.
 
 ---
 
@@ -73,18 +50,21 @@ from somehand.api import (
     BiHandRetargetingConfig,
     BiHandRetargetingEngine,
     BiHandRetargetingResult,
+    DEFAULT_BIHAND_CONFIG_PATH,
+    DEFAULT_CONFIG_PATH,
     HandFrame,
     RetargetingConfig,
     RetargetingEngine,
     RetargetingStepResult,
     load_bihand_config,
     load_retargeting_config,
+    resolve_config_path,
 )
 ```
 
 ---
 
-## Bi-Hand L6 Example
+## Default Bi-Hand Example
 
 ```python
 import numpy as np
@@ -92,7 +72,7 @@ import numpy as np
 from somehand.api import BiHandFrame, BiHandRetargetingEngine, HandFrame
 
 engine = BiHandRetargetingEngine.from_config_path(
-    "configs/retargeting/bihand/linkerhand_l6_bihand.yaml"
+    str(DEFAULT_BIHAND_CONFIG_PATH)
 )
 
 left_frame = HandFrame(
@@ -120,6 +100,6 @@ print(result.right.qpos)
 Use `RetargetingEngine.process()` or `BiHandRetargetingEngine.process()` when your program already owns the loop:
 
 ```python
-engine = BiHandRetargetingEngine.from_config_path("configs/retargeting/bihand/linkerhand_l6_bihand.yaml")
+engine = BiHandRetargetingEngine.from_config_path(str(DEFAULT_BIHAND_CONFIG_PATH))
 result = engine.process(BiHandFrame(left=left_frame, right=right_frame))
 ```

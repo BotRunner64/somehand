@@ -4,62 +4,39 @@
 
 ## 安装
 
-嵌入使用从本仓库安装核心包即可。只有使用内置 webcam/video/PICO 命令时，才需要 CLI extras。
+嵌入使用安装核心 release wheel 即可。只有使用内置 webcam/video/PICO 命令时，才需要 CLI extras。
+
+```bash
+pip install "somehand @ https://github.com/BotRunner64/somehand/releases/download/v0.3.0/somehand-0.3.0-py3-none-any.whl"
+```
+
+如果需要可编辑的源码安装：
 
 ```bash
 pip install -e .
-pip install huggingface_hub
-```
-
-如果从 ModelScope 下载，而不是 HuggingFace，需要安装 ModelScope client：
-
-```bash
-pip install modelscope
 ```
 
 ---
 
 ## 准备你需要的内容
 
-配置文件来自本仓库，模型资产从云端下载。下面以双手 LinkerHand L6 为例。
+release wheel 已包含仓库中提交的 retargeting 配置，只需下载匹配的外部 MJCF 资产：
 
 ```bash
-mkdir -p configs/retargeting/{base,left,right,bihand} assets/mjcf
-cp -a /path/to/somehand/configs/retargeting/base/_universal_common.yaml configs/retargeting/base/
-cp -a /path/to/somehand/configs/retargeting/base/linkerhand_l6.yaml configs/retargeting/base/
-cp -a /path/to/somehand/configs/retargeting/left/linkerhand_l6_left.yaml configs/retargeting/left/
-cp -a /path/to/somehand/configs/retargeting/right/linkerhand_l6_right.yaml configs/retargeting/right/
-cp -a /path/to/somehand/configs/retargeting/bihand/linkerhand_l6_bihand.yaml configs/retargeting/bihand/
+somehand assets download --only mjcf
 ```
 
-从 HuggingFace 下载对应模型资产：
+通过受支持的 API 获取 wheel 内置默认配置路径：
 
 ```python
-from huggingface_hub import snapshot_download
+from somehand.api import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, resolve_config_path
 
-snapshot_download(
-    repo_id="12e21/somehand-assets",
-    allow_patterns=[
-        "assets/mjcf/linkerhand_l6_left/**",
-        "assets/mjcf/linkerhand_l6_right/**",
-    ],
-    local_dir=".",
-)
+print(DEFAULT_CONFIG_PATH)
+print(DEFAULT_BIHAND_CONFIG_PATH)
+print(resolve_config_path("right/omnihand_right.yaml"))
 ```
 
-使用 ModelScope 时，使用同一组文件列表，调用 `modelscope.snapshot_download`，仓库为 `BingqianWu/somehand-assets`。
-
-应用目录最终应有这些路径：
-
-```text
-configs/retargeting/bihand/linkerhand_l6_bihand.yaml
-configs/retargeting/left/linkerhand_l6_left.yaml
-configs/retargeting/right/linkerhand_l6_right.yaml
-configs/retargeting/base/linkerhand_l6.yaml
-configs/retargeting/base/_universal_common.yaml
-assets/mjcf/linkerhand_l6_left/model.xml
-assets/mjcf/linkerhand_l6_right/model.xml
-```
+如果资产不在默认用户数据目录，请在导入 somehand 前设置 `SOMEHAND_HOME`。自定义配置仍可作为普通文件系统路径传入。
 
 ---
 
@@ -73,18 +50,21 @@ from somehand.api import (
     BiHandRetargetingConfig,
     BiHandRetargetingEngine,
     BiHandRetargetingResult,
+    DEFAULT_BIHAND_CONFIG_PATH,
+    DEFAULT_CONFIG_PATH,
     HandFrame,
     RetargetingConfig,
     RetargetingEngine,
     RetargetingStepResult,
     load_bihand_config,
     load_retargeting_config,
+    resolve_config_path,
 )
 ```
 
 ---
 
-## 双手 L6 示例
+## 默认双手示例
 
 ```python
 import numpy as np
@@ -92,7 +72,7 @@ import numpy as np
 from somehand.api import BiHandFrame, BiHandRetargetingEngine, HandFrame
 
 engine = BiHandRetargetingEngine.from_config_path(
-    "configs/retargeting/bihand/linkerhand_l6_bihand.yaml"
+    str(DEFAULT_BIHAND_CONFIG_PATH)
 )
 
 left_frame = HandFrame(
@@ -120,6 +100,6 @@ print(result.right.qpos)
 如果你的程序已经有自己的循环，使用 `RetargetingEngine.process()` 或 `BiHandRetargetingEngine.process()`：
 
 ```python
-engine = BiHandRetargetingEngine.from_config_path("configs/retargeting/bihand/linkerhand_l6_bihand.yaml")
+engine = BiHandRetargetingEngine.from_config_path(str(DEFAULT_BIHAND_CONFIG_PATH))
 result = engine.process(BiHandFrame(left=left_frame, right=right_frame))
 ```

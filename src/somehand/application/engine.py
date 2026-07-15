@@ -43,9 +43,14 @@ class RetargetingEngine:
             landmarks,
             hand_side=frame.hand_side,
         )
+        frame_primary_targets, frame_secondary_targets = self.retargeter.get_frame_target_directions()
         return RetargetingStepResult(
             qpos=qpos.copy(),
             target_directions=self.retargeter.get_target_directions(),
             processed_landmarks=processed_landmarks,
             hand_side=frame.hand_side,
+            target_frame_primary_directions=frame_primary_targets,
+            target_frame_secondary_directions=frame_secondary_targets,
+            target_distances=self.retargeter.get_target_distances(),
+            target_angles=self.retargeter.get_target_angles(),
         )

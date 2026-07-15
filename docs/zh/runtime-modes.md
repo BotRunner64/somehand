@@ -4,6 +4,7 @@
 
 | 用途 | 命令 | 备注 |
 | --- | --- | --- |
+| 下载运行时资产 | `somehand assets download --only mjcf mediapipe` | 默认使用 ModelScope；传 `--source huggingface` 可切换。 |
 | 实时摄像头 retargeting | `somehand webcam --camera 0` | MediaPipe 左右手判断反了时加 `--swap-hands`。 |
 | 对已有视频 retargeting | `somehand video --video input.mp4` | 可使用与摄像头相同的 backend。 |
 | 回放已保存的录制 | `somehand replay --recording recordings/webcam_hand.pkl` | 连续回放加 `--loop`。 |
@@ -21,6 +22,7 @@
 | `--config <path>` | 选择 retargeting YAML 配置。 |
 | `--hand left|right|both` | 选择手别；未显式传配置时，`both` 会切到默认双手配置。 |
 | `--backend viewer|sim|real` | 选择 MuJoCo viewer、MuJoCo sim 或真机硬件。 |
+| `--viewer-mode normal|diagnostic` | 显示普通输出或人手/机器人约束叠层。 |
 | `--record-output <path>` | 把追踪输入保存成可回放的 `.pkl` 文件。 |
 | `--control-rate`, `--sim-rate` | 调整控制/仿真频率。 |
 | `--transport`, `--can-interface`, `--modbus-port`, `--sdk-root`, `--model-family` | 真机硬件参数。 |
@@ -35,6 +37,18 @@
 | `video` | `--video`, `--swap-hands` |
 | `pico` | `--signal-fps`, `--pico-host`, `--pico-port`, `--pico-advertise-ip`, `--no-pico-discovery`, `--pico-timeout` |
 | `hc-mocap` | `--signal-fps`, `--reference-bvh`, `--udp-host`, `--udp-port`, `--udp-timeout`, `--udp-stats-every` |
+
+---
+
+## 诊断 Viewer
+
+在 `webcam`、`video`、`replay`、`pico` 或 `hc-mocap` 后添加 `--viewer-mode diagnostic`。它会在人手 landmark 和机器人视图中绘制配置的 vector、distance、frame 和 angle 约束。诊断模式还会显示指尖 site；普通模式保持隐藏。
+
+```bash
+somehand replay \
+    --recording recordings/pico_right.pkl \
+    --viewer-mode diagnostic
+```
 
 ---
 

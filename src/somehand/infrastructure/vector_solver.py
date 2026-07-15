@@ -31,38 +31,17 @@ class VectorRetargeter:
         self._norm_delta = config.solver.norm_delta
         self._max_iterations = config.solver.max_iterations
         self._output_alpha = config.solver.output_alpha
-        self._vector_loss_type = config.vector_loss.type
-        self._vector_huber_delta = config.vector_loss.huber_delta
 
         self._target_directions: np.ndarray | None = None
-        self._target_vectors: np.ndarray | None = None
         self._target_frame_primary_directions: np.ndarray | None = None
         self._target_frame_secondary_directions: np.ndarray | None = None
         self._target_angles: np.ndarray | None = None
         self._target_distances: np.ndarray | None = None
         self._raw_human_distances: np.ndarray | None = None
         self._last_qpos: np.ndarray | None = None
-        self._vector_scale_landmark_idx = config.vector_loss.scale_landmarks[1]
-        self._robot_vector_scale = 0.0
         self._robot_distance_scale = 0.0
 
-        vector_scale_ids: list[tuple[int, bool]] = []
-        for index, name in enumerate(config.vector_loss.scale_bodies):
-            is_site = config.vector_loss.scale_body_types[index] == "site"
-            object_type = mujoco.mjtObj.mjOBJ_SITE if is_site else mujoco.mjtObj.mjOBJ_BODY
-            resolved_name = self._name_resolver.resolve(name, obj_type=object_type, role="Vector scale body")
-            body_id = mujoco.mj_name2id(self.model, object_type, resolved_name)
-            if body_id < 0:
-                raise ValueError(f"Vector scale body '{name}' not found")
-            vector_scale_ids.append((body_id, is_site))
-
         self._forward()
-        vector_scale_p0 = self._get_pos(vector_scale_ids[0][0], vector_scale_ids[0][1])
-        vector_scale_p1 = self._get_pos(vector_scale_ids[1][0], vector_scale_ids[1][1])
-        self._robot_vector_scale = (
-            float(np.linalg.norm(vector_scale_p1 - vector_scale_p0)) * config.vector_loss.scaling
-        )
-        self._robot_distance_scale = self._robot_vector_scale
         middle_chain_points: list[tuple[int, bool]] = []
         for name, point_type in (
             ("middle_base", "body"),
@@ -118,8 +97,6 @@ class VectorRetargeter:
         self.origin_link_names = config.origin_link_names
         self.task_link_names = config.task_link_names
         self._weights = np.array(config.vector_weights, dtype=np.float64)
-        self._per_vector_loss_types = [constraint.loss_type for constraint in config.vector_constraints]
-        self._per_vector_loss_scales = [constraint.loss_scale for constraint in config.vector_constraints]
         if not self.human_vector_pairs:
             raise ValueError(f"retargeting config '{config.hand.name}' resolved zero vector constraints")
 
@@ -416,10 +393,6 @@ class VectorRetargeter:
     def _get_effective_weight(self, index: int) -> float:
         return self._weights[index]
 
-    def _get_loss_type(self, index: int) -> str:
-        override = self._per_vector_loss_types[index]
-        return override if override else self._vector_loss_type
-
     def _compute_loss(self, qpos: np.ndarray) -> float:
         return compute_loss(self, qpos)
 
@@ -478,6 +451,16 @@ class VectorRetargeter:
             None if self._target_frame_secondary_directions is None else self._target_frame_secondary_directions.copy()
         )
         return primary, secondary
+
+    def get_target_distances(self) -> np.ndarray | None:
+        if self._target_distances is None:
+            return None
+        return self._target_distances.copy()
+
+    def get_target_angles(self) -> np.ndarray | None:
+        if self._target_angles is None:
+            return None
+        return self._target_angles.copy()
 
     def get_robot_scale(self) -> float:
         return float(self._robot_distance_scale)

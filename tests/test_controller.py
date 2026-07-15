@@ -17,7 +17,6 @@ from somehand.infrastructure.config_loader import load_retargeting_config
 from somehand.infrastructure.hand_model import HandModel
 from somehand.infrastructure.controllers.adapters import LinkerHandModelAdapter, infer_linkerhand_model_family
 from somehand.infrastructure.controllers.mujoco_sim import MujocoSimController
-import somehand.interfaces.cli as cli_module
 
 
 class _IdentityMapping:
@@ -348,8 +347,8 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
     created = []
 
     class _FakeTargetSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("target", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("target", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -362,8 +361,8 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
             return None
 
     class _FakeStateSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("state", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("state", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -401,6 +400,8 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
         config=SimpleNamespace(
             hand=SimpleNamespace(mjcf_path="assets/mjcf/linkerhand_l20_right/model.xml", name="linkerhand_l20_right", side="right"),
             controller=SimpleNamespace(model_family="", default_speed=[], default_torque=[]),
+            human_vector_pairs=[],
+            vector_constraints=[],
         ),
     )
     args = SimpleNamespace(
@@ -418,8 +419,36 @@ def test_build_runtime_session_adds_target_and_sim_viewers_for_sim(monkeypatch):
 
     assert isinstance(session, ControlledRetargetingSession)
     assert created == [
-        ("target", engine.hand_model, None, None, "Retargeting"),
-        ("state", engine.hand_model, None, None, "Sim State"),
+        (
+            "target",
+            engine.hand_model,
+            None,
+            None,
+            "Retargeting",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
+        (
+            "state",
+            engine.hand_model,
+            None,
+            None,
+            "Sim State",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
     ]
 
 
@@ -427,8 +456,8 @@ def test_build_runtime_session_can_skip_target_viewer_for_sim(monkeypatch):
     created = []
 
     class _FakeTargetSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("target", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("target", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -441,8 +470,8 @@ def test_build_runtime_session_can_skip_target_viewer_for_sim(monkeypatch):
             return None
 
     class _FakeStateSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("state", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("state", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -485,6 +514,8 @@ def test_build_runtime_session_can_skip_target_viewer_for_sim(monkeypatch):
         config=SimpleNamespace(
             hand=SimpleNamespace(mjcf_path="assets/mjcf/linkerhand_l20_right/model.xml", name="linkerhand_l20_right", side="right"),
             controller=SimpleNamespace(model_family="", default_speed=[], default_torque=[]),
+            human_vector_pairs=[],
+            vector_constraints=[],
         ),
     )
     args = SimpleNamespace(
@@ -508,7 +539,21 @@ def test_build_runtime_session_can_skip_target_viewer_for_sim(monkeypatch):
 
     assert isinstance(session, ControlledRetargetingSession)
     assert created == [
-        ("target", engine.hand_model, None, None, "Retargeting"),
+        (
+            "target",
+            engine.hand_model,
+            None,
+            None,
+            "Retargeting",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
     ]
 
 
@@ -517,8 +562,8 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
     landmark_created = []
 
     class _FakeTargetSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("target", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("target", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -531,8 +576,8 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
             return None
 
     class _FakeStateSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("state", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("state", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -585,6 +630,8 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
         config=SimpleNamespace(
             hand=SimpleNamespace(mjcf_path="assets/mjcf/linkerhand_l20_right/model.xml", name="linkerhand_l20_right", side="right"),
             controller=SimpleNamespace(model_family="", default_speed=[], default_torque=[]),
+            human_vector_pairs=[],
+            vector_constraints=[],
         ),
     )
     args = SimpleNamespace(
@@ -609,8 +656,36 @@ def test_build_runtime_session_can_skip_landmark_viewer_for_sim(monkeypatch):
     assert isinstance(session, ControlledRetargetingSession)
     assert landmark_created == []
     assert created == [
-        ("target", engine.hand_model, None, None, "Retargeting"),
-        ("state", engine.hand_model, None, None, "Sim State"),
+        (
+            "target",
+            engine.hand_model,
+            None,
+            None,
+            "Retargeting",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
+        (
+            "state",
+            engine.hand_model,
+            None,
+            None,
+            "Sim State",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
     ]
 
 

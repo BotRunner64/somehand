@@ -18,7 +18,7 @@ def pytest_collection_modifyitems(config, items) -> None:
     if MJCF_SENTINEL.exists():
         return
 
-    reason = "somehand MJCF assets not downloaded; run `python scripts/setup/download_assets.py --only mjcf`"
+    reason = "somehand MJCF assets not downloaded; run `somehand assets download --only mjcf`"
     marker = pytest.mark.skip(reason=reason)
     for item in items:
         if item.path.name in MJCF_REQUIRED_MODULES:

@@ -222,7 +222,6 @@ def _point_position(retargeter, point: tuple[int, bool]) -> np.ndarray:
 
 
 def closure_metrics(retargeter) -> dict[str, float]:
-    model = retargeter.hand_model.model
     thumb_tip = _resolve_generic_point(retargeter, "thumb_tip", obj_type=mujoco.mjtObj.mjOBJ_SITE)
     metrics: dict[str, float] = {}
     scale = max(retargeter.get_robot_scale(), 1e-8)

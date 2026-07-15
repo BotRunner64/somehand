@@ -13,6 +13,12 @@ from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from somehand.infrastructure.vector_solver import VectorRetargeter
 
 
+def _side_specific_config_paths() -> list[Path]:
+    return sorted(Path("configs/retargeting/left").glob("*_left.yaml")) + sorted(
+        Path("configs/retargeting/right").glob("*_right.yaml")
+    )
+
+
 def _quat_to_matrix(quat: np.ndarray) -> np.ndarray:
     matrix = np.zeros(9, dtype=np.float64)
     mujoco.mju_quat2Mat(matrix, quat)
@@ -104,7 +110,7 @@ def test_angle_constraint_parses_scale_and_invert(tmp_path):
     assert config.angle_constraints[0].invert is True
 
 
-def test_vector_loss_parses_residual_settings(tmp_path):
+def test_removed_vector_loss_is_rejected(tmp_path):
     mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
     config_path = tmp_path / "vector_loss.yaml"
     config_path.write_text(
@@ -121,20 +127,39 @@ def test_vector_loss_parses_residual_settings(tmp_path):
                 '      robot_types: ["body", "site"]',
                 "      weight: 1.0",
                 "  vector_loss:",
-                '    type: "residual"',
-                "    huber_delta: 0.03",
-                "    scaling: 1.2",
-                "    scale_landmarks: [0, 9]",
-                '    scale_bodies: ["world", "middle_proximal"]',
-                '    scale_body_types: ["body", "body"]',
+                '    type: "direction"',
             ]
         )
     )
 
-    config = load_retargeting_config(str(config_path))
-    assert config.vector_loss.type == "residual"
-    assert config.vector_loss.huber_delta == pytest.approx(0.03)
-    assert config.vector_loss.scaling == pytest.approx(1.2)
+    with pytest.raises(ValueError, match="vector_loss"):
+        load_retargeting_config(str(config_path))
+
+
+def test_removed_vector_constraint_loss_override_is_rejected(tmp_path):
+    mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
+    config_path = tmp_path / "vector_loss_override.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "hand:",
+                '  name: "ok"',
+                '  side: "right"',
+                f'  mjcf_path: "{mjcf_path}"',
+                "retargeting:",
+                "  vector_constraints:",
+                "    - human: [0, 4]",
+                '      robot: ["world", "thumb_distal_tip"]',
+                '      robot_types: ["body", "site"]',
+                "      weight: 1.0",
+                '      loss_type: "residual"',
+                "      loss_scale: 1.0",
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="scaled keyvector residual loss"):
+        load_retargeting_config(str(config_path))
 
 
 def test_frame_constraint_parses_thumb_cmc_axes(tmp_path):
@@ -233,13 +258,21 @@ def test_top_level_loader_exports_work():
     bihand = load_bihand_config("configs/retargeting/bihand/linkerhand_l20_bihand.yaml")
 
     assert config.hand.name == "linkerhand_l20_right"
-    assert config.preset == "universal"
+    assert config.preset == ""
     assert bihand.left_config_path.endswith("configs/retargeting/left/linkerhand_l20_left.yaml")
 
 
 def test_public_api_exports_library_entrypoints():
-    from somehand.api import HandFrame, RetargetingEngine, load_retargeting_config
+    from somehand.api import (
+        DEFAULT_BIHAND_CONFIG_PATH,
+        HandFrame,
+        RetargetingEngine,
+        load_retargeting_config,
+        resolve_config_path,
+    )
 
+    assert DEFAULT_BIHAND_CONFIG_PATH.name == "linkerhand_l20_bihand.yaml"
+    assert resolve_config_path("right/linkerhand_l20_right.yaml").name == "linkerhand_l20_right.yaml"
     assert HandFrame.__name__ == "HandFrame"
     assert RetargetingEngine.__name__ == "RetargetingEngine"
     assert callable(load_retargeting_config)
@@ -286,40 +319,72 @@ def test_all_mjcf_assets_have_side_specific_configs():
 
 
 def test_side_specific_configs_load_successfully():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         assert config.hand.name == config_path.stem
 
 
 def test_side_specific_configs_instantiate_vector_retargeter():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
         retargeter = VectorRetargeter(hand_model, config)
         assert retargeter.config.hand.name == config.hand.name
 
 
-def test_universal_preset_loads_minimal_constraint_set():
+def test_retargeting_preset_is_rejected(tmp_path):
+    mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
+    config_path = tmp_path / "preset.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "hand:",
+                '  name: "bad"',
+                '  side: "right"',
+                f'  mjcf_path: "{mjcf_path}"',
+                "retargeting:",
+                '  preset: "universal"',
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="preset is no longer supported"):
+        load_retargeting_config(str(config_path))
+
+
+def test_hand_config_owns_vector_topology():
     config = load_retargeting_config("configs/retargeting/right/linkerhand_o6_right.yaml")
 
-    assert config.preset == "universal"
-    assert len(config.vector_constraints) == 16
-    thumb_mid_tip = next(
-        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_mid", "thumb_tip"]
+    assert config.preset == ""
+    assert len(config.vector_constraints) == 10
+    thumb_base_distal = next(
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_metacarpals", "thumb_distal"]
     )
-    assert thumb_mid_tip.loss_type == "residual"
+    assert thumb_base_distal.human == [1, 3]
+    assert thumb_base_distal.weight == pytest.approx(1.0)
     thumb_distal_tip = next(
-        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_tip"]
+        constraint for constraint in config.vector_constraints if constraint.robot == ["thumb_distal", "thumb_distal_tip"]
     )
-    assert thumb_distal_tip.loss_type == "residual"
+    assert thumb_distal_tip.human == [3, 4]
+    assert thumb_distal_tip.weight == pytest.approx(0.9)
+    assert {
+        tuple(constraint.robot)
+        for constraint in config.vector_constraints
+        if constraint.robot[0].split("_", 1)[0] in {"index", "middle", "ring", "pinky"}
+    } == {
+        ("index_proximal", "index_distal"),
+        ("index_distal", "index_distal_tip"),
+        ("middle_proximal", "middle_distal"),
+        ("middle_distal", "middle_distal_tip"),
+        ("ring_proximal", "ring_distal"),
+        ("ring_distal", "ring_distal_tip"),
+        ("pinky_proximal", "pinky_distal"),
+        ("pinky_distal", "pinky_distal_tip"),
+    }
     assert len(config.distance_constraints) == 4
     assert {tuple(constraint.robot) for constraint in config.distance_constraints} == {
         ("thumb_tip", "index_tip"),
@@ -327,28 +392,116 @@ def test_universal_preset_loads_minimal_constraint_set():
         ("thumb_tip", "ring_tip"),
         ("thumb_tip", "pinky_tip"),
     }
+    distance_by_human = {tuple(constraint.human): constraint for constraint in config.distance_constraints}
+    assert distance_by_human[(4, 8)].weight == pytest.approx(2000.0)
+    assert distance_by_human[(4, 12)].weight == pytest.approx(1500.0)
+    assert distance_by_human[(4, 16)].weight == pytest.approx(1000.0)
+    assert distance_by_human[(4, 20)].weight == pytest.approx(800.0)
+    assert distance_by_human[(4, 8)].scale == pytest.approx(1.0)
+    assert distance_by_human[(4, 8)].threshold == pytest.approx(0.04)
+    assert distance_by_human[(4, 8)].activation_type == "linear"
+    assert distance_by_human[(4, 8)].scale_mode == "hand_scaled"
     assert len(config.frame_constraints) == 1
     assert config.frame_constraints[0].name == "thumb_cmc_frame"
+    assert config.frame_constraints[0].primary_weight == pytest.approx(2.0)
+    assert config.frame_constraints[0].secondary_weight == pytest.approx(1.8)
     assert config.angle_constraints == []
 
 
-def test_side_specific_configs_instantiate_universal_vector_retargeter():
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+def test_wujihand_four_fingers_use_three_visible_phalange_vectors():
+    config = load_retargeting_config("configs/retargeting/right/wujihand_right.yaml")
+
+    expected_pairs = {
+        ((5, 6), ("finger2_link2", "finger2_link3")),
+        ((6, 7), ("finger2_link3", "finger2_link4")),
+        ((7, 8), ("finger2_link4", "finger2_link4_tip")),
+        ((9, 10), ("finger3_link2", "finger3_link3")),
+        ((10, 11), ("finger3_link3", "finger3_link4")),
+        ((11, 12), ("finger3_link4", "finger3_link4_tip")),
+        ((13, 14), ("finger4_link2", "finger4_link3")),
+        ((14, 15), ("finger4_link3", "finger4_link4")),
+        ((15, 16), ("finger4_link4", "finger4_link4_tip")),
+        ((17, 18), ("finger5_link2", "finger5_link3")),
+        ((18, 19), ("finger5_link3", "finger5_link4")),
+        ((19, 20), ("finger5_link4", "finger5_link4_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+        if constraint.human[0] >= 5
+    }
+
+    assert actual_pairs == expected_pairs
+
+
+def test_dexhand021_four_fingers_use_three_visible_phalange_vectors():
+    config = load_retargeting_config("configs/retargeting/right/dexhand021_right.yaml")
+
+    expected_pairs = {
+        ((5, 6), ("f_link2_2", "f_link2_3")),
+        ((6, 7), ("f_link2_3", "f_link2_4")),
+        ((7, 8), ("f_link2_4", "f_link2_4_tip")),
+        ((9, 10), ("f_link3_2", "f_link3_3")),
+        ((10, 11), ("f_link3_3", "f_link3_4")),
+        ((11, 12), ("f_link3_4", "f_link3_4_tip")),
+        ((13, 14), ("f_link4_2", "f_link4_3")),
+        ((14, 15), ("f_link4_3", "f_link4_4")),
+        ((15, 16), ("f_link4_4", "f_link4_4_tip")),
+        ((17, 18), ("f_link5_2", "f_link5_3")),
+        ((18, 19), ("f_link5_3", "f_link5_4")),
+        ((19, 20), ("f_link5_4", "f_link5_4_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+        if constraint.human[0] >= 5
+    }
+
+    assert actual_pairs == expected_pairs
+
+
+def test_omnihand_vectors_follow_mjcf_finger_links():
+    config = load_retargeting_config("configs/retargeting/right/omnihand_right.yaml")
+
+    expected_pairs = {
+        ((1, 2), ("thumb_abad_link", "thumb_mcp_link")),
+        ((2, 3), ("thumb_mcp_link", "thumb_pip_link")),
+        ((3, 4), ("thumb_pip_link", "thumb_dip_link")),
+        ((3, 4), ("thumb_dip_link", "thumb_dip_link_tip")),
+        ((5, 6), ("index_abad_link", "index_pip_link")),
+        ((6, 7), ("index_pip_link", "index_dip_link")),
+        ((7, 8), ("index_dip_link", "index_dip_link_tip")),
+        ((9, 10), ("middle_pip_link", "middle_dip_link")),
+        ((10, 12), ("middle_dip_link", "middle_dip_link_tip")),
+        ((13, 14), ("ring_abad_link", "ring_pip_link")),
+        ((14, 15), ("ring_pip_link", "ring_dip_link")),
+        ((15, 16), ("ring_dip_link", "ring_dip_link_tip")),
+        ((17, 18), ("pinky_abad_link", "pinky_pip_link")),
+        ((18, 19), ("pinky_pip_link", "pinky_dip_link")),
+        ((19, 20), ("pinky_dip_link", "pinky_dip_link_tip")),
+    }
+
+    actual_pairs = {
+        (tuple(constraint.human), tuple(constraint.robot))
+        for constraint in config.vector_constraints
+    }
+
+    assert actual_pairs == expected_pairs
+
+
+def test_side_specific_configs_resolve_all_configured_vectors():
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name in {"base", "bihand"}:
-            continue
         config = load_retargeting_config(str(config_path))
         hand_model = HandModel(config.hand.mjcf_path)
+        configured_vector_count = len(config.vector_constraints)
         retargeter = VectorRetargeter(hand_model, config)
         assert retargeter.config.hand.name == config.hand.name
-        if config.preset == "universal":
-            assert len(retargeter.config.distance_constraints) == 4
-            assert len(retargeter.config.frame_constraints) == 1
-            assert retargeter.config.frame_constraints[0].name == "thumb_cmc_frame"
-            assert retargeter.config.angle_constraints == []
-        else:
-            assert len(retargeter.config.vector_constraints) > 0
+        assert len(retargeter.config.vector_constraints) == configured_vector_count
+        assert len(retargeter.config.vector_constraints) > 0
 
 
 def test_all_fingertip_sites_align_with_mesh_surface_points():
@@ -369,14 +522,45 @@ def test_all_fingertip_sites_align_with_mesh_surface_points():
             assert np.allclose(model.site_rgba[site_id], np.array([1.0, 0.0, 0.0, 1.0]))
 
 
+def test_linkerhand_l20pro_pinky_chain_and_mesh_are_laterally_aligned():
+    model = mujoco.MjModel.from_xml_path("assets/mjcf/linkerhand_l20pro_right/model.xml")
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+
+    points = []
+    for body_name in ("pinky_metacarpals", "pinky_middle", "pinky_distal"):
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        points.append(data.xpos[body_id])
+    tip_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "pinky_distal_tip")
+    points.append(data.site_xpos[tip_id])
+    points = np.vstack(points)
+    assert float(np.ptp(points[:, 1])) < 1e-3
+
+    mesh_centers = []
+    for body_name in ("pinky_proximal", "pinky_middle", "pinky_distal"):
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        body_rotation = data.xmat[body_id].reshape(3, 3)
+        for geom_id in range(model.ngeom):
+            if int(model.geom_bodyid[geom_id]) != body_id:
+                continue
+            if int(model.geom_type[geom_id]) != int(mujoco.mjtGeom.mjGEOM_MESH):
+                continue
+            mesh_id = int(model.geom_dataid[geom_id])
+            start = int(model.mesh_vertadr[mesh_id])
+            count = int(model.mesh_vertnum[mesh_id])
+            vertices = np.array(model.mesh_vert[start:start + count], copy=True)
+            world_vertices = data.xpos[body_id] + (model.geom_pos[geom_id] + vertices) @ body_rotation.T
+            mesh_centers.append(world_vertices.mean(axis=0))
+    mesh_centers = np.vstack(mesh_centers)
+    assert float(np.ptp(mesh_centers[:, 1])) < 1e-3
+
+
 def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
     expected_pairs = {(4, 8), (4, 12), (4, 16), (4, 20)}
     expected_closure_pairs = {(8, 5), (12, 9), (16, 13), (20, 17)}
-    config_paths = sorted(Path("configs/retargeting").glob("*/*.yaml"))
+    config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
-        if config_path.parent.name == "bihand" or config_path.name.startswith("_"):
-            continue
         config = load_retargeting_config(str(config_path))
         if not config.distance_constraints:
             continue

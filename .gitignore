@@ -23,12 +23,7 @@ third_party/*
 !third_party/linkerhand-python-sdk
 !third_party/xrobotoolkit/
 !third_party/xrobotoolkit/XRoboToolkit-PC-Service-Pybind
-recordings/*.mp4
-recordings/.*.mp4
-recordings/*.pkl
-recordings/.*.pkl
-recordings/samples/
-recordings/full_renders/
+recordings/
 data/modelscope_cache/
 data/huggingface_cache/
 .tmp_asset_upload/

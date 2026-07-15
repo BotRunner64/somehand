@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import somehand.cli.commands as cli_module
 import somehand.cli.runtime as cli_runtime
+import somehand.asset_download as asset_download
 import somehand.infrastructure.sinks as sinks_module
 import somehand.runtime.sink_outputs as runtime_sinks_output
 import somehand.runtime.sink_rendering as runtime_sink_rendering
@@ -19,6 +20,24 @@ from somehand.infrastructure.sinks import _fit_video_size
 from somehand.paths import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 cli_main_module = importlib.import_module("somehand.cli.main")
+
+
+def test_assets_download_command_is_available_without_runtime_dispatch(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(asset_download, "download_from_args", lambda args: calls.append(args))
+    monkeypatch.setattr(
+        cli_main_module,
+        "_load_commands",
+        lambda: (_ for _ in ()).throw(AssertionError("runtime commands should not load")),
+    )
+
+    cli_main_module.main(
+        ["assets", "download", "--only", "mjcf", "mediapipe", "--data-root", str(tmp_path)]
+    )
+
+    assert len(calls) == 1
+    assert calls[0].only == ["mjcf", "mediapipe"]
+    assert calls[0].data_root == str(tmp_path)
 
 
 def test_hc_mocap_uses_repo_defaults():
@@ -66,6 +85,15 @@ def test_video_command_accepts_both_hand_selector():
     assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
 
 
+def test_config_flag_accepts_portable_bundled_relative_path():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["replay", "--recording", "session.pkl", "--config", "right/omnihand_right.yaml"]
+    )
+
+    assert args.config == str(DEFAULT_CONFIG_PATH.parent / "omnihand_right.yaml")
+
+
 def test_replay_command_uses_realtime_replay_by_default():
     parser = build_parser()
     args = parser.parse_args(["replay", "--recording", "session.pkl", "--loop"])
@@ -73,6 +101,24 @@ def test_replay_command_uses_realtime_replay_by_default():
     assert args.command == "replay"
     assert args.recording == "session.pkl"
     assert args.loop is True
+    assert args.viewer_mode == "normal"
+
+
+def test_viewer_mode_accepts_normal_and_diagnostic():
+    parser = build_parser()
+
+    normal = parser.parse_args(["webcam", "--viewer-mode", "normal"])
+    diagnostic = parser.parse_args(["webcam", "--viewer-mode", "diagnostic"])
+
+    assert normal.viewer_mode == "normal"
+    assert diagnostic.viewer_mode == "diagnostic"
+
+
+def test_viewer_mode_rejects_invalid_mode():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["webcam", "--viewer-mode", "verbose"])
 
 
 def test_dump_video_command_requires_recording_and_output_paths():
@@ -266,8 +312,8 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
     created = []
 
     class _FakeLandmarkSink:
-        def __init__(self, *, window_title=None):
-            created.append(("landmark", window_title))
+        def __init__(self, *, window_title=None, vector_pairs=None, **kwargs):
+            created.append(("landmark", window_title, vector_pairs, kwargs))
 
         @property
         def is_running(self):
@@ -277,8 +323,8 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
             return None
 
     class _FakeOutputSink:
-        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None):
-            created.append(("robot", hand_model, key_callback, overlay_label, window_title))
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("robot", hand_model, key_callback, overlay_label, window_title, kwargs))
 
         @property
         def is_running(self):
@@ -290,7 +336,14 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
     monkeypatch.setattr(cli_runtime, "AsyncLandmarkOutputSink", _FakeLandmarkSink)
     monkeypatch.setattr(cli_runtime, "RobotHandOutputSink", _FakeOutputSink)
 
-    engine = SimpleNamespace(hand_model=object())
+    engine = SimpleNamespace(
+        hand_model=object(),
+        config=SimpleNamespace(
+            hand=SimpleNamespace(side="right"),
+            human_vector_pairs=[(0, 1)],
+            vector_constraints=[],
+        ),
+    )
     session = cli_runtime.build_session(
         engine,
         backend="viewer",
@@ -300,8 +353,121 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
 
     assert len(session.frame_sinks) == 1
     assert created == [
-        ("landmark", "Input Landmarks"),
-        ("robot", engine.hand_model, None, None, "Retargeting"),
+        (
+            "landmark",
+            "Input Landmarks",
+            None,
+            {"distance_pairs": None, "frame_triples": None, "angle_triples": None},
+        ),
+        (
+            "robot",
+            engine.hand_model,
+            None,
+            None,
+            "Retargeting",
+            {
+                "viewer_mode": "normal",
+                "hand_side": None,
+                "robot_vector_specs": None,
+                "robot_distance_specs": None,
+                "robot_frame_specs": None,
+                "robot_angle_specs": None,
+            },
+        ),
+    ]
+
+
+def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
+    created = []
+
+    class _FakeLandmarkSink:
+        def __init__(self, *, window_title=None, vector_pairs=None, **kwargs):
+            created.append(("landmark", window_title, vector_pairs, kwargs))
+
+        @property
+        def is_running(self):
+            return True
+
+        def close(self):
+            return None
+
+    class _FakeOutputSink:
+        def __init__(self, hand_model, *, key_callback=None, overlay_label=None, window_title=None, **kwargs):
+            created.append(("robot", hand_model, key_callback, overlay_label, window_title, kwargs))
+
+        @property
+        def is_running(self):
+            return True
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(cli_runtime, "AsyncLandmarkOutputSink", _FakeLandmarkSink)
+    monkeypatch.setattr(cli_runtime, "RobotHandOutputSink", _FakeOutputSink)
+
+    constraints = [
+        SimpleNamespace(robot=["world", "palm"], robot_types=["body", "body"]),
+        SimpleNamespace(robot=["palm", "tip"], robot_types=["body", "site"]),
+    ]
+    engine = SimpleNamespace(
+        hand_model=object(),
+        config=SimpleNamespace(
+            hand=SimpleNamespace(side="right"),
+            human_vector_pairs=[(0, 1)],
+            vector_constraints=constraints,
+            distance_constraints=[
+                SimpleNamespace(human=[2, 3], robot=["a", "b"], robot_types=["site", "site"]),
+            ],
+            frame_constraints=[
+                SimpleNamespace(
+                    human_origin=0,
+                    human_primary=5,
+                    human_secondary=9,
+                    robot_origin="palm",
+                    robot_primary="index",
+                    robot_secondary="middle",
+                    robot_types=["body", "site", "site"],
+                )
+            ],
+            angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="finger_joint")],
+        ),
+    )
+
+    session = cli_runtime.build_session(
+        engine,
+        backend="viewer",
+        viewer_mode="diagnostic",
+        visualize=True,
+        show_preview=False,
+    )
+
+    assert len(session.frame_sinks) == 1
+    assert created == [
+        (
+            "landmark",
+            "Input Landmarks",
+            [(0, 1)],
+            {
+                "distance_pairs": [(2, 3)],
+                "frame_triples": [(0, 5, 9)],
+                "angle_triples": [(1, 2, 3)],
+            },
+        ),
+        (
+            "robot",
+            engine.hand_model,
+            None,
+            None,
+            "Retargeting",
+            {
+                "viewer_mode": "diagnostic",
+                "hand_side": "right",
+                "robot_vector_specs": [(1, "palm", "body", "tip", "site")],
+                "robot_distance_specs": [(0, "a", "site", "b", "site")],
+                "robot_frame_specs": [(0, "palm", "body", "index", "site", "middle", "site")],
+                "robot_angle_specs": [(0, "finger_joint")],
+            },
+        ),
     ]
 
 
@@ -318,6 +484,7 @@ def test_fit_video_size_scales_to_offscreen_limits():
 
 def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
     calls = []
+    visibility_calls = []
 
     class _FakeWriter:
         def __init__(self, *args, **kwargs):
@@ -370,6 +537,11 @@ def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
         lambda model, *, width, height: _FakeRenderer(model, width=width, height=height),
     )
     monkeypatch.setattr(runtime_sinks_output, "try_frame_hand_camera", _fake_try_frame_hand_camera)
+    monkeypatch.setattr(
+        runtime_sinks_output,
+        "set_fingertip_site_visibility",
+        lambda model, *, visible: visibility_calls.append((model, visible)),
+    )
 
     model = SimpleNamespace(
         vis=SimpleNamespace(global_=SimpleNamespace(offwidth=640, offheight=480)),
@@ -387,6 +559,7 @@ def test_robot_hand_video_sink_auto_frames_only_once(monkeypatch, tmp_path):
     sink.close()
 
     assert calls == [640 / 360]
+    assert visibility_calls == [(model, False)]
 
 
 def test_create_offscreen_renderer_prefers_egl_on_linux(monkeypatch):
@@ -466,6 +639,7 @@ def test_webcam_command_uses_current_common_args():
         "sim_rate",
         "swap_hands",
         "transport",
+        "viewer_mode",
     }
 
 

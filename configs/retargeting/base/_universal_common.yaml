@@ -1,19 +1,22 @@
 retargeting:
   type: vector
-  preset: universal
-  vector_loss:
-    type: direction
-    huber_delta: 0.02
-    scaling: 1.0
-    scale_landmarks:
-    - 0
-    - 9
-    scale_bodies:
-    - middle_base
-    - middle_tip
-    scale_body_types:
-    - body
-    - site
+  constraint_defaults:
+    vector:
+      weight: 1.0
+      terminal_weight: 0.9
+    distance:
+      weights_by_human:
+        "4,8": 2000.0
+        "4,12": 1500.0
+        "4,16": 1000.0
+        "4,20": 800.0
+      scale: 1.0
+      threshold: 0.04
+      activation_type: "linear"
+      scale_mode: "hand_scaled"
+    frame:
+      primary_weight: 2.0
+      secondary_weight: 1.8
   preprocess:
     temporal_filter_alpha: 0.65
   solver:

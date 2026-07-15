@@ -52,25 +52,15 @@ def build_target_state(retargeter, landmarks_3d: np.ndarray, *, hand_side: str) 
     landmarks = retargeter.landmark_filter.filter(landmarks)
 
     directions = np.empty((len(retargeter.human_vector_pairs), 3), dtype=np.float64)
-    target_vectors = np.empty((len(retargeter.human_vector_pairs), 3), dtype=np.float64)
-    vector_scale = retargeter._robot_vector_scale / max(
-        float(np.linalg.norm(landmarks[retargeter._vector_scale_landmark_idx])),
-        1e-6,
-    )
     distance_scale = retargeter._robot_distance_scale / max(human_distance_scale(landmarks), 1e-6)
     for index, (origin_idx, target_idx) in enumerate(retargeter.human_vector_pairs):
         vector = landmarks[target_idx] - landmarks[origin_idx]
         norm = np.linalg.norm(vector)
-        scale = vector_scale
-        if retargeter._per_vector_loss_scales[index] > 0.0:
-            scale = vector_scale * retargeter._per_vector_loss_scales[index]
-        target_vectors[index] = scale * vector
         if norm < 1e-8:
             directions[index] = 0.0
         else:
             directions[index] = vector / norm
     retargeter._target_directions = directions
-    retargeter._target_vectors = target_vectors
     if retargeter._frame_human_indices:
         frame_primary = np.empty((len(retargeter._frame_human_indices), 3), dtype=np.float64)
         frame_secondary = np.empty((len(retargeter._frame_human_indices), 3), dtype=np.float64)

@@ -11,7 +11,6 @@ from .config import (
     RetargetingConfig,
     SolverConfig,
     VectorConstraint,
-    VectorLossConfig,
 )
 from .control import ControllerBackend, HandCommand, HandState
 from .hand_detection import HandDetection
@@ -71,5 +70,4 @@ __all__ = [
     "compute_target_directions",
     "preprocess_landmarks",
     "VectorConstraint",
-    "VectorLossConfig",
 ]

@@ -10,7 +10,7 @@ import cv2
 import mujoco
 import numpy as np
 
-from somehand.runtime.viewer_camera import configure_default_hand_camera, configure_free_camera, try_frame_hand_camera
+from somehand.runtime.viewer_camera import configure_free_camera, try_frame_hand_camera
 from somehand.runtime.viewer_hand import BiHandScene
 
 

@@ -60,10 +60,9 @@ Use `configs/retargeting/{left,right,bihand}` as the source of truth for current
 ## CLI Quick Start
 
 ```bash
-git submodule update --init --recursive
-pip install -e ".[cli]"
-python scripts/setup/download_assets.py --only mjcf mediapipe examples
-somehand replay --recording recordings/pico_right.pkl
+pip install "somehand[cli] @ https://github.com/BotRunner64/somehand/releases/download/v0.3.0/somehand-0.3.0-py3-none-any.whl"
+somehand assets download --only mjcf mediapipe
+somehand webcam
 ```
 
 ## API Quick Start

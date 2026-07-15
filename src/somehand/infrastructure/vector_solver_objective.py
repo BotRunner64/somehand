@@ -5,8 +5,6 @@ from __future__ import annotations
 import mujoco
 import numpy as np
 
-from .vector_solver_primitives import huber_grad, huber_loss
-
 
 def rotation_jacobian_to_axis_jacobian(jac_rot: np.ndarray, axis: np.ndarray) -> np.ndarray:
     return np.cross(jac_rot.T, axis).T
@@ -41,17 +39,12 @@ def compute_loss(retargeter, qpos: np.ndarray) -> float:
     loss = 0.0
     for index in range(len(robot_vecs)):
         weight = retargeter._get_effective_weight(index)
-        if retargeter._get_loss_type(index) == "residual":
-            diff = robot_vecs[index] - retargeter._target_vectors[index]
-            dist = float(np.linalg.norm(diff))
-            loss += weight * huber_loss(dist, retargeter._vector_huber_delta)
-        else:
-            direction_loss, _ = accumulate_direction_loss(
-                robot_vecs[index],
-                retargeter._target_directions[index],
-                weight,
-            )
-            loss += direction_loss
+        direction_loss, _ = accumulate_direction_loss(
+            robot_vecs[index],
+            retargeter._target_directions[index],
+            weight,
+        )
+        loss += direction_loss
     if retargeter._target_frame_primary_directions is not None:
         primary_axes, secondary_axes = retargeter._get_robot_frame_axes()
         for index in range(len(primary_axes)):
@@ -113,22 +106,14 @@ def compute_loss_and_grad(retargeter, qpos: np.ndarray) -> tuple[float, np.ndarr
             mujoco.mj_jacBody(retargeter.model, retargeter.data, jac_origin, None, retargeter.origin_ids[index])
 
         jac_diff = jac_task - jac_origin
-        if retargeter._get_loss_type(index) == "residual":
-            diff = robot_vec - retargeter._target_vectors[index]
-            dist = float(np.linalg.norm(diff))
-            loss += weight * huber_loss(dist, retargeter._vector_huber_delta)
-            if dist > 1e-8:
-                grad_coeff = huber_grad(dist, retargeter._vector_huber_delta) / dist
-                grad += weight * grad_coeff * (diff @ jac_diff)
-        else:
-            direction_loss, grad = accumulate_direction_loss(
-                robot_vec,
-                retargeter._target_directions[index],
-                weight,
-                jac_diff=jac_diff,
-                grad=grad,
-            )
-            loss += direction_loss
+        direction_loss, grad = accumulate_direction_loss(
+            robot_vec,
+            retargeter._target_directions[index],
+            weight,
+            jac_diff=jac_diff,
+            grad=grad,
+        )
+        loss += direction_loss
 
     if retargeter._target_frame_primary_directions is not None:
         for index in range(len(retargeter._frame_origin_ids)):

@@ -317,7 +317,12 @@ def _run_bihand_webcam(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_bihand_engine(args, input_type="webcam")
-    session = _build_bihand_session(engine, visualize=True, show_preview=True)
+    session = _build_bihand_session(
+        engine,
+        viewer_mode=args.viewer_mode,
+        visualize=True,
+        show_preview=True,
+    )
     _print_bihand_startup(
         engine,
         source_desc=source.source_desc,
@@ -338,7 +343,12 @@ def _run_bihand_video(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_bihand_engine(args, input_type="video")
-    session = _build_bihand_session(engine, visualize=True, show_preview=False)
+    session = _build_bihand_session(
+        engine,
+        viewer_mode=args.viewer_mode,
+        visualize=True,
+        show_preview=False,
+    )
     _print_bihand_startup(
         engine,
         source_desc=source.source_desc,
@@ -354,7 +364,12 @@ def _run_bihand_replay(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_bihand_engine(args, input_type="replay")
-    session = _build_bihand_session(engine, visualize=True, show_preview=False)
+    session = _build_bihand_session(
+        engine,
+        viewer_mode=args.viewer_mode,
+        visualize=True,
+        show_preview=False,
+    )
     metadata = getattr(source, "recording_metadata", {})
     _print_bihand_startup(
         engine,
@@ -412,6 +427,7 @@ def _run_bihand_pico(args: argparse.Namespace) -> None:
     engine = _build_bihand_engine(args, input_type="pico")
     session = _build_bihand_session(
         engine,
+        viewer_mode=args.viewer_mode,
         visualize=True,
         show_preview=False,
         key_callback=None if recording_controller is None else recording_controller.handle_keypress,
@@ -458,7 +474,12 @@ def _run_bihand_hc_mocap_udp(args: argparse.Namespace) -> None:
         record_output_path=args.record_output,
     )
     engine = _build_bihand_engine(args, input_type="hc_mocap")
-    session = _build_bihand_session(engine, visualize=True, show_preview=False)
+    session = _build_bihand_session(
+        engine,
+        viewer_mode=args.viewer_mode,
+        visualize=True,
+        show_preview=False,
+    )
     stats = source.stats_snapshot()
     extra_lines: list[str] = [f"Signal sampling: {source.fps} fps"]
     if stats:

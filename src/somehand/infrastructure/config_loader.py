@@ -18,10 +18,10 @@ from somehand.domain.config import (
     RetargetingConfig,
     SolverConfig,
     VectorConstraint,
-    VectorLossConfig,
 )
 from somehand.domain.hand_side import normalize_hand_side
-from somehand.infrastructure.universal_config import apply_universal_preset
+from somehand.external_assets import resolve_asset_path
+from somehand.paths import CONFIG_ROOT
 from somehand.runtime.config_validation import validate_runtime_bihand_config, validate_runtime_retargeting_config
 
 
@@ -55,6 +55,99 @@ def _load_yaml_with_extends(config_path_obj: Path) -> dict:
     return merged
 
 
+def _constraint_defaults(retargeting_data: dict, name: str) -> dict:
+    defaults = retargeting_data.get("constraint_defaults", {})
+    if not isinstance(defaults, dict):
+        return {}
+    section = defaults.get(name, {})
+    if not isinstance(section, dict):
+        return {}
+    return section
+
+
+def _human_pair_key(values: list[int]) -> str:
+    return f"{values[0]},{values[1]}"
+
+
+def _vector_constraint_weight(item: dict, robot_types: list[str], defaults: dict) -> float:
+    if "weight" in item:
+        return float(item["weight"])
+    if len(robot_types) == 2 and robot_types[1] == "site":
+        return float(defaults.get("terminal_weight", defaults.get("weight", 1.0)))
+    return float(defaults.get("weight", 1.0))
+
+
+def _distance_constraint_weight(item: dict, human: list[int], defaults: dict) -> float:
+    if "weight" in item:
+        return float(item["weight"])
+    weights_by_human = defaults.get("weights_by_human", {})
+    if isinstance(weights_by_human, dict):
+        weight = weights_by_human.get(_human_pair_key(human))
+        if weight is not None:
+            return float(weight)
+    return float(defaults.get("weight", 1.0))
+
+
+def _build_vector_constraint(item: dict, defaults: dict) -> VectorConstraint:
+    robot_types = [str(value) for value in item.get("robot_types", ["body", "body"])]
+    return VectorConstraint(
+        human=[int(value) for value in item["human"]],
+        robot=[str(value) for value in item["robot"]],
+        robot_types=robot_types,
+        weight=_vector_constraint_weight(item, robot_types, defaults),
+        optional=bool(item.get("optional", False)),
+    )
+
+
+def _build_distance_constraint(item: dict, defaults: dict) -> DistanceConstraint:
+    human = [int(value) for value in item["human"]]
+    return DistanceConstraint(
+        human=human,
+        robot=[str(value) for value in item["robot"]],
+        robot_types=[str(value) for value in item.get("robot_types", ["site", "site"])],
+        weight=_distance_constraint_weight(item, human, defaults),
+        scale=float(item.get("scale", defaults.get("scale", 1.0))),
+        threshold=float(item.get("threshold", defaults.get("threshold", 0.04))),
+        activation_type=str(item.get("activation_type", defaults.get("activation_type", "gaussian"))),
+        scale_mode=str(item.get("scale_mode", defaults.get("scale_mode", "raw"))),
+        optional=bool(item.get("optional", False)),
+    )
+
+
+def _build_frame_constraint(item: dict, defaults: dict) -> FrameConstraint:
+    return FrameConstraint(
+        name=str(item.get("name", "")),
+        human_origin=int(item["human_origin"]),
+        human_primary=int(item["human_primary"]),
+        human_secondary=int(item["human_secondary"]),
+        robot_origin=str(item["robot_origin"]),
+        robot_primary=str(item["robot_primary"]),
+        robot_secondary=str(item["robot_secondary"]),
+        robot_types=[str(value) for value in item.get("robot_types", ["body", "body", "body"])],
+        primary_weight=float(item.get("primary_weight", defaults.get("primary_weight", 1.0))),
+        secondary_weight=float(item.get("secondary_weight", defaults.get("secondary_weight", 1.0))),
+        optional=bool(item.get("optional", False)),
+    )
+
+
+def _resolve_mjcf_path(config_path_obj: Path, value: str) -> Path:
+    mjcf_path = Path(value)
+    if mjcf_path.is_absolute():
+        return mjcf_path
+
+    resolved = (config_path_obj.parent / mjcf_path).resolve()
+    try:
+        config_path_obj.resolve().relative_to(CONFIG_ROOT.resolve())
+    except ValueError:
+        return resolved
+
+    relative_parts = [part for part in mjcf_path.parts if part not in {".", ".."}]
+    if "assets" not in relative_parts:
+        return resolved
+    assets_index = relative_parts.index("assets")
+    return resolve_asset_path(Path(*relative_parts[assets_index:])).resolve()
+
+
 def load_retargeting_config(config_path: str) -> RetargetingConfig:
     config_path_obj = Path(config_path)
     data = _load_yaml_with_extends(config_path_obj)
@@ -67,9 +160,7 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         with hand_path.open() as file_obj:
             hand_data = yaml.safe_load(file_obj)
 
-    mjcf_path = Path(hand_data.get("mjcf_path", ""))
-    if not mjcf_path.is_absolute():
-        mjcf_path = (config_path_obj.parent / mjcf_path).resolve()
+    mjcf_path = _resolve_mjcf_path(config_path_obj, str(hand_data.get("mjcf_path", "")))
 
     config.hand = HandConfig(
         name=hand_data.get("name", ""),
@@ -93,6 +184,8 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
 
     retargeting_data = data.get("retargeting", {})
     config.preset = str(retargeting_data.get("preset", ""))
+    if config.preset:
+        raise ValueError("retargeting.preset is no longer supported; define explicit constraints in the hand config")
     legacy_vector_keys = {
         "human_vector_pairs",
         "origin_link_names",
@@ -107,57 +200,30 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
             "retargeting legacy vector schema is no longer supported; "
             f"use vector_constraints instead of {', '.join(legacy_keys_present)}"
         )
+    for item in retargeting_data.get("vector_constraints", []):
+        removed_keys = sorted(key for key in ("loss_type", "loss_scale") if key in item)
+        if removed_keys:
+            raise ValueError(
+                "scaled keyvector residual loss is no longer supported; "
+                f"remove vector constraint keys: {', '.join(removed_keys)}"
+            )
+    vector_defaults = _constraint_defaults(retargeting_data, "vector")
     config.vector_constraints = [
-        VectorConstraint(
-            human=[int(value) for value in item["human"]],
-            robot=[str(value) for value in item["robot"]],
-            robot_types=[str(value) for value in item.get("robot_types", ["body", "body"])],
-            weight=float(item.get("weight", 1.0)),
-            loss_type=str(item.get("loss_type", "")),
-            loss_scale=float(item.get("loss_scale", 0.0)),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_vector_constraint(item, vector_defaults)
         for item in retargeting_data.get("vector_constraints", [])
     ]
+    distance_defaults = _constraint_defaults(retargeting_data, "distance")
     config.distance_constraints = [
-        DistanceConstraint(
-            human=[int(value) for value in item["human"]],
-            robot=[str(value) for value in item["robot"]],
-            robot_types=[str(value) for value in item.get("robot_types", ["site", "site"])],
-            weight=float(item.get("weight", 1.0)),
-            scale=float(item.get("scale", 1.0)),
-            threshold=float(item.get("threshold", 0.04)),
-            activation_type=str(item.get("activation_type", "gaussian")),
-            scale_mode=str(item.get("scale_mode", "raw")),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_distance_constraint(item, distance_defaults)
         for item in retargeting_data.get("distance_constraints", [])
     ]
+    frame_defaults = _constraint_defaults(retargeting_data, "frame")
     config.frame_constraints = [
-        FrameConstraint(
-            name=str(item.get("name", "")),
-            human_origin=int(item["human_origin"]),
-            human_primary=int(item["human_primary"]),
-            human_secondary=int(item["human_secondary"]),
-            robot_origin=str(item["robot_origin"]),
-            robot_primary=str(item["robot_primary"]),
-            robot_secondary=str(item["robot_secondary"]),
-            robot_types=[str(value) for value in item.get("robot_types", ["body", "body", "body"])],
-            primary_weight=float(item.get("primary_weight", 1.0)),
-            secondary_weight=float(item.get("secondary_weight", 1.0)),
-            optional=bool(item.get("optional", False)),
-        )
+        _build_frame_constraint(item, frame_defaults)
         for item in retargeting_data.get("frame_constraints", [])
     ]
-    vector_loss_data = retargeting_data.get("vector_loss", {})
-    config.vector_loss = VectorLossConfig(
-        type=vector_loss_data.get("type", "direction"),
-        huber_delta=vector_loss_data.get("huber_delta", 0.02),
-        scaling=vector_loss_data.get("scaling", 1.0),
-        scale_landmarks=vector_loss_data.get("scale_landmarks", [0, 9]),
-        scale_bodies=vector_loss_data.get("scale_bodies", ["world", "middle_proximal"]),
-        scale_body_types=vector_loss_data.get("scale_body_types", ["body", "body"]),
-    )
+    if "vector_loss" in retargeting_data:
+        raise ValueError("retargeting.vector_loss is no longer supported")
 
     config.angle_constraints = [
         AngleConstraint(
@@ -170,13 +236,6 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         )
         for item in retargeting_data.get("angle_constraints", [])
     ]
-    if config.preset == "universal":
-        if any(
-            retargeting_data.get(key)
-            for key in ("vector_constraints", "distance_constraints", "frame_constraints", "angle_constraints")
-        ):
-            raise ValueError("retargeting.preset cannot be combined with explicit constraints")
-        apply_universal_preset(config)
     if "position_constraints" in retargeting_data:
         raise ValueError("retargeting.position_constraints is no longer supported")
     if "pinch" in retargeting_data:

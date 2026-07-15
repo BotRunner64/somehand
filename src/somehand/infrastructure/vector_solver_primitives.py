@@ -5,18 +5,6 @@ from __future__ import annotations
 import numpy as np
 
 
-def huber_loss(distance: float, delta: float) -> float:
-    if distance <= delta:
-        return 0.5 * distance * distance
-    return delta * (distance - 0.5 * delta)
-
-
-def huber_grad(distance: float, delta: float) -> float:
-    if distance <= delta:
-        return distance
-    return delta
-
-
 class TemporalFilter:
     """Exponential moving average filter for smooth landmark tracking."""
 

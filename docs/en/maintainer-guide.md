@@ -20,7 +20,7 @@ python - <<'PY'
 from somehand.api import RetargetingEngine
 print(RetargetingEngine)
 PY
-python scripts/setup/download_assets.py --help
+PYTHONPATH=src python -m somehand.cli assets download --help
 PYTHONPATH=src python scripts/convert_urdf_to_mjcf.py --help
 ```
 
@@ -45,3 +45,17 @@ Run focused doc-related tests when relevant:
 ```bash
 pytest -q tests/test_docs_structure.py tests/test_config_model.py tests/test_download_assets.py tests/test_paths.py
 ```
+
+## Release Wheel
+
+Keep `configs/retargeting/` as the only checked-in config source. `setup.py` copies it into the wheel during `build_py`; do not maintain a second config tree under `src/`.
+
+Before tagging a release:
+
+```bash
+pytest -q
+ruff check src tests
+python -m build
+```
+
+Install the wheel in a clean environment with a temporary `SOMEHAND_HOME`. Verify `somehand --help`, `somehand assets download --help`, package version metadata, bundled default configs, and an actual replay using freshly downloaded assets. Inspect both wheel and sdist contents and confirm that `assets/` and `recordings/` are absent.
