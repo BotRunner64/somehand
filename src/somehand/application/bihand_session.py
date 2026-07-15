@@ -9,7 +9,6 @@ from threading import Event, Thread
 from typing import Callable
 
 from somehand.domain import (
-    BiHandFrame,
     BiHandFrameSink,
     BiHandOutputSink,
     BiHandSessionSummary,

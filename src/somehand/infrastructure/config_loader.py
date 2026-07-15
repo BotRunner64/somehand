@@ -20,6 +20,8 @@ from somehand.domain.config import (
     VectorConstraint,
 )
 from somehand.domain.hand_side import normalize_hand_side
+from somehand.external_assets import resolve_asset_path
+from somehand.paths import CONFIG_ROOT
 from somehand.runtime.config_validation import validate_runtime_bihand_config, validate_runtime_retargeting_config
 
 
@@ -128,6 +130,24 @@ def _build_frame_constraint(item: dict, defaults: dict) -> FrameConstraint:
     )
 
 
+def _resolve_mjcf_path(config_path_obj: Path, value: str) -> Path:
+    mjcf_path = Path(value)
+    if mjcf_path.is_absolute():
+        return mjcf_path
+
+    resolved = (config_path_obj.parent / mjcf_path).resolve()
+    try:
+        config_path_obj.resolve().relative_to(CONFIG_ROOT.resolve())
+    except ValueError:
+        return resolved
+
+    relative_parts = [part for part in mjcf_path.parts if part not in {".", ".."}]
+    if "assets" not in relative_parts:
+        return resolved
+    assets_index = relative_parts.index("assets")
+    return resolve_asset_path(Path(*relative_parts[assets_index:])).resolve()
+
+
 def load_retargeting_config(config_path: str) -> RetargetingConfig:
     config_path_obj = Path(config_path)
     data = _load_yaml_with_extends(config_path_obj)
@@ -140,9 +160,7 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
         with hand_path.open() as file_obj:
             hand_data = yaml.safe_load(file_obj)
 
-    mjcf_path = Path(hand_data.get("mjcf_path", ""))
-    if not mjcf_path.is_absolute():
-        mjcf_path = (config_path_obj.parent / mjcf_path).resolve()
+    mjcf_path = _resolve_mjcf_path(config_path_obj, str(hand_data.get("mjcf_path", "")))
 
     config.hand = HandConfig(
         name=hand_data.get("name", ""),

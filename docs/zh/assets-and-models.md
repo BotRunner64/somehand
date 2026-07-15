@@ -6,13 +6,13 @@
 
 ```bash
 # 运行所需的最小集合
-python scripts/setup/download_assets.py --only mjcf mediapipe
+somehand assets download --only mjcf mediapipe
 
 # 样例录制和参考资产
-python scripts/setup/download_assets.py --only examples
+somehand assets download --only examples
 
 # 全部下载
-python scripts/setup/download_assets.py
+somehand assets download
 ```
 
 | 分组 | 本地路径 |
@@ -24,8 +24,10 @@ python scripts/setup/download_assets.py
 默认来源是 ModelScope 仓库 `BingqianWu/somehand-assets`。如需 HuggingFace：
 
 ```bash
-python scripts/setup/download_assets.py --source huggingface --repo-id 12e21/somehand-assets
+somehand assets download --source huggingface --repo-id 12e21/somehand-assets
 ```
+
+源码检出默认把资产放在仓库根目录。wheel 安装使用系统用户数据目录（Linux 下为 `$XDG_DATA_HOME/somehand` 或 `~/.local/share/somehand`）。可设置 `SOMEHAND_HOME` 固定位置，或对单次下载传 `--data-root`；运行命令和下载命令应使用同一个 `SOMEHAND_HOME`。
 
 ---
 

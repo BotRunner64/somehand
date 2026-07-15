@@ -263,8 +263,16 @@ def test_top_level_loader_exports_work():
 
 
 def test_public_api_exports_library_entrypoints():
-    from somehand.api import HandFrame, RetargetingEngine, load_retargeting_config
+    from somehand.api import (
+        DEFAULT_BIHAND_CONFIG_PATH,
+        HandFrame,
+        RetargetingEngine,
+        load_retargeting_config,
+        resolve_config_path,
+    )
 
+    assert DEFAULT_BIHAND_CONFIG_PATH.name == "linkerhand_l20_bihand.yaml"
+    assert resolve_config_path("right/linkerhand_l20_right.yaml").name == "linkerhand_l20_right.yaml"
     assert HandFrame.__name__ == "HandFrame"
     assert RetargetingEngine.__name__ == "RetargetingEngine"
     assert callable(load_retargeting_config)

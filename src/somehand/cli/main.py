@@ -19,6 +19,15 @@ def _load_commands():
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "assets":
+        if args.assets_command != "download":
+            raise ValueError(f"Unsupported assets command: {args.assets_command}")
+        from somehand.asset_download import download_from_args
+
+        download_from_args(args)
+        return
+
     commands = _load_commands()
 
     if args.command == "webcam":

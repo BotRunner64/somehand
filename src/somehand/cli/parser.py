@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import argparse
 
+from somehand.asset_download import add_download_arguments
 from somehand.domain import normalize_hand_side
-from somehand.paths import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
+from somehand.paths import (
+    DEFAULT_BIHAND_CONFIG_PATH,
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_HC_MOCAP_REFERENCE_BVH,
+    resolve_config_path,
+)
 
 
 class _SomehandArgumentParser(argparse.ArgumentParser):
@@ -22,10 +28,15 @@ def parse_hand_selector(value: str) -> str:
     return normalize_hand_side(value)
 
 
+def parse_config_path(value: str) -> str:
+    return str(resolve_config_path(value))
+
+
 def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-c",
         "--config",
+        type=parse_config_path,
         default=str(DEFAULT_CONFIG_PATH),
         help="Path to retargeting config YAML",
     )
@@ -76,6 +87,7 @@ def add_dump_video_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-c",
         "--config",
+        type=parse_config_path,
         default=str(DEFAULT_CONFIG_PATH),
         help="Path to retargeting config YAML",
     )
@@ -101,6 +113,11 @@ def normalize_both_hand_args(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = _SomehandArgumentParser(prog="somehand", description="Unified dex hand retargeting CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    assets = subparsers.add_parser("assets", help="Manage external runtime assets")
+    asset_commands = assets.add_subparsers(dest="assets_command", required=True)
+    asset_download = asset_commands.add_parser("download", help="Download runtime assets")
+    add_download_arguments(asset_download)
 
     webcam = subparsers.add_parser("webcam", help="Retarget from a live webcam stream")
     add_common_args(webcam)
@@ -178,5 +195,6 @@ __all__ = [
     "add_live_sampling_args",
     "build_parser",
     "normalize_both_hand_args",
+    "parse_config_path",
     "parse_hand_selector",
 ]

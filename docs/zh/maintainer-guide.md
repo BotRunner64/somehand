@@ -20,7 +20,7 @@ python - <<'PY'
 from somehand.api import RetargetingEngine
 print(RetargetingEngine)
 PY
-python scripts/setup/download_assets.py --help
+PYTHONPATH=src python -m somehand.cli assets download --help
 PYTHONPATH=src python scripts/convert_urdf_to_mjcf.py --help
 ```
 
@@ -45,3 +45,17 @@ PYTHONPATH=src python scripts/convert_urdf_to_mjcf.py --help
 ```bash
 pytest -q tests/test_docs_structure.py tests/test_config_model.py tests/test_download_assets.py tests/test_paths.py
 ```
+
+## Release Wheel
+
+保持 `configs/retargeting/` 为唯一提交的配置来源。`setup.py` 会在 `build_py` 阶段把它复制进 wheel；不要在 `src/` 下维护第二份配置树。
+
+打标签前运行：
+
+```bash
+pytest -q
+ruff check src tests
+python -m build
+```
+
+在干净环境中安装 wheel，并使用临时 `SOMEHAND_HOME`。验证 `somehand --help`、`somehand assets download --help`、包版本元数据、内置默认配置，以及用全新下载资产完成一次真实 replay。检查 wheel 和 sdist 内容，确认其中没有 `assets/` 和 `recordings/`。

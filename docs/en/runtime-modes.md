@@ -4,6 +4,7 @@ Use the CLI when you want somehand to own the input loop, viewer, recorder, or h
 
 | Task | Command | Notes |
 | --- | --- | --- |
+| Download runtime assets | `somehand assets download --only mjcf mediapipe` | Uses ModelScope by default; pass `--source huggingface` to switch. |
 | Live camera retargeting | `somehand webcam --camera 0` | Add `--swap-hands` if MediaPipe reports the opposite side. |
 | Retarget an existing video | `somehand video --video input.mp4` | Uses the same backends as live camera input. |
 | Replay a saved recording | `somehand replay --recording recordings/webcam_hand.pkl` | Add `--loop` for continuous replay. |
@@ -21,6 +22,7 @@ Use the CLI when you want somehand to own the input loop, viewer, recorder, or h
 | `--config <path>` | Select a retargeting YAML config. |
 | `--hand left|right|both` | Select hand side; `both` switches to the default bi-hand config if no config is passed. |
 | `--backend viewer|sim|real` | Choose MuJoCo viewer, MuJoCo sim, or real hardware. |
+| `--viewer-mode normal|diagnostic` | Show normal output or human/robot constraint overlays. |
 | `--record-output <path>` | Save tracked input as a replayable `.pkl` file. |
 | `--control-rate`, `--sim-rate` | Tune control/simulation rates. |
 | `--transport`, `--can-interface`, `--modbus-port`, `--sdk-root`, `--model-family` | Real-hardware settings. |
@@ -35,6 +37,18 @@ Use the CLI when you want somehand to own the input loop, viewer, recorder, or h
 | `video` | `--video`, `--swap-hands` |
 | `pico` | `--signal-fps`, `--pico-host`, `--pico-port`, `--pico-advertise-ip`, `--no-pico-discovery`, `--pico-timeout` |
 | `hc-mocap` | `--signal-fps`, `--reference-bvh`, `--udp-host`, `--udp-port`, `--udp-timeout`, `--udp-stats-every` |
+
+---
+
+## Diagnostic Viewer
+
+Add `--viewer-mode diagnostic` to `webcam`, `video`, `replay`, `pico`, or `hc-mocap`. It draws the configured vector, distance, frame, and angle constraints on both the landmark and robot-hand views. Diagnostic mode also exposes fingertip sites; normal mode keeps them hidden.
+
+```bash
+somehand replay \
+    --recording recordings/pico_right.pkl \
+    --viewer-mode diagnostic
+```
 
 ---
 

@@ -1,3 +1,4 @@
+import pickle
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -531,6 +532,15 @@ def test_bihand_recording_artifact_roundtrip(tmp_path):
     assert len(payload["frames"]) == 2
     assert payload["frames"][1].left is not None
     assert payload["frames"][1].right is None
+
+
+def test_bihand_recording_artifact_rejects_legacy_format(tmp_path):
+    recording_path = tmp_path / "legacy.pkl"
+    with recording_path.open("wb") as file_obj:
+        pickle.dump({"format": "dex_mujoco.bihand_recording.v1"}, file_obj)
+
+    with pytest.raises(ValueError, match="Unsupported bi-hand recording format"):
+        load_bihand_recording_artifact(str(recording_path))
 
 
 def test_bihand_recording_source_replays_saved_frames(tmp_path):

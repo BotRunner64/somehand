@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import somehand.cli.commands as cli_module
 import somehand.cli.runtime as cli_runtime
+import somehand.asset_download as asset_download
 import somehand.infrastructure.sinks as sinks_module
 import somehand.runtime.sink_outputs as runtime_sinks_output
 import somehand.runtime.sink_rendering as runtime_sink_rendering
@@ -19,6 +20,24 @@ from somehand.infrastructure.sinks import _fit_video_size
 from somehand.paths import DEFAULT_BIHAND_CONFIG_PATH, DEFAULT_CONFIG_PATH, DEFAULT_HC_MOCAP_REFERENCE_BVH
 
 cli_main_module = importlib.import_module("somehand.cli.main")
+
+
+def test_assets_download_command_is_available_without_runtime_dispatch(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(asset_download, "download_from_args", lambda args: calls.append(args))
+    monkeypatch.setattr(
+        cli_main_module,
+        "_load_commands",
+        lambda: (_ for _ in ()).throw(AssertionError("runtime commands should not load")),
+    )
+
+    cli_main_module.main(
+        ["assets", "download", "--only", "mjcf", "mediapipe", "--data-root", str(tmp_path)]
+    )
+
+    assert len(calls) == 1
+    assert calls[0].only == ["mjcf", "mediapipe"]
+    assert calls[0].data_root == str(tmp_path)
 
 
 def test_hc_mocap_uses_repo_defaults():
@@ -64,6 +83,15 @@ def test_video_command_accepts_both_hand_selector():
     assert args.video == "input.mp4"
     assert args.hand == "both"
     assert args.config == str(DEFAULT_BIHAND_CONFIG_PATH)
+
+
+def test_config_flag_accepts_portable_bundled_relative_path():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["replay", "--recording", "session.pkl", "--config", "right/omnihand_right.yaml"]
+    )
+
+    assert args.config == str(DEFAULT_CONFIG_PATH.parent / "omnihand_right.yaml")
 
 
 def test_replay_command_uses_realtime_replay_by_default():

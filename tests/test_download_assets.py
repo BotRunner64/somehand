@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+import tarfile
 from pathlib import Path
-import sys
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-SRC_ROOT = PROJECT_ROOT / "src"
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
 
 import pytest
 
-from scripts.setup.download_assets import _place_assets, _resolve_entry_source, _safe_extract_tar
+from somehand.asset_download import (
+    _place_assets,
+    _resolve_entry_source,
+    _safe_extract_tar,
+    build_download_parser,
+)
 from somehand.external_assets import AssetEntry, build_missing_asset_message
 
 
@@ -24,8 +22,6 @@ def test_safe_extract_tar_round_trip(tmp_path: Path) -> None:
     (src / "nested" / "b.txt").write_text("world\n", encoding="utf-8")
 
     archive = tmp_path / "bundle.tar.gz"
-
-    import tarfile
 
     with tarfile.open(archive, "w:gz") as tar:
         tar.add(src, arcname=".")
@@ -46,8 +42,6 @@ def test_safe_extract_tar_strips_single_top_level_directory(tmp_path: Path) -> N
     (wrapped / "meshes" / "part.stl").write_text("mesh\n", encoding="utf-8")
 
     archive = tmp_path / "bundle.tar.gz"
-
-    import tarfile
 
     with tarfile.open(archive, "w:gz") as tar:
         tar.add(wrapped, arcname="mjcf")
@@ -82,7 +76,32 @@ def test_place_assets_fails_when_requested_entry_missing(tmp_path: Path) -> None
     )
 
     with pytest.raises(FileNotFoundError, match="missing requested asset entries"):
-        _place_assets([entry], tmp_path)
+        _place_assets([entry], tmp_path, data_root=tmp_path / "data-root")
+
+
+def test_place_assets_uses_explicit_data_root(tmp_path: Path) -> None:
+    repo_cache = tmp_path / "cache"
+    source = repo_cache / "models" / "hand_landmarker.task"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"model")
+    entry = AssetEntry(
+        remote_path="models/hand_landmarker.task",
+        local_path="assets/models/hand_landmarker.task",
+    )
+
+    data_root = tmp_path / "somehand-home"
+    _place_assets([entry], repo_cache, data_root=data_root)
+
+    assert (data_root / "assets" / "models" / "hand_landmarker.task").read_bytes() == b"model"
+
+
+def test_download_parser_accepts_wheel_safe_data_root(tmp_path: Path) -> None:
+    args = build_download_parser().parse_args(
+        ["--only", "mjcf", "mediapipe", "--data-root", str(tmp_path)]
+    )
+
+    assert args.only == ["mjcf", "mediapipe"]
+    assert args.data_root == str(tmp_path)
 
 
 def test_missing_asset_message_points_to_group_download() -> None:
@@ -93,4 +112,4 @@ def test_missing_asset_message_points_to_group_download() -> None:
 
     assert "MJCF file not found" in message
     assert "--only mjcf" in message
-    assert "Download it with `python scripts/setup/download_assets.py --only mjcf`." in message
+    assert "Download it with `somehand assets download --only mjcf`." in message

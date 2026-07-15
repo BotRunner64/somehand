@@ -1,7 +1,9 @@
+import pickle
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -107,7 +109,9 @@ def test_terminal_recording_controller_responds_to_start_and_stop_keys():
 def test_terminal_recording_controller_stop_requested_is_callable_for_session():
     wrapped = RecordingHandTrackingSource(_FakeSource([]), recording_enabled=False)
     controller = TerminalRecordingController(wrapped)
-    stop_condition = lambda: controller.stop_requested
+
+    def stop_condition():
+        return controller.stop_requested
 
     assert stop_condition() is False
     controller.handle_keypress("s")
@@ -137,6 +141,15 @@ def test_hand_recording_artifact_roundtrip(tmp_path):
     assert payload["num_frames"] == 3
     assert payload["num_detected"] == 2
     assert len(payload["frames"]) == 2
+
+
+def test_hand_recording_artifact_rejects_legacy_format(tmp_path):
+    recording_path = tmp_path / "legacy.pkl"
+    with recording_path.open("wb") as file_obj:
+        pickle.dump({"format": "dex_mujoco.hand_recording.v1"}, file_obj)
+
+    with pytest.raises(ValueError, match="Unsupported hand recording format"):
+        load_hand_recording_artifact(str(recording_path))
 
 
 def test_recording_source_replays_saved_frames(tmp_path):

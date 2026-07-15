@@ -6,13 +6,13 @@ Runtime assets are downloaded on demand. They are not stored in Git.
 
 ```bash
 # Minimum runtime assets
-python scripts/setup/download_assets.py --only mjcf mediapipe
+somehand assets download --only mjcf mediapipe
 
 # Sample recordings and reference assets
-python scripts/setup/download_assets.py --only examples
+somehand assets download --only examples
 
 # Everything
-python scripts/setup/download_assets.py
+somehand assets download
 ```
 
 | Group | Local path |
@@ -24,8 +24,10 @@ python scripts/setup/download_assets.py
 Default source is ModelScope repo `BingqianWu/somehand-assets`. To use HuggingFace:
 
 ```bash
-python scripts/setup/download_assets.py --source huggingface --repo-id 12e21/somehand-assets
+somehand assets download --source huggingface --repo-id 12e21/somehand-assets
 ```
+
+Source checkouts store assets under the repository root by default. Wheel installs use the platform user-data directory (`$XDG_DATA_HOME/somehand` or `~/.local/share/somehand` on Linux). Set `SOMEHAND_HOME` for a stable override, or pass `--data-root` to one download command. Runtime commands and downloads should use the same `SOMEHAND_HOME`.
 
 ---
 

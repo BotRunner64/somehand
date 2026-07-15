@@ -692,7 +692,7 @@ def convert_urdf_to_mjcf(
                         name=site_name,
                         pos=f"{offset[0]:.5f} {offset[1]:.5f} {offset[2]:.5f}",
                         size="0.004",
-                        rgba="1 0 0 0",
+                        rgba="1 0 0 1",
                     )
 
     provisional_model_path = output_dir / "_with_sites.xml"
