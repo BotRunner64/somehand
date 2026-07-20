@@ -7,7 +7,9 @@ from importlib import import_module
 from .config_validation import validate_runtime_bihand_config, validate_runtime_retargeting_config
 
 _MANUS_EXPORTS = {
+    "BiHandManusRos2InputSource",
     "ManusRos2InputSource",
+    "create_bihand_manus_ros2_source",
     "create_manus_ros2_source",
     "manus_message_to_hand_frame",
 }

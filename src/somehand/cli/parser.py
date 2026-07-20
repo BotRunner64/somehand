@@ -177,6 +177,36 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    manus_bihand_ros2 = subparsers.add_parser(
+        "manus-bihand-ros2",
+        help="Retarget two MANUS topics in one viewer-only session",
+    )
+    manus_bihand_ros2.add_argument(
+        "-c", "--config",
+        default=str(DEFAULT_BIHAND_CONFIG_PATH),
+        help="Path to bi-hand retargeting config YAML",
+    )
+    manus_bihand_ros2.add_argument(
+        "--record-output", default=None,
+        help="Output pickle file for recorded bi-hand frames",
+    )
+    manus_bihand_ros2.add_argument(
+        "--backend", choices=["viewer"], default="viewer",
+        help="Bi-hand MANUS is viewer-only",
+    )
+    add_live_sampling_args(manus_bihand_ros2)
+    manus_bihand_ros2.add_argument("--left-topic", required=True)
+    manus_bihand_ros2.add_argument("--right-topic", required=True)
+    manus_bihand_ros2.add_argument(
+        "--manus-timeout", type=float, default=2.0
+    )
+    manus_bihand_ros2.add_argument(
+        "--left-manus-calibration", required=True
+    )
+    manus_bihand_ros2.add_argument(
+        "--right-manus-calibration", required=True
+    )
+
     hc_mocap = subparsers.add_parser("hc-mocap", help="Retarget from a live hc_mocap UDP stream")
     add_common_args(hc_mocap)
     add_live_sampling_args(hc_mocap)

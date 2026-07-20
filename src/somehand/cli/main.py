@@ -62,6 +62,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "manus-ros2":
         commands._run_manus_ros2(args)
         return
+    if args.command == "manus-bihand-ros2":
+        commands._run_bihand_manus_ros2(args)
+        return
     if args.command == "hc-mocap":
         if args.hand == "both":
             if args.backend != "viewer":

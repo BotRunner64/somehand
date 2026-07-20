@@ -13,6 +13,7 @@ from somehand.domain import (
 from somehand.infrastructure.config_loader import load_bihand_config
 
 from .engine import RetargetingEngine
+from .manus_calibration import CalibratedManusRetargetingEngine
 
 
 def _copy_step_result(result: RetargetingStepResult) -> RetargetingStepResult:
@@ -27,17 +28,69 @@ def _copy_step_result(result: RetargetingStepResult) -> RetargetingStepResult:
 class BiHandRetargetingEngine:
     """Stable application-layer entry for one-step bi-hand retargeting."""
 
-    def __init__(self, config: BiHandRetargetingConfig, *, input_type: str = "landmarks"):
+    def __init__(
+        self,
+        config: BiHandRetargetingConfig,
+        *,
+        input_type: str = "landmarks",
+        left_engine: RetargetingEngine | None = None,
+        right_engine: RetargetingEngine | None = None,
+    ):
         self.config = config
         self.input_type = input_type
-        self.left_engine = RetargetingEngine.from_config_path(config.left_config_path, input_type=input_type)
-        self.right_engine = RetargetingEngine.from_config_path(config.right_config_path, input_type=input_type)
-        self._left_result = self._neutral_result(self.left_engine, hand_side="left")
-        self._right_result = self._neutral_result(self.right_engine, hand_side="right")
+        self.left_engine = (
+            left_engine
+            if left_engine is not None
+            else RetargetingEngine.from_config_path(
+                config.left_config_path, input_type=input_type
+            )
+        )
+        self.right_engine = (
+            right_engine
+            if right_engine is not None
+            else RetargetingEngine.from_config_path(
+                config.right_config_path, input_type=input_type
+            )
+        )
+        self._left_result = self._neutral_result(
+            self.left_engine, hand_side="left"
+        )
+        self._right_result = self._neutral_result(
+            self.right_engine, hand_side="right"
+        )
 
     @classmethod
-    def from_config_path(cls, config_path: str, *, input_type: str = "landmarks") -> "BiHandRetargetingEngine":
+    def from_config_path(
+        cls, config_path: str, *, input_type: str = "landmarks"
+    ) -> "BiHandRetargetingEngine":
         return cls(load_bihand_config(config_path), input_type=input_type)
+
+    @classmethod
+    def from_calibrated_manus_paths(
+        cls,
+        *,
+        config_path: str,
+        left_calibration_path: str,
+        right_calibration_path: str,
+        input_type: str = "manus_bihand_ros2",
+    ) -> "BiHandRetargetingEngine":
+        config = load_bihand_config(config_path)
+        left_engine = CalibratedManusRetargetingEngine.from_config_path(
+            config.left_config_path,
+            calibration_path=left_calibration_path,
+            input_type=input_type,
+        )
+        right_engine = CalibratedManusRetargetingEngine.from_config_path(
+            config.right_config_path,
+            calibration_path=right_calibration_path,
+            input_type=input_type,
+        )
+        return cls(
+            config,
+            input_type=input_type,
+            left_engine=left_engine,
+            right_engine=right_engine,
+        )
 
     def describe(self) -> dict[str, object]:
         return {

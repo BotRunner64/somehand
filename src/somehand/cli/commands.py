@@ -12,6 +12,7 @@ from somehand.runtime import (
     RecordingHandTrackingSource,
     TerminalRecordingController,
     create_bihand_hc_mocap_udp_source,
+    create_bihand_manus_ros2_source,
     create_bihand_pico_source,
     create_bihand_recording_source,
     create_hc_mocap_udp_source,
@@ -320,6 +321,78 @@ def _run_manus_ros2(args: argparse.Namespace) -> None:
         if recording_controller is not None:
             recording_controller.close()
     _finalize_run(args, summary=summary, source=source)
+
+
+def _run_bihand_manus_ros2(args: argparse.Namespace) -> None:
+    source, recording_controller = (
+        _wrap_bihand_source_for_interactive_recording(
+            _wrap_live_bihand_source(
+                create_bihand_manus_ros2_source(
+                    left_topic=args.left_topic,
+                    right_topic=args.right_topic,
+                    timeout=args.manus_timeout,
+                ),
+                args=args,
+            ),
+            record_output_path=args.record_output,
+        )
+    )
+    engine = _build_bihand_engine(
+        args, input_type="manus_bihand_ros2"
+    )
+    session = _build_bihand_session(
+        engine,
+        visualize=True,
+        show_preview=False,
+        key_callback=(
+            None
+            if recording_controller is None
+            else recording_controller.handle_keypress
+        ),
+    )
+    extra_lines = [
+        "Backend: viewer",
+        f"Signal sampling: {source.fps} fps",
+        f"Left MANUS ROS 2 topic: {args.left_topic}",
+        f"Right MANUS ROS 2 topic: {args.right_topic}",
+        "Each message.side is validated.",
+        f"Left MANUS calibration: {args.left_manus_calibration}",
+        f"Right MANUS calibration: {args.right_manus_calibration}",
+        "Calibrated mapping: Revo2 bi-hand viewer only",
+        "Real hand output: DISABLED",
+        "CAN: DISABLED",
+        "Modbus: DISABLED",
+        "INSPIRE output: DISABLED",
+    ]
+    if recording_controller is not None:
+        extra_lines.extend([
+            "Press 'r' to start recording.",
+            "Press 's' to stop, save, and exit.",
+        ])
+    _print_bihand_startup(
+        engine,
+        source_desc=source.source_desc,
+        tracking_desc=(
+            f"Tracking MANUS hands: Left+Right | Source fps: {source.fps}"
+        ),
+        extra_lines=extra_lines,
+    )
+    if recording_controller is not None:
+        recording_controller.start()
+    try:
+        summary = session.run(
+            source,
+            input_type="manus_bihand_ros2",
+            stop_condition=(
+                None
+                if recording_controller is None
+                else lambda: recording_controller.stop_requested
+            ),
+        )
+    finally:
+        if recording_controller is not None:
+            recording_controller.close()
+    _finalize_bihand_run(args, summary=summary, source=source)
 
 
 def _run_hc_mocap_udp(args: argparse.Namespace) -> None:

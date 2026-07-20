@@ -205,8 +205,34 @@ def build_engine(args: argparse.Namespace, *, input_type: str) -> RetargetingEng
     )
 
 
-def build_bihand_engine(args: argparse.Namespace, *, input_type: str) -> BiHandRetargetingEngine:
-    return BiHandRetargetingEngine.from_config_path(args.config, input_type=input_type)
+def build_bihand_engine(
+    args: argparse.Namespace, *, input_type: str
+) -> BiHandRetargetingEngine:
+    left_calibration = getattr(args, "left_manus_calibration", None)
+    right_calibration = getattr(args, "right_manus_calibration", None)
+    if left_calibration is None and right_calibration is None:
+        return BiHandRetargetingEngine.from_config_path(
+            args.config, input_type=input_type
+        )
+    if input_type != "manus_bihand_ros2":
+        raise ValueError(
+            "Bi-hand MANUS calibration is supported only by "
+            "manus-bihand-ros2"
+        )
+    if getattr(args, "backend", "viewer") != "viewer":
+        raise ValueError(
+            "Calibrated bi-hand MANUS mode is viewer-only"
+        )
+    if left_calibration is None or right_calibration is None:
+        raise ValueError(
+            "Both left and right MANUS calibrations are required"
+        )
+    return BiHandRetargetingEngine.from_calibrated_manus_paths(
+        config_path=args.config,
+        left_calibration_path=left_calibration,
+        right_calibration_path=right_calibration,
+        input_type=input_type,
+    )
 
 
 def build_session(

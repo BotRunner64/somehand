@@ -7,7 +7,13 @@ from typing import Any
 
 import numpy as np
 
-from somehand.core import HandFrame, SourceFrame, normalize_hand_side
+from somehand.core import (
+    BiHandFrame,
+    BiHandSourceFrame,
+    HandFrame,
+    SourceFrame,
+    normalize_hand_side,
+)
 
 
 # MANUS 25-node skeleton -> MediaPipe-style 21 landmarks.
@@ -316,5 +322,196 @@ def create_manus_ros2_source(
     return ManusRos2InputSource(
         topic=topic,
         hand_side=hand_side,
+        timeout=timeout,
+    )
+
+
+class BiHandManusRos2InputSource:
+    """Read fresh left and right MANUS frames from two ROS 2 topics.
+
+    A bi-hand frame is emitted only after both sides provide a fresh message.
+    If either side stops for ``timeout`` seconds, ``StopIteration`` is raised
+    so the session exits rather than reusing stale glove data.
+    """
+
+    def __init__(
+        self,
+        *,
+        left_topic: str,
+        right_topic: str,
+        timeout: float = 2.0,
+        nominal_fps: int = 120,
+    ) -> None:
+        if left_topic == right_topic:
+            raise ValueError("left_topic and right_topic must differ")
+        if float(timeout) <= 0.0:
+            raise ValueError("timeout must be > 0")
+        if int(nominal_fps) <= 0:
+            raise ValueError("nominal_fps must be > 0")
+
+        try:
+            import rclpy
+            from manus_ros2_msgs.msg import ManusGlove
+            from rclpy.qos import qos_profile_sensor_data
+        except ImportError as exc:
+            raise RuntimeError(
+                "MANUS bi-hand input requires ROS 2 Humble, rclpy and "
+                "manus_ros2_msgs. Source the ROS environments first."
+            ) from exc
+
+        self.left_topic = str(left_topic)
+        self.right_topic = str(right_topic)
+        self.source_desc = (
+            f"ros2://left={self.left_topic};right={self.right_topic}"
+        )
+        self.timeout = float(timeout)
+        self._fps = int(nominal_fps)
+        self._rclpy = rclpy
+        self._latest_msgs: dict[str, Any | None] = {
+            "left": None,
+            "right": None,
+        }
+        self._available = True
+        self._received_count = {"left": 0, "right": 0}
+        self._converted_count = {"left": 0, "right": 0}
+        self._side_mismatch_count = {"left": 0, "right": 0}
+        self._timeout_count = 0
+
+        self._owns_context = not rclpy.ok()
+        if self._owns_context:
+            rclpy.init(args=None)
+
+        self._node = rclpy.create_node("somehand_manus_bihand_input")
+        self._left_subscription = self._node.create_subscription(
+            ManusGlove,
+            self.left_topic,
+            self._left_message_callback,
+            qos_profile_sensor_data,
+        )
+        self._right_subscription = self._node.create_subscription(
+            ManusGlove,
+            self.right_topic,
+            self._right_message_callback,
+            qos_profile_sensor_data,
+        )
+
+    @property
+    def fps(self) -> int:
+        return self._fps
+
+    def _left_message_callback(self, msg: Any) -> None:
+        self._store_message("left", msg)
+
+    def _right_message_callback(self, msg: Any) -> None:
+        self._store_message("right", msg)
+
+    def _store_message(self, expected_side: str, msg: Any) -> None:
+        self._received_count[expected_side] += 1
+        try:
+            message_side = normalize_hand_side(msg.side)
+        except ValueError:
+            self._side_mismatch_count[expected_side] += 1
+            return
+        if message_side != expected_side:
+            self._side_mismatch_count[expected_side] += 1
+            return
+        self._latest_msgs[expected_side] = msg
+
+    def is_available(self) -> bool:
+        return self._available and self._rclpy.ok()
+
+    def get_frame(self) -> BiHandSourceFrame:
+        if not self.is_available():
+            raise StopIteration
+
+        deadline = time.monotonic() + self.timeout
+        while (
+            self._latest_msgs["left"] is None
+            or self._latest_msgs["right"] is None
+        ):
+            if not self._rclpy.ok():
+                self._available = False
+                raise StopIteration
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                self._timeout_count += 1
+                missing = [
+                    side
+                    for side in ("left", "right")
+                    if self._latest_msgs[side] is None
+                ]
+                print(
+                    "MANUS bi-hand input timeout: "
+                    f"no fresh matching {'+'.join(missing)} frame received "
+                    f"for {self.timeout:.3f}s; stopping session.",
+                    flush=True,
+                )
+                raise StopIteration
+
+            self._rclpy.spin_once(
+                self._node,
+                timeout_sec=min(0.05, remaining),
+            )
+
+        left_msg = self._latest_msgs["left"]
+        right_msg = self._latest_msgs["right"]
+        self._latest_msgs["left"] = None
+        self._latest_msgs["right"] = None
+
+        left_frame = manus_message_to_hand_frame(left_msg)
+        right_frame = manus_message_to_hand_frame(right_msg)
+        if left_frame.hand_side != "left":
+            raise ValueError(
+                f"Expected left MANUS frame, got {left_frame.hand_side!r}"
+            )
+        if right_frame.hand_side != "right":
+            raise ValueError(
+                f"Expected right MANUS frame, got {right_frame.hand_side!r}"
+            )
+
+        self._converted_count["left"] += 1
+        self._converted_count["right"] += 1
+        return BiHandSourceFrame(
+            detection=BiHandFrame(
+                left=left_frame,
+                right=right_frame,
+            )
+        )
+
+    def reset(self) -> bool:
+        return False
+
+    def close(self) -> None:
+        if not self._available:
+            return
+        self._available = False
+        try:
+            self._node.destroy_node()
+        finally:
+            if self._owns_context and self._rclpy.ok():
+                self._rclpy.shutdown()
+
+    def stats_snapshot(self) -> dict[str, object]:
+        return {
+            "left_messages_received": self._received_count["left"],
+            "right_messages_received": self._received_count["right"],
+            "left_frames_converted": self._converted_count["left"],
+            "right_frames_converted": self._converted_count["right"],
+            "left_side_mismatches": self._side_mismatch_count["left"],
+            "right_side_mismatches": self._side_mismatch_count["right"],
+            "timeouts": self._timeout_count,
+        }
+
+
+def create_bihand_manus_ros2_source(
+    *,
+    left_topic: str,
+    right_topic: str,
+    timeout: float,
+) -> BiHandManusRos2InputSource:
+    return BiHandManusRos2InputSource(
+        left_topic=left_topic,
+        right_topic=right_topic,
         timeout=timeout,
     )
