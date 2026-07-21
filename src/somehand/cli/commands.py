@@ -284,6 +284,21 @@ def _run_manus_ros2(args: argparse.Namespace) -> None:
         f"Expected message side: {display_hand_side(args.hand)}",
         "Topic numbering does not define handedness; message.side is validated.",
     ]
+    manus_calibration = getattr(
+        args,
+        "manus_calibration",
+        None,
+    )
+    if manus_calibration is not None:
+        extra_lines.extend(
+            [
+                f"MANUS calibration: {manus_calibration}",
+                "Calibrated mapping: Revo2 viewer validation only",
+                "Real hand output: DISABLED",
+                "CAN: DISABLED",
+                "Modbus: DISABLED",
+            ]
+        )
     if recording_controller is not None:
         extra_lines.append("Press 'r' in the terminal or robot-hand viewer to start recording.")
         extra_lines.append("Press 's' in the terminal or robot-hand viewer to stop recording, save, and exit.")

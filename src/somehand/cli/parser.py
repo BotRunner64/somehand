@@ -194,6 +194,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=2.0,
         help="Seconds to wait for the next matching MANUS frame",
     )
+    manus_ros2.add_argument(
+        "--manus-calibration",
+        default=None,
+        help=(
+            "Optional calibrated MANUS finger profile JSON. "
+            "During validation this mode supports Revo2 with "
+            "--backend viewer only."
+        ),
+    )
 
     hc_mocap = subparsers.add_parser("hc-mocap", help="Retarget from a live hc_mocap UDP stream")
     add_common_args(hc_mocap)

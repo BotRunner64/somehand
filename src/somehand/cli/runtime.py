@@ -11,6 +11,9 @@ from somehand.app import (
     RetargetingEngine,
     RetargetingSession,
 )
+from somehand.application.manus_calibration import (
+    CalibratedManusRetargetingEngine,
+)
 from somehand.domain import RetargetingConfig
 from somehand.runtime import (
     AsyncBiHandLandmarkOutputSink,
@@ -338,7 +341,28 @@ def _build_bihand_visual_sinks(
 
 
 def build_engine(args: argparse.Namespace, *, input_type: str) -> RetargetingEngine:
-    return RetargetingEngine.from_config_path(args.config, input_type=input_type)
+    calibration_path = getattr(args, "manus_calibration", None)
+    if calibration_path is None:
+        return RetargetingEngine.from_config_path(
+            args.config,
+            input_type=input_type,
+        )
+
+    if input_type != "manus_ros2":
+        raise ValueError(
+            "--manus-calibration is supported only by manus-ros2"
+        )
+    if getattr(args, "backend", "viewer") != "viewer":
+        raise ValueError(
+            "Calibrated MANUS mode is viewer-only during validation; "
+            "do not use --backend real or --backend sim"
+        )
+
+    return CalibratedManusRetargetingEngine.from_config_path(
+        args.config,
+        calibration_path=calibration_path,
+        input_type=input_type,
+    )
 
 
 def build_bihand_engine(args: argparse.Namespace, *, input_type: str) -> BiHandRetargetingEngine:
