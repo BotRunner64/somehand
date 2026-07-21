@@ -10,24 +10,23 @@ import numpy as np
 from somehand.core import HandFrame, SourceFrame, normalize_hand_side
 
 
-# MANUS 25 节点 → MediaPipe 风格 21 点。
-#
-# 0: wrist
-# 1-4: thumb
-# 5-8: index
-# 9-12: middle
-# 13-16: ring
-# 17-20: pinky
 # MANUS 25-node skeleton -> MediaPipe-style 21 landmarks.
 #
-# MANUS semantics:
+# Two skeleton layouts are supported.
+#
+# Legacy/synthetic layout:
 #   thumb: MCP, PIP, IP, TIP
 #   other fingers: MCP, PIP, IP, DIP, TIP
 #
-# MediaPipe-style output keeps four joints per finger.  For the four
-# non-thumb fingers, MANUS IP is the additional intermediate point and is
-# intentionally omitted.
-LANDMARK_KEYS = [
+# Real MetaGlove layout observed from hardware:
+#   thumb: MCP, PIP, DIP, TIP
+#   other fingers: MCP, PIP, IP, DIP, TIP
+#
+# For the real MetaGlove, MANUS includes an additional metacarpal
+# point between the wrist and the anatomical finger MCP landmark.
+# Therefore the MediaPipe-style four points for index/middle/ring/
+# pinky are selected as PIP, IP, DIP, TIP.
+LEGACY_LANDMARK_KEYS = [
     ("thumb", "mcp"),
     ("thumb", "pip"),
     ("thumb", "ip"),
@@ -50,6 +49,34 @@ LANDMARK_KEYS = [
 
     ("pinky", "mcp"),
     ("pinky", "pip"),
+    ("pinky", "dip"),
+    ("pinky", "tip"),
+]
+
+
+REAL_METAGLOVE_LANDMARK_KEYS = [
+    ("thumb", "mcp"),
+    ("thumb", "pip"),
+    ("thumb", "dip"),
+    ("thumb", "tip"),
+
+    ("index", "pip"),
+    ("index", "ip"),
+    ("index", "dip"),
+    ("index", "tip"),
+
+    ("middle", "pip"),
+    ("middle", "ip"),
+    ("middle", "dip"),
+    ("middle", "tip"),
+
+    ("ring", "pip"),
+    ("ring", "ip"),
+    ("ring", "dip"),
+    ("ring", "tip"),
+
+    ("pinky", "pip"),
+    ("pinky", "ip"),
     ("pinky", "dip"),
     ("pinky", "tip"),
 ]
@@ -84,14 +111,29 @@ def manus_message_to_hand_frame(msg: Any) -> HandFrame:
         for node in msg.raw_nodes
     }
 
+    is_real_metaglove = (
+        ("thumb", "dip") in nodes_by_type
+        and ("thumb", "ip") not in nodes_by_type
+    )
+
+    landmark_keys = (
+        REAL_METAGLOVE_LANDMARK_KEYS
+        if is_real_metaglove
+        else LEGACY_LANDMARK_KEYS
+    )
+
     ordered_nodes = [nodes_by_id[0]]
     missing: list[str] = []
 
-    for chain_name, joint_name in LANDMARK_KEYS:
-        node = nodes_by_type.get((chain_name, joint_name))
+    for chain_name, joint_name in landmark_keys:
+        node = nodes_by_type.get(
+            (chain_name, joint_name)
+        )
 
         if node is None:
-            missing.append(f"{chain_name}/{joint_name}")
+            missing.append(
+                f"{chain_name}/{joint_name}"
+            )
         else:
             ordered_nodes.append(node)
 
@@ -159,6 +201,7 @@ class ManusRos2InputSource:
         self._available = True
         self._received_count = 0
         self._converted_count = 0
+        self._timeout_count = 0
 
         self._owns_context = not rclpy.ok()
 
@@ -214,8 +257,19 @@ class ManusRos2InputSource:
             remaining = deadline - time.monotonic()
 
             if remaining <= 0.0:
-                # No glove frame during this interval. Keep session alive.
-                return SourceFrame(detection=None)
+                self._timeout_count += 1
+
+                print(
+                    "MANUS input timeout: "
+                    f"no matching {self.hand_side} frame received "
+                    f"from {self.source_desc} for "
+                    f"{self.timeout:.3f}s; stopping session.",
+                    flush=True,
+                )
+
+                # A live robot must never continue using the last
+                # command after the MANUS stream disappears.
+                raise StopIteration
 
             self._rclpy.spin_once(
                 self._node,
@@ -249,6 +303,7 @@ class ManusRos2InputSource:
         return {
             "messages_received": self._received_count,
             "frames_converted": self._converted_count,
+            "timeouts": self._timeout_count,
         }
 
 
