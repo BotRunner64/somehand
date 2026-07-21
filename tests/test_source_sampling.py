@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -122,3 +123,39 @@ def test_fixed_rate_bihand_source_uses_requested_sample_fps():
     assert frame.right is not None
     np.testing.assert_allclose(frame.left.landmarks_3d, 2.0)
     np.testing.assert_allclose(frame.right.landmarks_3d, 4.0)
+
+
+
+class _StoppingHandSource:
+    source_desc = "fake://stopping-hand"
+
+    @property
+    def fps(self) -> int:
+        return 120
+
+    def is_available(self) -> bool:
+        return True
+
+    def get_frame(self):
+        raise StopIteration
+
+    def reset(self) -> bool:
+        return False
+
+    def close(self) -> None:
+        return None
+
+    def stats_snapshot(self):
+        return {}
+
+
+def test_fixed_rate_hand_source_propagates_stop_iteration():
+    source = _StoppingHandSource()
+
+    wrapped = FixedRateHandTrackingSource(
+        source,
+        sample_fps=30,
+    )
+
+    with pytest.raises(StopIteration):
+        wrapped.get_frame()

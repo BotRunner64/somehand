@@ -32,7 +32,11 @@ def parse_config_path(value: str) -> str:
     return str(resolve_config_path(value))
 
 
-def add_common_args(parser: argparse.ArgumentParser) -> None:
+def add_common_args(
+    parser: argparse.ArgumentParser,
+    *,
+    allow_both: bool = True,
+) -> None:
     parser.add_argument(
         "-c",
         "--config",
@@ -40,13 +44,19 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         default=str(DEFAULT_CONFIG_PATH),
         help="Path to retargeting config YAML",
     )
+    hand_choices = ["left", "right", "both"] if allow_both else ["left", "right"]
+    hand_help = (
+        "Hand side for the current channel, or 'both' for two-hand mode"
+        if allow_both
+        else "Expected hand side for the selected input topic"
+    )
     parser.add_argument(
         "-H",
         "--hand",
         type=parse_hand_selector,
-        choices=["left", "right", "both"],
+        choices=hand_choices,
         default="right",
-        help="Hand side for the current channel, or 'both' for two-hand mode",
+        help=hand_help,
     )
     parser.add_argument(
         "--record-output",
@@ -165,6 +175,33 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=60.0,
         help="Timeout in seconds while waiting for PICO Bridge hand-tracking frames",
+    )
+
+    manus_ros2 = subparsers.add_parser(
+        "manus-ros2",
+        help="Retarget from a MANUS glove ROS 2 topic",
+    )
+    add_common_args(manus_ros2, allow_both=False)
+    add_live_sampling_args(manus_ros2)
+    manus_ros2.add_argument(
+        "--topic",
+        required=True,
+        help="MANUS ManusGlove topic, for example /manus_glove_0",
+    )
+    manus_ros2.add_argument(
+        "--manus-timeout",
+        type=float,
+        default=2.0,
+        help="Seconds to wait for the next matching MANUS frame",
+    )
+    manus_ros2.add_argument(
+        "--manus-calibration",
+        default=None,
+        help=(
+            "Optional calibrated MANUS finger profile JSON. "
+            "During validation this mode supports Revo2 with "
+            "--backend viewer only."
+        ),
     )
 
     hc_mocap = subparsers.add_parser("hc-mocap", help="Retarget from a live hc_mocap UDP stream")

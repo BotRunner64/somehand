@@ -6,6 +6,12 @@ from importlib import import_module
 
 from .config_validation import validate_runtime_bihand_config, validate_runtime_retargeting_config
 
+_MANUS_EXPORTS = {
+    "ManusRos2InputSource",
+    "create_manus_ros2_source",
+    "manus_message_to_hand_frame",
+}
+
 _INFRA_EXPORTS = {
     "AsyncBiHandLandmarkOutputSink",
     "AsyncLandmarkOutputSink",
@@ -50,6 +56,7 @@ _INFRA_EXPORTS = {
 
 __all__ = sorted(
     _INFRA_EXPORTS
+    | _MANUS_EXPORTS
     | {
         "validate_runtime_bihand_config",
         "validate_runtime_retargeting_config",
@@ -62,6 +69,9 @@ def __getattr__(name: str):
         return validate_runtime_bihand_config
     if name == "validate_runtime_retargeting_config":
         return validate_runtime_retargeting_config
+    if name in _MANUS_EXPORTS:
+        manus_source = import_module("somehand.runtime.manus_source")
+        return getattr(manus_source, name)
     if name in _INFRA_EXPORTS:
         infrastructure = import_module("somehand.infrastructure")
         return getattr(infrastructure, name)

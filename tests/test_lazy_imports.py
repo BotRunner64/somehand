@@ -39,3 +39,28 @@ def test_pico_input_import_does_not_import_cv2():
 
 def test_pico_source_adapter_import_does_not_import_cv2():
     _assert_import_does_not_import_cv2("somehand.runtime.source_adapters")
+
+
+def test_manus_source_import_does_not_import_rclpy():
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(_SRC)
+    script = """
+import builtins
+import importlib
+
+original_import = builtins.__import__
+
+def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name == "rclpy" or name.startswith("rclpy."):
+        raise AssertionError("manus_source should import rclpy lazily")
+    return original_import(name, globals, locals, fromlist, level)
+
+builtins.__import__ = guarded_import
+importlib.import_module("somehand.runtime.manus_source")
+"""
+    subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=_REPO_ROOT,
+        env=env,
+        check=True,
+    )

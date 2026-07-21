@@ -15,6 +15,7 @@ from somehand.runtime import (
     create_bihand_pico_source,
     create_bihand_recording_source,
     create_hc_mocap_udp_source,
+    create_manus_ros2_source,
     create_pico_source,
     create_recording_source,
     save_bihand_recording_artifact,
@@ -248,6 +249,71 @@ def _run_pico(args: argparse.Namespace) -> None:
         summary = session.run(
             source,
             input_type="pico",
+            stop_condition=None if recording_controller is None else (lambda: recording_controller.stop_requested),
+        )
+    finally:
+        if recording_controller is not None:
+            recording_controller.close()
+    _finalize_run(args, summary=summary, source=source)
+
+
+def _run_manus_ros2(args: argparse.Namespace) -> None:
+    source, recording_controller = _wrap_source_for_interactive_recording(
+        _wrap_live_hand_source(
+            create_manus_ros2_source(
+                topic=args.topic,
+                hand_side=args.hand,
+                timeout=args.manus_timeout,
+            ),
+            args=args,
+        ),
+        record_output_path=args.record_output,
+    )
+    engine = _build_engine(args, input_type="manus_ros2")
+    session = _build_runtime_session(
+        engine,
+        args,
+        visualize=True,
+        show_preview=False,
+        key_callback=None if recording_controller is None else recording_controller.handle_keypress,
+    )
+    extra_lines = [
+        f"Backend: {args.backend}",
+        f"Signal sampling: {source.fps} fps",
+        f"MANUS ROS 2 topic: {args.topic}",
+        f"Expected message side: {display_hand_side(args.hand)}",
+        "Topic numbering does not define handedness; message.side is validated.",
+    ]
+    manus_calibration = getattr(
+        args,
+        "manus_calibration",
+        None,
+    )
+    if manus_calibration is not None:
+        extra_lines.extend(
+            [
+                f"MANUS calibration: {manus_calibration}",
+                "Calibrated mapping: Revo2 viewer validation only",
+                "Real hand output: DISABLED",
+                "CAN: DISABLED",
+                "Modbus: DISABLED",
+            ]
+        )
+    if recording_controller is not None:
+        extra_lines.append("Press 'r' in the terminal or robot-hand viewer to start recording.")
+        extra_lines.append("Press 's' in the terminal or robot-hand viewer to stop recording, save, and exit.")
+    _print_startup(
+        engine,
+        source_desc=source.source_desc,
+        tracking_desc=f"Tracking MANUS hand: {display_hand_side(args.hand)} | Source fps: {source.fps}",
+        extra_lines=extra_lines,
+    )
+    if recording_controller is not None:
+        recording_controller.start()
+    try:
+        summary = session.run(
+            source,
+            input_type="manus_ros2",
             stop_condition=None if recording_controller is None else (lambda: recording_controller.stop_requested),
         )
     finally:
