@@ -649,3 +649,120 @@ def test_webcam_command_uses_default_camera():
 
     assert args.command == "webcam"
     assert args.camera == 0
+
+
+def test_manus_ros2_command_uses_safe_defaults():
+    parser = build_parser()
+    args = parser.parse_args(
+        ["manus-ros2", "--topic", "/manus_glove_1", "--hand", "right"]
+    )
+
+    assert args.command == "manus-ros2"
+    assert args.topic == "/manus_glove_1"
+    assert args.hand == "right"
+    assert args.backend == "viewer"
+    assert args.manus_timeout == 2.0
+    assert args.signal_fps is None
+
+
+def test_manus_ros2_command_requires_topic():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["manus-ros2", "--hand", "left"])
+
+
+def test_manus_ros2_command_rejects_both_hand_selector():
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["manus-ros2", "--topic", "/manus_glove_0", "--hand", "both"]
+        )
+
+
+def test_manus_ros2_dispatches_to_command_handler(monkeypatch):
+    called = []
+
+    monkeypatch.setattr(
+        cli_module,
+        "_run_manus_ros2",
+        lambda args: called.append((args.topic, args.hand, args.backend)),
+    )
+
+    cli_main_module.main(
+        ["manus-ros2", "--topic", "/manus_glove_0", "--hand", "left"]
+    )
+
+    assert called == [("/manus_glove_0", "left", "viewer")]
+
+
+def test_run_manus_ros2_builds_live_source_and_session(monkeypatch):
+    calls = {}
+
+    class _FakeSource:
+        source_desc = "ros2:///manus_glove_0"
+        fps = 30
+
+    class _FakeSession:
+        def run(self, source, **kwargs):
+            calls["run_source"] = source
+            calls["run_kwargs"] = kwargs
+            return SimpleNamespace(
+                num_frames=12,
+                num_detected=12,
+                source_desc=source.source_desc,
+                input_type="manus_ros2",
+            )
+
+    def _fake_create_manus_ros2_source(**kwargs):
+        calls["source_kwargs"] = kwargs
+        return _FakeSource()
+
+    def _fake_build_engine(args, **kwargs):
+        calls["engine_kwargs"] = kwargs
+        return SimpleNamespace(
+            describe=lambda: {"model_name": "revo2", "dof": 6, "vector_pairs": 5}
+        )
+
+    def _fake_build_runtime_session(engine, args, **kwargs):
+        calls["session_kwargs"] = kwargs
+        return _FakeSession()
+
+    monkeypatch.setattr(cli_module, "create_manus_ros2_source", _fake_create_manus_ros2_source)
+    monkeypatch.setattr(cli_module, "_wrap_live_hand_source", lambda source, **kwargs: source)
+    monkeypatch.setattr(
+        cli_module,
+        "_wrap_source_for_interactive_recording",
+        lambda source, **kwargs: (source, None),
+    )
+    monkeypatch.setattr(cli_module, "_build_engine", _fake_build_engine)
+    monkeypatch.setattr(cli_module, "_build_runtime_session", _fake_build_runtime_session)
+    monkeypatch.setattr(cli_module, "_print_startup", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cli_module, "_finalize_run", lambda *args, **kwargs: None)
+
+    args = SimpleNamespace(
+        topic="/manus_glove_0",
+        hand="left",
+        manus_timeout=1.5,
+        signal_fps=30,
+        record_output=None,
+        backend="viewer",
+        config="unused.yaml",
+    )
+
+    cli_module._run_manus_ros2(args)
+
+    assert calls["source_kwargs"] == {
+        "topic": "/manus_glove_0",
+        "hand_side": "left",
+        "timeout": 1.5,
+    }
+    assert calls["engine_kwargs"] == {"input_type": "manus_ros2"}
+    assert calls["session_kwargs"] == {
+        "visualize": True,
+        "show_preview": False,
+        "key_callback": None,
+    }
+    assert calls["run_kwargs"]["input_type"] == "manus_ros2"
+    assert calls["run_kwargs"]["stop_condition"] is None

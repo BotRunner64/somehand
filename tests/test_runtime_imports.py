@@ -14,6 +14,7 @@ SRC = ROOT / "src"
     [
         "somehand.runtime.sink_outputs",
         "somehand.runtime.sink_rendering",
+        "somehand.runtime.manus_source",
         "somehand.runtime.source_adapters",
         "somehand.runtime.source_recording",
         "somehand.runtime.source_sampling",

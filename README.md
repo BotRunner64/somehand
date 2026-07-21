@@ -65,6 +65,23 @@ somehand assets download --only mjcf mediapipe
 somehand webcam
 ```
 
+Use a MANUS ROS 2 glove topic with the safe viewer backend:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/manus_ros2_ws/install/local_setup.bash
+
+somehand manus-ros2 \
+    --topic /manus_glove_0 \
+    --hand left \
+    --backend viewer \
+    --config configs/retargeting/left/revo2_left.yaml
+```
+
+The topic number does not define left or right. The adapter also validates the
+`side` field inside every `ManusGlove` message. Real hardware output remains an
+explicit `--backend real` choice.
+
 ## API Quick Start
 
 See [API Usage](docs/en/api.md) for stable imports, one-step retargeting, and session orchestration.
