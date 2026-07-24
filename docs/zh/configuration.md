@@ -75,10 +75,10 @@ release wheel 会内置仓库中提交的配置并作为 CLI 默认值。内置�
 
 ## 校验规则
 
-- `retargeting.preset` 会被拒绝；vector、distance、frame 和 angle 约束应写在手型配置中
+- `retargeting.preset` 会被拒绝；vector、distance 和 frame 约束应写在手型配置中
 - `retargeting.vector_loss` 以及每条 vector 的 `loss_type` / `loss_scale` 会被拒绝
 - 旧 vector 字段会被拒绝：`human_vector_pairs`、`origin_link_names`、`task_link_names`、`vector_weights`
-- 已移除段会被拒绝：`position_constraints`、`pinch`
+- 已移除段会被拒绝：`angle_constraints`、`position_constraints`、`pinch`
 - 运行时校验会检查 backend 名称、transport 名称，以及正数控制/仿真频率
 
 ---

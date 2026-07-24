@@ -1,7 +1,6 @@
 """Canonical core namespace for pure models and transformations."""
 
 from somehand.domain import (
-    AngleConstraint,
     BiHandFrame,
     BiHandFrameSink,
     BiHandOutputSink,
@@ -37,7 +36,6 @@ from somehand.domain import (
 )
 
 __all__ = [
-    "AngleConstraint",
     "BiHandFrame",
     "BiHandFrameSink",
     "BiHandOutputSink",

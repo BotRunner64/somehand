@@ -66,7 +66,6 @@ def landmark_viewer_worker(
     vector_pairs: list[VectorPair],
     distance_pairs: list[VectorPair],
     frame_triples: list[tuple[int, int, int]],
-    angle_triples: list[tuple[int, int, int]],
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     visualizer = LandmarkVisualizer(
@@ -74,7 +73,6 @@ def landmark_viewer_worker(
         vector_pairs=vector_pairs,
         distance_pairs=distance_pairs,
         frame_triples=frame_triples,
-        angle_triples=angle_triples,
     )
     latest_landmarks = np.zeros((21, 3), dtype=np.float64)
 
@@ -149,7 +147,6 @@ class AsyncLandmarkVisualizer:
         vector_pairs: list[VectorPair] | None = None,
         distance_pairs: list[VectorPair] | None = None,
         frame_triples: list[tuple[int, int, int]] | None = None,
-        angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
@@ -161,7 +158,6 @@ class AsyncLandmarkVisualizer:
                 [] if vector_pairs is None else [tuple(pair) for pair in vector_pairs],
                 [] if distance_pairs is None else [tuple(pair) for pair in distance_pairs],
                 [] if frame_triples is None else [tuple(triple) for triple in frame_triples],
-                [] if angle_triples is None else [tuple(triple) for triple in angle_triples],
             ),
             name="somehand-landmark-viewer",
         )
@@ -189,7 +185,6 @@ def robot_hand_viewer_worker(
     robot_vector_specs: list[tuple[int, str, str, str, str]],
     robot_distance_specs: list[tuple[int, str, str, str, str]] | None = None,
     robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
-    robot_angle_specs: list[tuple[int, str]] | None = None,
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     hand_model = HandModel(mjcf_path)
@@ -202,7 +197,6 @@ def robot_hand_viewer_worker(
         robot_vector_specs=robot_vector_specs,
         robot_distance_specs=[] if robot_distance_specs is None else robot_distance_specs,
         robot_frame_specs=[] if robot_frame_specs is None else robot_frame_specs,
-        robot_angle_specs=[] if robot_angle_specs is None else robot_angle_specs,
     )
     latest_qpos = hand_model.get_qpos()
     latest_diagnostics: dict[str, np.ndarray | None] = {
@@ -210,7 +204,6 @@ def robot_hand_viewer_worker(
         "target_frame_primary_directions": None,
         "target_frame_secondary_directions": None,
         "target_distances": None,
-        "target_angles": None,
     }
 
     try:
@@ -231,7 +224,6 @@ def robot_hand_viewer_worker(
                         "target_frame_primary_directions": _optional_array(item.get("target_frame_primary_directions")),
                         "target_frame_secondary_directions": _optional_array(item.get("target_frame_secondary_directions")),
                         "target_distances": _optional_array(item.get("target_distances")),
-                        "target_angles": _optional_array(item.get("target_angles")),
                     }
                 else:
                     latest_qpos = np.asarray(item, dtype=np.float64)
@@ -240,7 +232,6 @@ def robot_hand_viewer_worker(
                         "target_frame_primary_directions": None,
                         "target_frame_secondary_directions": None,
                         "target_distances": None,
-                        "target_angles": None,
                     }
                 drained = True
 
@@ -269,7 +260,6 @@ class AsyncRobotHandVisualizer:
         robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_distance_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
-        robot_angle_specs: list[tuple[int, str]] | None = None,
     ):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
@@ -285,7 +275,6 @@ class AsyncRobotHandVisualizer:
                 [] if robot_vector_specs is None else list(robot_vector_specs),
                 [] if robot_distance_specs is None else list(robot_distance_specs),
                 [] if robot_frame_specs is None else list(robot_frame_specs),
-                [] if robot_angle_specs is None else list(robot_angle_specs),
             ),
             name="somehand-robot-hand-viewer",
         )
@@ -307,7 +296,6 @@ class AsyncRobotHandVisualizer:
         target_frame_primary_directions: np.ndarray | None = None,
         target_frame_secondary_directions: np.ndarray | None = None,
         target_distances: np.ndarray | None = None,
-        target_angles: np.ndarray | None = None,
     ) -> None:
         self._handle.send(
             {
@@ -316,7 +304,6 @@ class AsyncRobotHandVisualizer:
                 "target_frame_primary_directions": _optional_array(target_frame_primary_directions),
                 "target_frame_secondary_directions": _optional_array(target_frame_secondary_directions),
                 "target_distances": _optional_array(target_distances),
-                "target_angles": _optional_array(target_angles),
             }
         )
 
@@ -332,8 +319,6 @@ def bihand_landmark_viewer_worker(
     right_distance_pairs: list[VectorPair],
     left_frame_triples: list[tuple[int, int, int]],
     right_frame_triples: list[tuple[int, int, int]],
-    left_angle_triples: list[tuple[int, int, int]],
-    right_angle_triples: list[tuple[int, int, int]],
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     visualizer = BiHandLandmarkVisualizer(
@@ -343,8 +328,6 @@ def bihand_landmark_viewer_worker(
         right_distance_pairs=right_distance_pairs,
         left_frame_triples=left_frame_triples,
         right_frame_triples=right_frame_triples,
-        left_angle_triples=left_angle_triples,
-        right_angle_triples=right_angle_triples,
     )
     latest_landmarks = np.full((2, 21, 3), np.nan, dtype=np.float64)
 
@@ -385,8 +368,6 @@ class AsyncBiHandLandmarkVisualizer:
         right_distance_pairs: list[VectorPair] | None = None,
         left_frame_triples: list[tuple[int, int, int]] | None = None,
         right_frame_triples: list[tuple[int, int, int]] | None = None,
-        left_angle_triples: list[tuple[int, int, int]] | None = None,
-        right_angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         ctx = _viewer_spawn_context()
         self._queue = ctx.Queue(maxsize=1)
@@ -400,8 +381,6 @@ class AsyncBiHandLandmarkVisualizer:
                 [] if right_distance_pairs is None else [tuple(pair) for pair in right_distance_pairs],
                 [] if left_frame_triples is None else [tuple(triple) for triple in left_frame_triples],
                 [] if right_frame_triples is None else [tuple(triple) for triple in right_frame_triples],
-                [] if left_angle_triples is None else [tuple(triple) for triple in left_angle_triples],
-                [] if right_angle_triples is None else [tuple(triple) for triple in right_angle_triples],
             ),
             name="somehand-bihand-landmark-viewer",
         )

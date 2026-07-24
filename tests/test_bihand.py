@@ -301,8 +301,6 @@ def test_build_bihand_session_adds_landmark_frame_sink(monkeypatch):
         "right_distance_pairs": None,
         "left_frame_triples": None,
         "right_frame_triples": None,
-        "left_angle_triples": None,
-        "right_angle_triples": None,
     }
 
 
@@ -345,7 +343,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                         robot_types=["body", "site", "site"],
                     )
                 ],
-                angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="left_joint")],
             ),
         ),
         right_engine=SimpleNamespace(
@@ -360,7 +357,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                     SimpleNamespace(human=[4, 6], robot=["c", "d"], robot_types=["site", "site"]),
                 ],
                 frame_constraints=[],
-                angle_constraints=[SimpleNamespace(landmarks=[3, 4, 5], joint="right_joint")],
             ),
         ),
         config=SimpleNamespace(
@@ -392,8 +388,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
     assert frame_created["right_distance_pairs"] == [(4, 6)]
     assert frame_created["left_frame_triples"] == [(0, 5, 9)]
     assert frame_created["right_frame_triples"] == []
-    assert frame_created["left_angle_triples"] == [(1, 2, 3)]
-    assert frame_created["right_angle_triples"] == [(3, 4, 5)]
     assert result_created["viewer_mode"] == "diagnostic"
     assert result_created["left_hand_side"] == "left"
     assert result_created["right_hand_side"] == "right"
@@ -403,8 +397,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
     assert result_created["right_robot_distance_specs"] == [(0, "c", "site", "d", "site")]
     assert result_created["left_robot_frame_specs"] == [(0, "palm", "body", "index", "site", "middle", "site")]
     assert result_created["right_robot_frame_specs"] == []
-    assert result_created["left_robot_angle_specs"] == [(0, "left_joint")]
-    assert result_created["right_robot_angle_specs"] == [(0, "right_joint")]
 
 
 def test_bihand_output_window_sink_uses_mujoco_visualizer(monkeypatch):

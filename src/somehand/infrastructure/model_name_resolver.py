@@ -107,11 +107,7 @@ def _finger_role_candidates(finger: str, role: str) -> tuple[str, ...]:
                 f"{abbreviation}_connecting_link_tip",
             ),
         }
-        joint_roles = {
-            "proximal_flex": ("thumb_mcp", "thumb_proximal_joint", "f_joint1_3", "finger1_joint3"),
-            "distal_flex": ("thumb_dip", "thumb_ip", "thumb_distal_joint", "f_joint1_4", "finger1_joint4"),
-        }
-        return body_roles.get(role, joint_roles.get(role, ()))
+        return body_roles.get(role, ())
     base_names = tuple(
         name
         for label in finger_labels
@@ -206,28 +202,7 @@ def _finger_role_candidates(finger: str, role: str) -> tuple[str, ...]:
             f"{abbreviation}_distal_link_tip",
         ),
     }
-    joint_roles = {
-        "base_flex": (
-            f"{finger}_mcp_pitch",
-            f"{finger}_base_pitch",
-            f"{finger}_proximal_joint",
-            f"f_joint{number}_1",
-            f"finger{number}_joint1",
-        ),
-        "proximal_flex": (
-            f"{finger}_pip",
-            f"{finger}_middle_joint",
-            f"f_joint{number}_2",
-            f"finger{number}_joint2",
-        ),
-        "distal_flex": (
-            f"{finger}_dip",
-            f"{finger}_distal_joint",
-            f"f_joint{number}_3",
-            f"finger{number}_joint3",
-        ),
-    }
-    return body_roles.get(role, joint_roles.get(role, ()))
+    return body_roles.get(role, ())
 
 
 def _strip_side_prefix(name: str) -> str:
@@ -262,7 +237,7 @@ def _case_variants(candidate: str) -> tuple[str, ...]:
 
 
 class ModelNameResolver:
-    """Maps semantic body/site/joint names onto a specific MuJoCo model."""
+    """Maps semantic body/site names onto a specific MuJoCo model."""
 
     def __init__(self, model: mujoco.MjModel, *, hand_side: str):
         self.model = model
@@ -270,7 +245,6 @@ class ModelNameResolver:
         self._preferred_prefixes = _PREFERRED_SIDE_PREFIXES[hand_side]
         self._body_names = self._collect_names(mujoco.mjtObj.mjOBJ_BODY, model.nbody)
         self._site_names = self._collect_names(mujoco.mjtObj.mjOBJ_SITE, model.nsite)
-        self._joint_names = self._collect_names(mujoco.mjtObj.mjOBJ_JOINT, model.njnt)
 
     def _collect_names(self, obj_type, count: int) -> set[str]:
         names: set[str] = set()
@@ -309,7 +283,6 @@ class ModelNameResolver:
         names = {
             mujoco.mjtObj.mjOBJ_BODY: self._body_names,
             mujoco.mjtObj.mjOBJ_SITE: self._site_names,
-            mujoco.mjtObj.mjOBJ_JOINT: self._joint_names,
         }[obj_type]
         for candidate in self._candidate_names(semantic_name):
             if candidate in names:

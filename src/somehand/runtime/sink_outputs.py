@@ -44,7 +44,6 @@ class RobotHandOutputSink(OutputSink):
         robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_distance_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
-        robot_angle_specs: list[tuple[int, str]] | None = None,
     ):
         self._visualizer = HandVisualizer(
             hand_model,
@@ -56,7 +55,6 @@ class RobotHandOutputSink(OutputSink):
             robot_vector_specs=robot_vector_specs,
             robot_distance_specs=robot_distance_specs,
             robot_frame_specs=robot_frame_specs,
-            robot_angle_specs=robot_angle_specs,
         )
 
     @property
@@ -70,7 +68,6 @@ class RobotHandOutputSink(OutputSink):
             target_frame_primary_directions=getattr(result, "target_frame_primary_directions", None),
             target_frame_secondary_directions=getattr(result, "target_frame_secondary_directions", None),
             target_distances=getattr(result, "target_distances", None),
-            target_angles=getattr(result, "target_angles", None),
         )
 
     def close(self) -> None:
@@ -90,7 +87,6 @@ class RobotHandTargetOutputSink(OutputSink):
         robot_vector_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_distance_specs: list[tuple[int, str, str, str, str]] | None = None,
         robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
-        robot_angle_specs: list[tuple[int, str]] | None = None,
     ):
         self._visualizer = AsyncRobotHandVisualizer(
             hand_model.mjcf_path,
@@ -101,7 +97,6 @@ class RobotHandTargetOutputSink(OutputSink):
             robot_vector_specs=robot_vector_specs,
             robot_distance_specs=robot_distance_specs,
             robot_frame_specs=robot_frame_specs,
-            robot_angle_specs=robot_angle_specs,
         )
 
     @property
@@ -116,7 +111,6 @@ class RobotHandTargetOutputSink(OutputSink):
             target_frame_primary_directions=getattr(result, "target_frame_primary_directions", None),
             target_frame_secondary_directions=getattr(result, "target_frame_secondary_directions", None),
             target_distances=getattr(result, "target_distances", None),
-            target_angles=getattr(result, "target_angles", None),
         )
 
     def close(self) -> None:
@@ -201,14 +195,12 @@ class AsyncLandmarkOutputSink(OutputSink, HandFrameSink):
         vector_pairs: list[tuple[int, int]] | None = None,
         distance_pairs: list[tuple[int, int]] | None = None,
         frame_triples: list[tuple[int, int, int]] | None = None,
-        angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         self._visualizer = AsyncLandmarkVisualizer(
             window_title=window_title,
             vector_pairs=vector_pairs,
             distance_pairs=distance_pairs,
             frame_triples=frame_triples,
-            angle_triples=angle_triples,
         )
 
     @property
@@ -244,8 +236,6 @@ class AsyncBiHandLandmarkOutputSink(BiHandFrameSink):
         right_distance_pairs: list[tuple[int, int]] | None = None,
         left_frame_triples: list[tuple[int, int, int]] | None = None,
         right_frame_triples: list[tuple[int, int, int]] | None = None,
-        left_angle_triples: list[tuple[int, int, int]] | None = None,
-        right_angle_triples: list[tuple[int, int, int]] | None = None,
     ):
         self._visualizer = AsyncBiHandLandmarkVisualizer(
             left_vector_pairs=left_vector_pairs,
@@ -254,8 +244,6 @@ class AsyncBiHandLandmarkOutputSink(BiHandFrameSink):
             right_distance_pairs=right_distance_pairs,
             left_frame_triples=left_frame_triples,
             right_frame_triples=right_frame_triples,
-            left_angle_triples=left_angle_triples,
-            right_angle_triples=right_angle_triples,
         )
         self._left_pos = tuple(float(value) for value in left_pos)
         self._right_pos = tuple(float(value) for value in right_pos)
@@ -324,8 +312,6 @@ class BiHandOutputWindowSink(BiHandOutputSink):
         right_robot_distance_specs: list[tuple[int, str, str, str, str]] | None = None,
         left_robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
         right_robot_frame_specs: list[tuple[int, str, str, str, str, str, str]] | None = None,
-        left_robot_angle_specs: list[tuple[int, str]] | None = None,
-        right_robot_angle_specs: list[tuple[int, str]] | None = None,
     ):
         self._visualizer = BiHandVisualizer(
             left_hand_model,
@@ -345,8 +331,6 @@ class BiHandOutputWindowSink(BiHandOutputSink):
             right_robot_distance_specs=right_robot_distance_specs,
             left_robot_frame_specs=left_robot_frame_specs,
             right_robot_frame_specs=right_robot_frame_specs,
-            left_robot_angle_specs=left_robot_angle_specs,
-            right_robot_angle_specs=right_robot_angle_specs,
         )
         self._window_name = window_name
 
@@ -366,8 +350,6 @@ class BiHandOutputWindowSink(BiHandOutputSink):
             right_target_frame_secondary_directions=getattr(result.right, "target_frame_secondary_directions", None),
             left_target_distances=getattr(result.left, "target_distances", None),
             right_target_distances=getattr(result.right, "target_distances", None),
-            left_target_angles=getattr(result.left, "target_angles", None),
-            right_target_angles=getattr(result.right, "target_angles", None),
         )
 
     def close(self) -> None:

@@ -76,28 +76,6 @@ def build_target_state(retargeter, landmarks_3d: np.ndarray, *, hand_side: str) 
         retargeter._target_frame_primary_directions = None
         retargeter._target_frame_secondary_directions = None
 
-    if retargeter._angle_landmarks:
-        target_angles = np.zeros(len(retargeter._angle_landmarks))
-        for index, (a, b, c) in enumerate(retargeter._angle_landmarks):
-            v_ba = landmarks[a] - landmarks[b]
-            v_bc = landmarks[c] - landmarks[b]
-            norm_ba = np.linalg.norm(v_ba)
-            norm_bc = np.linalg.norm(v_bc)
-            if norm_ba < 1e-8 or norm_bc < 1e-8:
-                flexion = 0.0
-            else:
-                cos_angle = np.clip(np.dot(v_ba, v_bc) / (norm_ba * norm_bc), -1.0, 1.0)
-                flexion = np.pi - np.arccos(cos_angle)
-            low, high = retargeter._angle_joint_ranges[index]
-            normalized = flexion / np.pi
-            if retargeter._angle_inverts[index]:
-                normalized = 1.0 - normalized
-            normalized = np.clip(normalized * retargeter._angle_scales[index], 0.0, 1.0)
-            target_angles[index] = low + normalized * (high - low)
-        retargeter._target_angles = target_angles
-    else:
-        retargeter._target_angles = None
-
     if retargeter._dist_human_pairs:
         target_distances = np.zeros(len(retargeter._dist_human_pairs))
         raw_human_distances = np.zeros(len(retargeter._dist_human_pairs))

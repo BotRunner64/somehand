@@ -85,10 +85,6 @@ def _robot_frame_specs(config: RetargetingConfig) -> list[tuple[int, str, str, s
     ]
 
 
-def _robot_angle_specs(config: RetargetingConfig) -> list[tuple[int, str]]:
-    return [(index, constraint.joint) for index, constraint in enumerate(getattr(config, "angle_constraints", ()))]
-
-
 def _human_distance_pairs(config: RetargetingConfig) -> list[tuple[int, int]]:
     return [tuple(constraint.human) for constraint in getattr(config, "distance_constraints", ())]
 
@@ -98,10 +94,6 @@ def _human_frame_triples(config: RetargetingConfig) -> list[tuple[int, int, int]
         (constraint.human_origin, constraint.human_primary, constraint.human_secondary)
         for constraint in getattr(config, "frame_constraints", ())
     ]
-
-
-def _human_angle_triples(config: RetargetingConfig) -> list[tuple[int, int, int]]:
-    return [tuple(constraint.landmarks) for constraint in getattr(config, "angle_constraints", ())]
 
 
 def _build_visual_sinks(
@@ -119,18 +111,15 @@ def _build_visual_sinks(
     robot_vector_specs = _robot_vector_specs(engine.config) if diagnostic else None
     robot_distance_specs = _robot_distance_specs(engine.config) if diagnostic else None
     robot_frame_specs = _robot_frame_specs(engine.config) if diagnostic else None
-    robot_angle_specs = _robot_angle_specs(engine.config) if diagnostic else None
     human_vector_pairs = [tuple(pair) for pair in engine.config.human_vector_pairs] if diagnostic else None
     human_distance_pairs = _human_distance_pairs(engine.config) if diagnostic else None
     human_frame_triples = _human_frame_triples(engine.config) if diagnostic else None
-    human_angle_triples = _human_angle_triples(engine.config) if diagnostic else None
     if include_landmark_viewer:
         landmark_sink = AsyncLandmarkOutputSink(
             window_title="Input Landmarks",
             vector_pairs=human_vector_pairs,
             distance_pairs=human_distance_pairs,
             frame_triples=human_frame_triples,
-            angle_triples=human_angle_triples,
         )
         frame_sinks.append(landmark_sink)
     if backend == "sim":
@@ -144,7 +133,6 @@ def _build_visual_sinks(
                 robot_vector_specs=robot_vector_specs,
                 robot_distance_specs=robot_distance_specs,
                 robot_frame_specs=robot_frame_specs,
-                robot_angle_specs=robot_angle_specs,
             )
         )
         if include_sim_state_viewer:
@@ -158,7 +146,6 @@ def _build_visual_sinks(
                     robot_vector_specs=robot_vector_specs,
                     robot_distance_specs=robot_distance_specs,
                     robot_frame_specs=robot_frame_specs,
-                    robot_angle_specs=robot_angle_specs,
                 )
             )
     else:
@@ -172,7 +159,6 @@ def _build_visual_sinks(
                 robot_vector_specs=robot_vector_specs,
                 robot_distance_specs=robot_distance_specs,
                 robot_frame_specs=robot_frame_specs,
-                robot_angle_specs=robot_angle_specs,
             )
         )
     return sinks, frame_sinks
@@ -193,18 +179,15 @@ def _build_control_visual_sinks(
     robot_vector_specs = _robot_vector_specs(engine.config) if diagnostic else None
     robot_distance_specs = _robot_distance_specs(engine.config) if diagnostic else None
     robot_frame_specs = _robot_frame_specs(engine.config) if diagnostic else None
-    robot_angle_specs = _robot_angle_specs(engine.config) if diagnostic else None
     human_vector_pairs = [tuple(pair) for pair in engine.config.human_vector_pairs] if diagnostic else None
     human_distance_pairs = _human_distance_pairs(engine.config) if diagnostic else None
     human_frame_triples = _human_frame_triples(engine.config) if diagnostic else None
-    human_angle_triples = _human_angle_triples(engine.config) if diagnostic else None
     if include_landmark_viewer:
         landmark_sink = AsyncLandmarkOutputSink(
             window_title="Input Landmarks",
             vector_pairs=human_vector_pairs,
             distance_pairs=human_distance_pairs,
             frame_triples=human_frame_triples,
-            angle_triples=human_angle_triples,
         )
         frame_sinks.append(landmark_sink)
     if backend == "sim":
@@ -218,7 +201,6 @@ def _build_control_visual_sinks(
                 robot_vector_specs=robot_vector_specs,
                 robot_distance_specs=robot_distance_specs,
                 robot_frame_specs=robot_frame_specs,
-                robot_angle_specs=robot_angle_specs,
             )
         )
         if include_sim_state_viewer:
@@ -232,7 +214,6 @@ def _build_control_visual_sinks(
                     robot_vector_specs=robot_vector_specs,
                     robot_distance_specs=robot_distance_specs,
                     robot_frame_specs=robot_frame_specs,
-                    robot_angle_specs=robot_angle_specs,
                 )
             )
     elif backend == "real":
@@ -246,7 +227,6 @@ def _build_control_visual_sinks(
                 robot_vector_specs=robot_vector_specs,
                 robot_distance_specs=robot_distance_specs,
                 robot_frame_specs=robot_frame_specs,
-                robot_angle_specs=robot_angle_specs,
             )
         )
     else:
@@ -260,7 +240,6 @@ def _build_control_visual_sinks(
                 robot_vector_specs=robot_vector_specs,
                 robot_distance_specs=robot_distance_specs,
                 robot_frame_specs=robot_frame_specs,
-                robot_angle_specs=robot_angle_specs,
             )
         )
     return sinks, frame_sinks
@@ -304,8 +283,6 @@ def _build_bihand_visual_sinks(
         right_distance_pairs=_human_distance_pairs(engine.right_engine.config) if diagnostic else None,
         left_frame_triples=_human_frame_triples(engine.left_engine.config) if diagnostic else None,
         right_frame_triples=_human_frame_triples(engine.right_engine.config) if diagnostic else None,
-        left_angle_triples=_human_angle_triples(engine.left_engine.config) if diagnostic else None,
-        right_angle_triples=_human_angle_triples(engine.right_engine.config) if diagnostic else None,
     )
     frame_sinks = [landmark_sink]
     sinks = [
@@ -330,8 +307,6 @@ def _build_bihand_visual_sinks(
             right_robot_distance_specs=_robot_distance_specs(engine.right_engine.config) if diagnostic else None,
             left_robot_frame_specs=_robot_frame_specs(engine.left_engine.config) if diagnostic else None,
             right_robot_frame_specs=_robot_frame_specs(engine.right_engine.config) if diagnostic else None,
-            left_robot_angle_specs=_robot_angle_specs(engine.left_engine.config) if diagnostic else None,
-            right_robot_angle_specs=_robot_angle_specs(engine.right_engine.config) if diagnostic else None,
         )
     ]
     return sinks, frame_sinks

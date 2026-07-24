@@ -42,7 +42,7 @@
 
 ## 诊断 Viewer
 
-在 `webcam`、`video`、`replay`、`pico` 或 `hc-mocap` 后添加 `--viewer-mode diagnostic`。它会在人手 landmark 和机器人视图中绘制配置的 vector、distance、frame 和 angle 约束。诊断模式还会显示指尖 site；普通模式保持隐藏。
+在 `webcam`、`video`、`replay`、`pico` 或 `hc-mocap` 后添加 `--viewer-mode diagnostic`。它会在人手 landmark 和机器人视图中绘制配置的 vector、distance 和 frame 约束。诊断模式还会显示指尖 site；普通模式保持隐藏。
 
 ```bash
 somehand replay \

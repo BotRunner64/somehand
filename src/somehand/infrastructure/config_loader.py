@@ -7,7 +7,6 @@ from pathlib import Path
 import yaml
 
 from somehand.domain.config import (
-    AngleConstraint,
     BiHandRetargetingConfig,
     BiHandViewerConfig,
     ControllerConfig,
@@ -225,17 +224,8 @@ def load_retargeting_config(config_path: str) -> RetargetingConfig:
     if "vector_loss" in retargeting_data:
         raise ValueError("retargeting.vector_loss is no longer supported")
 
-    config.angle_constraints = [
-        AngleConstraint(
-            landmarks=item["landmarks"],
-            joint=item["joint"],
-            weight=item.get("weight", 1.0),
-            scale=item.get("scale", 1.0),
-            invert=item.get("invert", False),
-            optional=bool(item.get("optional", False)),
-        )
-        for item in retargeting_data.get("angle_constraints", [])
-    ]
+    if "angle_constraints" in retargeting_data:
+        raise ValueError("retargeting.angle_constraints is no longer supported")
     if "position_constraints" in retargeting_data:
         raise ValueError("retargeting.position_constraints is no longer supported")
     if "pinch" in retargeting_data:

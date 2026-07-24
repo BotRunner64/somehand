@@ -75,10 +75,10 @@ For example, `--config right/omnihand_right.yaml` resolves against the checked-i
 
 ## Validation Notes
 
-- `retargeting.preset` is rejected; vector, distance, frame, and angle constraints belong in the hand config
+- `retargeting.preset` is rejected; vector, distance, and frame constraints belong in the hand config
 - `retargeting.vector_loss` and per-vector `loss_type` / `loss_scale` are rejected
 - Legacy vector keys are rejected: `human_vector_pairs`, `origin_link_names`, `task_link_names`, `vector_weights`
-- Removed sections are rejected: `position_constraints`, `pinch`
+- Removed sections are rejected: `angle_constraints`, `position_constraints`, `pinch`
 - Runtime validation checks backend names, transport names, and positive control/sim rates
 
 ---

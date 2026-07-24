@@ -43,16 +43,6 @@ class ControllerConfig:
 
 
 @dataclass
-class AngleConstraint:
-    landmarks: list[int] = field(default_factory=list)
-    joint: str = ""
-    weight: float = 1.0
-    scale: float = 1.0
-    invert: bool = False
-    optional: bool = False
-
-
-@dataclass
 class VectorConstraint:
     human: list[int] = field(default_factory=list)
     robot: list[str] = field(default_factory=list)
@@ -97,7 +87,6 @@ class RetargetingConfig:
     vector_constraints: list[VectorConstraint] = field(default_factory=list)
     frame_constraints: list[FrameConstraint] = field(default_factory=list)
     distance_constraints: list[DistanceConstraint] = field(default_factory=list)
-    angle_constraints: list[AngleConstraint] = field(default_factory=list)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     solver: SolverConfig = field(default_factory=SolverConfig)
 
@@ -173,9 +162,6 @@ class RetargetingConfig:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
             raise ValueError("solver.output_alpha must be in (0, 1]")
-        for constraint in self.angle_constraints:
-            if constraint.scale <= 0.0:
-                raise ValueError("angle constraint scale must be > 0")
         if self.hand.side not in HAND_SIDES:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if self.controller.backend not in {"viewer", "sim", "real"}:

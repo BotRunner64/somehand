@@ -42,7 +42,7 @@ Use the CLI when you want somehand to own the input loop, viewer, recorder, or h
 
 ## Diagnostic Viewer
 
-Add `--viewer-mode diagnostic` to `webcam`, `video`, `replay`, `pico`, or `hc-mocap`. It draws the configured vector, distance, frame, and angle constraints on both the landmark and robot-hand views. Diagnostic mode also exposes fingertip sites; normal mode keeps them hidden.
+Add `--viewer-mode diagnostic` to `webcam`, `video`, `replay`, `pico`, or `hc-mocap`. It draws the configured vector, distance, and frame constraints on both the landmark and robot-hand views. Diagnostic mode also exposes fingertip sites; normal mode keeps them hidden.
 
 ```bash
 somehand replay \
