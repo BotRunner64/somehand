@@ -12,6 +12,8 @@ import somehand.cli.runtime as cli_runtime
 import somehand.infrastructure.sinks as sinks_module
 import somehand.runtime.sink_outputs as runtime_sinks_output
 import somehand.runtime.sink_rendering as runtime_sink_rendering
+from somehand.acceptance import mirror_pose_to_left, synthetic_hand_pose
+from somehand.application import BiHandRetargetingEngine, BiHandRetargetingSession
 from somehand.cli import build_parser
 from somehand.infrastructure.artifacts import load_bihand_recording_artifact, save_bihand_recording_artifact
 from somehand.infrastructure.config_loader import load_bihand_config, load_retargeting_config
@@ -116,6 +118,44 @@ def test_all_bihand_configs_load_successfully():
         right_config = load_retargeting_config(config.right_config_path)
         assert left_config.hand.side == "left"
         assert right_config.hand.side == "right"
+
+
+def test_bihand_session_runs_each_side_in_spawned_worker():
+    engine = BiHandRetargetingEngine.from_config_path(str(DEFAULT_BIHAND_CONFIG_PATH))
+    right_landmarks = synthetic_hand_pose("pinch")
+    left_landmarks = mirror_pose_to_left(right_landmarks)
+    source = _FakeBiHandSource(
+        [
+            BiHandSourceFrame(
+                detection=BiHandFrame(
+                    left=HandFrame(left_landmarks, None, "left"),
+                    right=HandFrame(right_landmarks, None, "right"),
+                )
+            ),
+            BiHandSourceFrame(
+                detection=BiHandFrame(
+                    right=HandFrame(right_landmarks, None, "right"),
+                )
+            ),
+        ]
+    )
+    results = []
+    sink = SimpleNamespace(
+        is_running=True,
+        on_result=results.append,
+        close=lambda: None,
+    )
+    session = BiHandRetargetingSession(engine, sinks=[sink])
+    summary = session.run(source, input_type="replay")
+
+    assert summary.num_frames == 2
+    assert summary.num_detected_both == 1
+    assert len(results) == 2
+    assert results[0].left.qpos.size > 0
+    assert results[0].right.qpos.size > 0
+    np.testing.assert_allclose(results[1].left.qpos, results[0].left.qpos)
+    assert results[1].left_detected is False
+    assert results[1].right_detected is True
 
 
 def test_build_bihand_session_adds_replay_video_sink(monkeypatch):
