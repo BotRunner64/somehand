@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/somehand_logo.png" width="180" alt="somehand">
+  <img src="docs/images/supported_hand_models.png" width="270" alt="Supported dexterous hand models">
 </p>
 
 <h1 align="center">somehand</h1>
