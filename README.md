@@ -24,7 +24,7 @@
 
 - Retarget hand motion from webcam, video, PICO Bridge, hc_mocap UDP, or saved recordings.
 - View results in MuJoCo, run MuJoCo sim, or drive supported real hardware.
-- Switch hand models through YAML configs; large runtime assets are downloaded separately.
+- Switch hand models through YAML configs.
 
 ---
 
