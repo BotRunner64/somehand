@@ -11,8 +11,6 @@ from somehand.infrastructure.model_name_resolver import ModelNameResolver
 from .viewer_camera import DEFAULT_BIHAND_CAMERA, DEFAULT_HAND_CAMERA, configure_free_camera, try_frame_hand_camera
 from .viewer_passive import ManagedPassiveViewer, compile_model_with_name, mujoco_key_callback, set_viewer_overlay_label, set_viewer_window_title
 from .vector_visualization import (
-    ANGLE_MARKER_RADIUS,
-    ANGLE_RGBA,
     DIAGNOSTIC_THIN_RADIUS,
     DISTANCE_RGBA,
     FRAME_NORMAL_RGBA,
@@ -31,13 +29,12 @@ RobotVectorSpec = tuple[int, str, str, str, str]
 ResolvedVectorPoint = tuple[int, bool, int, bool, int]
 RobotDistanceSpec = tuple[int, str, str, str, str]
 RobotFrameSpec = tuple[int, str, str, str, str, str, str]
-RobotAngleSpec = tuple[int, str]
 ResolvedDistancePoint = tuple[int, bool, int, bool, int]
 ResolvedFramePoint = tuple[int, bool, np.ndarray, np.ndarray, int]
-ResolvedAnglePoint = tuple[int, int, int, float, float]
 VariableMarkerSpec = tuple[int, int, float, float]
 DIAGNOSTIC_ALPHA = 0.28
 TARGET_VECTOR_MAX_LENGTH = 0.035
+DISTANCE_TARGET_TIP_RADIUS = 0.0039
 FINGERTIP_SITE_RGBA = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
 
 
@@ -81,7 +78,6 @@ class HandVisualizer:
         robot_vector_specs: list[RobotVectorSpec] | None = None,
         robot_distance_specs: list[RobotDistanceSpec] | None = None,
         robot_frame_specs: list[RobotFrameSpec] | None = None,
-        robot_angle_specs: list[RobotAngleSpec] | None = None,
     ):
         self.hand_model = hand_model
         self._diagnostic = viewer_mode == "diagnostic"
@@ -119,11 +115,6 @@ class HandVisualizer:
             robot_frame_specs or [],
             hand_side=hand_side,
         )
-        self._angle_points = resolve_robot_angle_points(
-            self.model,
-            robot_angle_specs or [],
-            hand_side=hand_side,
-        )
         self._variable_markers = resolve_variable_markers(self.model) if self._diagnostic else []
         self._configure_camera(**DEFAULT_HAND_CAMERA)
         self._camera_initialized = False
@@ -154,7 +145,6 @@ class HandVisualizer:
         target_frame_primary_directions: np.ndarray | None = None,
         target_frame_secondary_directions: np.ndarray | None = None,
         target_distances: np.ndarray | None = None,
-        target_angles: np.ndarray | None = None,
     ):
         with self.viewer.lock():
             self.data.qpos[:] = qpos
@@ -166,7 +156,6 @@ class HandVisualizer:
                 target_frame_primary_directions=target_frame_primary_directions,
                 target_frame_secondary_directions=target_frame_secondary_directions,
                 target_distances=target_distances,
-                target_angles=target_angles,
             )
         set_viewer_overlay_label(self.viewer, self._overlay_label)
         self.viewer.sync()
@@ -178,7 +167,6 @@ class HandVisualizer:
         target_frame_primary_directions: np.ndarray | None = None,
         target_frame_secondary_directions: np.ndarray | None = None,
         target_distances: np.ndarray | None = None,
-        target_angles: np.ndarray | None = None,
     ) -> None:
         scene = self.viewer.user_scn
         if scene is None:
@@ -187,7 +175,6 @@ class HandVisualizer:
         vector_points = getattr(self, "_vector_points", [])
         distance_points = getattr(self, "_distance_points", [])
         frame_points = getattr(self, "_frame_points", [])
-        angle_points = getattr(self, "_angle_points", [])
         variable_markers = getattr(self, "_variable_markers", [])
         if vector_points:
             starts, current_ends, target_indices = robot_vector_points(self.model, self.data, vector_points)
@@ -223,7 +210,7 @@ class HandVisualizer:
                     target_ends,
                     rgba=DISTANCE_RGBA,
                     radius=TARGET_VECTOR_RADIUS,
-                    tip_radius=ANGLE_MARKER_RADIUS * 0.6,
+                    tip_radius=DISTANCE_TARGET_TIP_RADIUS,
                 )
         if frame_points:
             append_frame_axes(
@@ -233,9 +220,6 @@ class HandVisualizer:
                 target_frame_primary_directions=target_frame_primary_directions,
                 target_frame_secondary_directions=target_frame_secondary_directions,
             )
-        if angle_points:
-            positions, colors = angle_marker_points(self.model, self.data, angle_points, target_angles)
-            append_variable_markers(scene, positions, colors, radius=ANGLE_MARKER_RADIUS)
         if variable_markers:
             positions, colors = variable_marker_points(self.model, self.data, variable_markers)
             append_variable_markers(scene, positions, colors)
@@ -270,8 +254,6 @@ class BiHandScene:
         right_robot_distance_specs: list[RobotDistanceSpec] | None = None,
         left_robot_frame_specs: list[RobotFrameSpec] | None = None,
         right_robot_frame_specs: list[RobotFrameSpec] | None = None,
-        left_robot_angle_specs: list[RobotAngleSpec] | None = None,
-        right_robot_angle_specs: list[RobotAngleSpec] | None = None,
     ):
         self.left_hand_model = left_hand_model
         self.right_hand_model = right_hand_model
@@ -326,20 +308,6 @@ class BiHandScene:
         self.right_frame_points = resolve_robot_frame_points(
             self.model,
             right_robot_frame_specs or [],
-            hand_side=right_hand_side,
-            source_model=right_hand_model.model,
-            prefix="right_",
-        )
-        self.left_angle_points = resolve_robot_angle_points(
-            self.model,
-            left_robot_angle_specs or [],
-            hand_side=left_hand_side,
-            source_model=left_hand_model.model,
-            prefix="left_",
-        )
-        self.right_angle_points = resolve_robot_angle_points(
-            self.model,
-            right_robot_angle_specs or [],
             hand_side=right_hand_side,
             source_model=right_hand_model.model,
             prefix="right_",
@@ -421,8 +389,6 @@ class BiHandVisualizer:
         right_robot_distance_specs: list[RobotDistanceSpec] | None = None,
         left_robot_frame_specs: list[RobotFrameSpec] | None = None,
         right_robot_frame_specs: list[RobotFrameSpec] | None = None,
-        left_robot_angle_specs: list[RobotAngleSpec] | None = None,
-        right_robot_angle_specs: list[RobotAngleSpec] | None = None,
     ):
         self.scene = BiHandScene(
             left_hand_model,
@@ -440,8 +406,6 @@ class BiHandVisualizer:
             right_robot_distance_specs=right_robot_distance_specs,
             left_robot_frame_specs=left_robot_frame_specs,
             right_robot_frame_specs=right_robot_frame_specs,
-            left_robot_angle_specs=left_robot_angle_specs,
-            right_robot_angle_specs=right_robot_angle_specs,
         )
         self.model = self.scene.model
         self.data = self.scene.data
@@ -492,8 +456,6 @@ class BiHandVisualizer:
         right_target_frame_secondary_directions: np.ndarray | None = None,
         left_target_distances: np.ndarray | None = None,
         right_target_distances: np.ndarray | None = None,
-        left_target_angles: np.ndarray | None = None,
-        right_target_angles: np.ndarray | None = None,
     ) -> None:
         with self.viewer.lock():
             self.scene.update(left_qpos, right_qpos)
@@ -514,8 +476,6 @@ class BiHandVisualizer:
                 right_target_frame_secondary_directions=right_target_frame_secondary_directions,
                 left_target_distances=left_target_distances,
                 right_target_distances=right_target_distances,
-                left_target_angles=left_target_angles,
-                right_target_angles=right_target_angles,
             )
         self.viewer.sync()
 
@@ -530,8 +490,6 @@ class BiHandVisualizer:
         right_target_frame_secondary_directions: np.ndarray | None = None,
         left_target_distances: np.ndarray | None = None,
         right_target_distances: np.ndarray | None = None,
-        left_target_angles: np.ndarray | None = None,
-        right_target_angles: np.ndarray | None = None,
     ) -> None:
         scene = self.viewer.user_scn
         if scene is None:
@@ -599,7 +557,7 @@ class BiHandVisualizer:
                     target_ends,
                     rgba=DISTANCE_RGBA,
                     radius=TARGET_VECTOR_RADIUS,
-                    tip_radius=ANGLE_MARKER_RADIUS * 0.6,
+                    tip_radius=DISTANCE_TARGET_TIP_RADIUS,
                 )
         for points, primary_targets, secondary_targets in (
             (
@@ -620,14 +578,6 @@ class BiHandVisualizer:
                 target_frame_primary_directions=primary_targets,
                 target_frame_secondary_directions=secondary_targets,
             )
-        for points, target_angles in (
-            (self.scene.left_angle_points, left_target_angles),
-            (self.scene.right_angle_points, right_target_angles),
-        ):
-            if not points:
-                continue
-            positions, colors = angle_marker_points(self.model, self.data, points, target_angles)
-            append_variable_markers(scene, positions, colors, radius=ANGLE_MARKER_RADIUS)
         for markers in (self.scene.left_variable_markers, self.scene.right_variable_markers):
             if not markers:
                 continue
@@ -780,34 +730,6 @@ def resolve_robot_frame_points(
             prefix=prefix,
         )
         resolved.append((origin_id, origin_is_site, primary_axis, secondary_axis, int(target_index)))
-    return resolved
-
-
-def resolve_robot_angle_points(
-    model,
-    angle_specs: list[RobotAngleSpec],
-    *,
-    hand_side: str | None,
-    source_model=None,
-    prefix: str = "",
-) -> list[ResolvedAnglePoint]:
-    if not angle_specs:
-        return []
-    if hand_side not in {"left", "right"}:
-        raise ValueError("hand_side must be 'left' or 'right' when robot angle specs are provided")
-    source = model if source_model is None else source_model
-    resolver = ModelNameResolver(source, hand_side=hand_side)
-    resolved: list[ResolvedAnglePoint] = []
-    for target_index, joint_name in angle_specs:
-        resolved_name = resolver.resolve(joint_name, obj_type=mujoco.mjtObj.mjOBJ_JOINT, role="Angle visualization")
-        target_name = f"{prefix}{resolved_name}" if prefix else resolved_name
-        joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, target_name)
-        if joint_id < 0 and source is model:
-            joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, resolved_name)
-        if joint_id < 0:
-            raise ValueError(f"Angle visualization joint '{target_name}' not found in model")
-        low, high = model.jnt_range[joint_id]
-        resolved.append((int(joint_id), int(model.jnt_qposadr[joint_id]), int(target_index), float(low), float(high)))
     return resolved
 
 
@@ -989,16 +911,6 @@ def select_target_vectors(
     return starts[valid_mask], current_ends[valid_mask], directions[valid_indices]
 
 
-def select_target_directions(target_directions: np.ndarray | None, target_indices: np.ndarray) -> np.ndarray | None:
-    if target_directions is None:
-        return None
-    directions = np.asarray(target_directions, dtype=np.float64)
-    valid = target_indices[target_indices < len(directions)]
-    if len(valid) == 0:
-        return None
-    return directions[valid]
-
-
 def resolve_variable_markers(model, *, prefix: str = "") -> list[VariableMarkerSpec]:
     markers: list[VariableMarkerSpec] = []
     scalar_joint_types = {
@@ -1029,25 +941,6 @@ def variable_marker_points(model, data, markers: list[VariableMarkerSpec]) -> tu
     return positions, colors
 
 
-def angle_marker_points(
-    model,
-    data,
-    markers: list[ResolvedAnglePoint],
-    target_angles: np.ndarray | None,
-) -> tuple[np.ndarray, np.ndarray]:
-    positions = np.empty((len(markers), 3), dtype=np.float64)
-    colors = np.empty((len(markers), 4), dtype=np.float32)
-    targets = None if target_angles is None else np.asarray(target_angles, dtype=np.float64)
-    for index, (joint_id, qpos_id, target_index, low, high) in enumerate(markers):
-        positions[index] = data.xanchor[joint_id]
-        if targets is not None and target_index < len(targets) and high > low:
-            error = abs(float(data.qpos[qpos_id]) - float(targets[target_index])) / (high - low)
-            colors[index] = variable_marker_rgba(error, 0.0, 1.0)
-        else:
-            colors[index] = ANGLE_RGBA
-    return positions, colors
-
-
 def apply_model_alpha(model, alpha: float) -> None:
     alpha = float(alpha)
     if getattr(model, "ngeom", 0):
@@ -1073,17 +966,14 @@ __all__ = [
     "HandVisualizer",
     "BiHandScene",
     "BiHandVisualizer",
-    "angle_marker_points",
     "apply_model_alpha",
     "append_frame_axes",
     "distance_target_ends",
-    "resolve_robot_angle_points",
     "resolve_robot_distance_points",
     "resolve_robot_frame_points",
     "resolve_robot_vector_points",
     "resolve_variable_markers",
     "robot_vector_points",
-    "select_target_directions",
     "select_target_vectors",
     "set_fingertip_site_visibility",
     "variable_marker_points",

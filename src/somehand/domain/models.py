@@ -45,7 +45,6 @@ class RetargetingStepResult:
     target_frame_primary_directions: np.ndarray | None = None
     target_frame_secondary_directions: np.ndarray | None = None
     target_distances: np.ndarray | None = None
-    target_angles: np.ndarray | None = None
     target_qpos: np.ndarray | None = None
     backend: str | None = None
 

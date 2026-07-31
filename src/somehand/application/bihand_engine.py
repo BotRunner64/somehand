@@ -28,7 +28,6 @@ def _copy_step_result(result: RetargetingStepResult) -> RetargetingStepResult:
         if result.target_frame_secondary_directions is None
         else np.array(result.target_frame_secondary_directions, copy=True),
         target_distances=None if result.target_distances is None else np.array(result.target_distances, copy=True),
-        target_angles=None if result.target_angles is None else np.array(result.target_angles, copy=True),
     )
 
 

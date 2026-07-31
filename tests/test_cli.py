@@ -357,7 +357,7 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
             "landmark",
             "Input Landmarks",
             None,
-            {"distance_pairs": None, "frame_triples": None, "angle_triples": None},
+            {"distance_pairs": None, "frame_triples": None},
         ),
         (
             "robot",
@@ -371,7 +371,6 @@ def test_build_session_adds_single_viewer_sink_for_viewer_backend(monkeypatch):
                 "robot_vector_specs": None,
                 "robot_distance_specs": None,
                 "robot_frame_specs": None,
-                "robot_angle_specs": None,
             },
         ),
     ]
@@ -429,7 +428,6 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
                     robot_types=["body", "site", "site"],
                 )
             ],
-            angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="finger_joint")],
         ),
     )
 
@@ -450,7 +448,6 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
             {
                 "distance_pairs": [(2, 3)],
                 "frame_triples": [(0, 5, 9)],
-                "angle_triples": [(1, 2, 3)],
             },
         ),
         (
@@ -465,7 +462,6 @@ def test_build_session_passes_diagnostic_viewer_settings(monkeypatch):
                 "robot_vector_specs": [(1, "palm", "body", "tip", "site")],
                 "robot_distance_specs": [(0, "a", "site", "b", "site")],
                 "robot_frame_specs": [(0, "palm", "body", "index", "site", "middle", "site")],
-                "robot_angle_specs": [(0, "finger_joint")],
             },
         ),
     ]

@@ -61,11 +61,6 @@ def compute_loss(retargeter, qpos: np.ndarray) -> float:
             loss += primary_loss + secondary_loss
     if retargeter._last_qpos is not None:
         loss += retargeter._norm_delta * np.sum((full_qpos - retargeter._last_qpos) ** 2)
-    if retargeter._target_angles is not None:
-        for index in range(len(retargeter._angle_qpos_ids)):
-            qpos_id = retargeter._angle_qpos_ids[index]
-            diff = full_qpos[qpos_id] - retargeter._target_angles[index]
-            loss += retargeter._angle_weights[index] * diff * diff
     if retargeter._target_distances is not None:
         for index in range(len(retargeter._dist_site_ids)):
             activation = retargeter._smoothed_activations[index]
@@ -149,16 +144,6 @@ def compute_loss_and_grad(retargeter, qpos: np.ndarray) -> tuple[float, np.ndarr
         delta_q = full_qpos - retargeter._last_qpos
         loss += retargeter._norm_delta * np.sum(delta_q**2)
         grad += 2.0 * retargeter._norm_delta * delta_q
-
-    if retargeter._target_angles is not None:
-        for index in range(len(retargeter._angle_qpos_ids)):
-            qpos_id = retargeter._angle_qpos_ids[index]
-            dof_id = retargeter._angle_dof_ids[index]
-            target = retargeter._target_angles[index]
-            weight = retargeter._angle_weights[index]
-            diff = full_qpos[qpos_id] - target
-            loss += weight * diff * diff
-            grad[dof_id] += 2.0 * weight * diff
 
     if retargeter._target_distances is not None:
         for index in range(len(retargeter._dist_site_ids)):

@@ -2,22 +2,51 @@
 
 from __future__ import annotations
 
+import multiprocessing as mp
 import signal
 import time
-from collections.abc import Sequence
+from concurrent.futures import ProcessPoolExecutor
+from collections.abc import Callable, Sequence
 from threading import Event, Thread
-from typing import Callable
 
 from somehand.domain import (
+    BiHandFrame,
     BiHandFrameSink,
     BiHandOutputSink,
+    BiHandRetargetingResult,
     BiHandSessionSummary,
     BiHandTrackingSource,
+    HandFrame,
     PreviewWindow,
+    RetargetingStepResult,
 )
 
-from .bihand_engine import BiHandRetargetingEngine
-from .session import _close_resource, _start_frame_sink_thread as _start_frame_sink_thread_impl
+from .bihand_engine import BiHandRetargetingEngine, _copy_step_result
+from .engine import RetargetingEngine
+from .session import _close_resource
+from .session import _start_frame_sink_thread as _start_frame_sink_thread_impl
+
+_worker_engine: RetargetingEngine | None = None
+
+
+def _init_worker(config_path: str, input_type: str) -> None:
+    global _worker_engine
+    _worker_engine = RetargetingEngine.from_config_path(config_path, input_type=input_type)
+
+
+def _retarget(frame: HandFrame) -> RetargetingStepResult:
+    if _worker_engine is None:
+        raise RuntimeError("retargeting worker is not initialized")
+    return _worker_engine.process(frame)
+
+
+def _create_executor(config_path: str, input_type: str) -> ProcessPoolExecutor:
+    return ProcessPoolExecutor(
+        max_workers=1,
+        mp_context=mp.get_context("spawn"),
+        initializer=_init_worker,
+        initargs=(config_path, input_type),
+    )
 
 
 class BiHandRetargetingSession:
@@ -57,9 +86,18 @@ class BiHandRetargetingSession:
         detected_both = 0
         frame_period = 1.0 / max(source.fps, 1)
         frame_sink_stop = Event()
-        frame_sink_thread = self._start_frame_sink_thread(source, stop_event=frame_sink_stop)
+        frame_sink_thread = None
+        left_executor = None
+        right_executor = None
 
         try:
+            left_executor = _create_executor(self.engine.config.left_config_path, input_type)
+            right_executor = _create_executor(self.engine.config.right_config_path, input_type)
+            initial = self.engine.process(BiHandFrame())
+            left_result = initial.left
+            right_result = initial.right
+            frame_sink_thread = self._start_frame_sink_thread(source, stop_event=frame_sink_stop)
+
             while True:
                 if stop_condition is not None and stop_condition():
                     break
@@ -90,7 +128,19 @@ class BiHandRetargetingSession:
                     detected_right += int(right_detected)
                     detected_both += int(left_detected and right_detected)
 
-                    result = self.engine.process(detection)
+                    left_future = left_executor.submit(_retarget, detection.left) if left_detected else None
+                    right_future = right_executor.submit(_retarget, detection.right) if right_detected else None
+                    if left_future is not None:
+                        left_result = left_future.result()
+                    if right_future is not None:
+                        right_result = right_future.result()
+
+                    result = BiHandRetargetingResult(
+                        left=_copy_step_result(left_result),
+                        right=_copy_step_result(right_result),
+                        left_detected=left_detected,
+                        right_detected=right_detected,
+                    )
                     for sink in self.sinks:
                         sink.on_result(result)
 
@@ -130,6 +180,10 @@ class BiHandRetargetingSession:
             frame_sink_stop.set()
             if frame_sink_thread is not None:
                 frame_sink_thread.join(timeout=1.0)
+            if left_executor is not None:
+                left_executor.shutdown(cancel_futures=True)
+            if right_executor is not None:
+                right_executor.shutdown(cancel_futures=True)
             _close_resource(source)
             if self.preview_window is not None:
                 _close_resource(self.preview_window)

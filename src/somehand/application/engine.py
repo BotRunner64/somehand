@@ -52,5 +52,4 @@ class RetargetingEngine:
             target_frame_primary_directions=frame_primary_targets,
             target_frame_secondary_directions=frame_secondary_targets,
             target_distances=self.retargeter.get_target_distances(),
-            target_angles=self.retargeter.get_target_angles(),
         )

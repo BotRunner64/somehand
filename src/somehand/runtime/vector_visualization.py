@@ -18,7 +18,6 @@ DISTANCE_RGBA = np.array([0.8, 0.25, 1.0, 0.78], dtype=np.float32)
 FRAME_PRIMARY_RGBA = np.array([1.0, 0.08, 0.05, 0.82], dtype=np.float32)
 FRAME_SECONDARY_RGBA = np.array([0.1, 0.9, 0.18, 0.82], dtype=np.float32)
 FRAME_NORMAL_RGBA = np.array([0.15, 0.35, 1.0, 0.82], dtype=np.float32)
-ANGLE_RGBA = np.array([1.0, 0.92, 0.12, 0.9], dtype=np.float32)
 VARIABLE_LOW_RGBA = np.array([0.22, 0.38, 0.62, 0.88], dtype=np.float32)
 VARIABLE_HIGH_RGBA = np.array([1.0, 0.08, 0.04, 0.9], dtype=np.float32)
 VECTOR_RADIUS = 0.002
@@ -28,7 +27,6 @@ LANDMARK_FRAME_AXIS_RADIUS = 0.0028
 LANDMARK_FRAME_AXIS_LENGTH = 0.05
 TIP_RADIUS = 0.0035
 VARIABLE_MARKER_RADIUS = 0.005
-ANGLE_MARKER_RADIUS = 0.0065
 
 
 def append_vector_segments(
@@ -165,25 +163,6 @@ def append_landmark_frame_geoms(
         scene.geoms[scene.ngeom - 1].rgba[:] = FRAME_NORMAL_RGBA
 
 
-def append_landmark_angle_geoms(
-    scene,
-    landmarks: np.ndarray,
-    angle_triples: Sequence[tuple[int, int, int]],
-) -> None:
-    points = np.asarray(landmarks, dtype=np.float64)
-    for first_idx, middle_idx, second_idx in angle_triples:
-        if max(first_idx, middle_idx, second_idx) >= len(points):
-            continue
-        middle = points[middle_idx]
-        append_vector_segments(
-            scene,
-            np.asarray([middle, middle], dtype=np.float64),
-            np.asarray([points[first_idx], points[second_idx]], dtype=np.float64),
-            rgba=ANGLE_RGBA,
-            radius=DIAGNOSTIC_THIN_RADIUS,
-        )
-
-
 def target_direction_ends(
     starts: np.ndarray,
     current_ends: np.ndarray,
@@ -256,8 +235,6 @@ def append_variable_markers(
 
 
 __all__ = [
-    "ANGLE_MARKER_RADIUS",
-    "ANGLE_RGBA",
     "DIAGNOSTIC_THIN_RADIUS",
     "DISTANCE_RGBA",
     "FRAME_NORMAL_RGBA",
@@ -275,7 +252,6 @@ __all__ = [
     "VARIABLE_MARKER_RADIUS",
     "VECTOR_RADIUS",
     "VectorPair",
-    "append_landmark_angle_geoms",
     "append_landmark_frame_geoms",
     "append_landmark_vector_geoms",
     "append_variable_markers",

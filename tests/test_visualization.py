@@ -470,7 +470,6 @@ def test_landmark_visualizer_diagnostic_mode_dims_base_links():
     visualizer._vector_pairs = []
     visualizer._distance_pairs = []
     visualizer._frame_triples = [(1, 2, 5)]
-    visualizer._angle_triples = []
     visualizer._diagnostic = True
     landmarks = np.zeros((21, 3), dtype=np.float64)
     landmarks[1] = [0.0, 0.0, 0.0]
@@ -650,7 +649,7 @@ def test_hand_visualizer_overlay_geoms_are_mode_gated():
     assert scene.ngeom > 0
 
 
-def test_hand_visualizer_draws_all_robot_constraint_types():
+def test_hand_visualizer_draws_all_semantic_constraint_types():
     model, data = _diagnostic_test_model()
     scene = viewer_hand.mujoco.MjvScene(model, maxgeom=128)
     fake_viewer = type("Viewer", (), {"user_scn": scene})()
@@ -673,11 +672,6 @@ def test_hand_visualizer_draws_all_robot_constraint_types():
         [(0, "palm", "body", "tip_site", "site", "slider_body", "body")],
         hand_side="right",
     )
-    visualizer._angle_points = viewer_hand.resolve_robot_angle_points(
-        model,
-        [(0, "finger_hinge")],
-        hand_side="right",
-    )
     visualizer._variable_markers = []
 
     visualizer._update_vector_overlay(
@@ -685,7 +679,6 @@ def test_hand_visualizer_draws_all_robot_constraint_types():
         target_frame_primary_directions=np.array([[1.0, 0.0, 0.0]], dtype=np.float64),
         target_frame_secondary_directions=np.array([[0.0, 1.0, 0.0]], dtype=np.float64),
         target_distances=np.array([0.03], dtype=np.float64),
-        target_angles=np.array([0.5], dtype=np.float64),
     )
 
     assert scene.ngeom >= 16
@@ -715,8 +708,6 @@ def test_bihand_visualizer_rotates_target_direction_overlays_into_scene_frame():
         right_distance_points=[],
         left_frame_points=[],
         right_frame_points=[],
-        left_angle_points=[],
-        right_angle_points=[],
         left_variable_markers=[],
         right_variable_markers=[],
     )

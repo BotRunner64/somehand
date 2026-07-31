@@ -12,6 +12,8 @@ import somehand.cli.runtime as cli_runtime
 import somehand.infrastructure.sinks as sinks_module
 import somehand.runtime.sink_outputs as runtime_sinks_output
 import somehand.runtime.sink_rendering as runtime_sink_rendering
+from somehand.acceptance import mirror_pose_to_left, synthetic_hand_pose
+from somehand.application import BiHandRetargetingEngine, BiHandRetargetingSession
 from somehand.cli import build_parser
 from somehand.infrastructure.artifacts import load_bihand_recording_artifact, save_bihand_recording_artifact
 from somehand.infrastructure.config_loader import load_bihand_config, load_retargeting_config
@@ -116,6 +118,44 @@ def test_all_bihand_configs_load_successfully():
         right_config = load_retargeting_config(config.right_config_path)
         assert left_config.hand.side == "left"
         assert right_config.hand.side == "right"
+
+
+def test_bihand_session_runs_each_side_in_spawned_worker():
+    engine = BiHandRetargetingEngine.from_config_path(str(DEFAULT_BIHAND_CONFIG_PATH))
+    right_landmarks = synthetic_hand_pose("pinch")
+    left_landmarks = mirror_pose_to_left(right_landmarks)
+    source = _FakeBiHandSource(
+        [
+            BiHandSourceFrame(
+                detection=BiHandFrame(
+                    left=HandFrame(left_landmarks, None, "left"),
+                    right=HandFrame(right_landmarks, None, "right"),
+                )
+            ),
+            BiHandSourceFrame(
+                detection=BiHandFrame(
+                    right=HandFrame(right_landmarks, None, "right"),
+                )
+            ),
+        ]
+    )
+    results = []
+    sink = SimpleNamespace(
+        is_running=True,
+        on_result=results.append,
+        close=lambda: None,
+    )
+    session = BiHandRetargetingSession(engine, sinks=[sink])
+    summary = session.run(source, input_type="replay")
+
+    assert summary.num_frames == 2
+    assert summary.num_detected_both == 1
+    assert len(results) == 2
+    assert results[0].left.qpos.size > 0
+    assert results[0].right.qpos.size > 0
+    np.testing.assert_allclose(results[1].left.qpos, results[0].left.qpos)
+    assert results[1].left_detected is False
+    assert results[1].right_detected is True
 
 
 def test_build_bihand_session_adds_replay_video_sink(monkeypatch):
@@ -261,8 +301,6 @@ def test_build_bihand_session_adds_landmark_frame_sink(monkeypatch):
         "right_distance_pairs": None,
         "left_frame_triples": None,
         "right_frame_triples": None,
-        "left_angle_triples": None,
-        "right_angle_triples": None,
     }
 
 
@@ -305,7 +343,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                         robot_types=["body", "site", "site"],
                     )
                 ],
-                angle_constraints=[SimpleNamespace(landmarks=[1, 2, 3], joint="left_joint")],
             ),
         ),
         right_engine=SimpleNamespace(
@@ -320,7 +357,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
                     SimpleNamespace(human=[4, 6], robot=["c", "d"], robot_types=["site", "site"]),
                 ],
                 frame_constraints=[],
-                angle_constraints=[SimpleNamespace(landmarks=[3, 4, 5], joint="right_joint")],
             ),
         ),
         config=SimpleNamespace(
@@ -352,8 +388,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
     assert frame_created["right_distance_pairs"] == [(4, 6)]
     assert frame_created["left_frame_triples"] == [(0, 5, 9)]
     assert frame_created["right_frame_triples"] == []
-    assert frame_created["left_angle_triples"] == [(1, 2, 3)]
-    assert frame_created["right_angle_triples"] == [(3, 4, 5)]
     assert result_created["viewer_mode"] == "diagnostic"
     assert result_created["left_hand_side"] == "left"
     assert result_created["right_hand_side"] == "right"
@@ -363,8 +397,6 @@ def test_build_bihand_session_passes_diagnostic_settings(monkeypatch):
     assert result_created["right_robot_distance_specs"] == [(0, "c", "site", "d", "site")]
     assert result_created["left_robot_frame_specs"] == [(0, "palm", "body", "index", "site", "middle", "site")]
     assert result_created["right_robot_frame_specs"] == []
-    assert result_created["left_robot_angle_specs"] == [(0, "left_joint")]
-    assert result_created["right_robot_angle_specs"] == [(0, "right_joint")]
 
 
 def test_bihand_output_window_sink_uses_mujoco_visualizer(monkeypatch):

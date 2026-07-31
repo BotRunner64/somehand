@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Breaking changes
+
+- Removed the angle-constraint configuration, solver objective, result fields, and diagnostic overlays.
+- Removed OmniHand's index, middle, and ring finger-closure distance constraints; its remaining distance objectives cover thumb-to-fingertip pairs.
+
 ## 0.3.0 - 2026-07-15
 
 ### Added

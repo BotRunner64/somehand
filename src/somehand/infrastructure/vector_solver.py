@@ -35,7 +35,6 @@ class VectorRetargeter:
         self._target_directions: np.ndarray | None = None
         self._target_frame_primary_directions: np.ndarray | None = None
         self._target_frame_secondary_directions: np.ndarray | None = None
-        self._target_angles: np.ndarray | None = None
         self._target_distances: np.ndarray | None = None
         self._raw_human_distances: np.ndarray | None = None
         self._last_qpos: np.ndarray | None = None
@@ -99,38 +98,6 @@ class VectorRetargeter:
         self._weights = np.array(config.vector_weights, dtype=np.float64)
         if not self.human_vector_pairs:
             raise ValueError(f"retargeting config '{config.hand.name}' resolved zero vector constraints")
-
-        self._angle_landmarks: list[tuple[int, int, int]] = []
-        self._angle_qpos_ids: list[int] = []
-        self._angle_dof_ids: list[int] = []
-        self._angle_joint_ranges: list[tuple[float, float]] = []
-        self._angle_weights: list[float] = []
-        self._angle_scales: list[float] = []
-        self._angle_inverts: list[bool] = []
-        resolved_angle_constraints = []
-        for constraint in config.angle_constraints:
-            resolved_joint = self._name_resolver.resolve_optional(
-                constraint.joint,
-                obj_type=mujoco.mjtObj.mjOBJ_JOINT,
-                role="Angle constraint joint",
-            )
-            if resolved_joint is None:
-                if constraint.optional:
-                    continue
-                raise ValueError(f"Angle constraint joint '{constraint.joint}' not found in model")
-            self._angle_landmarks.append(tuple(constraint.landmarks))
-            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, resolved_joint)
-            if joint_id < 0:
-                raise ValueError(f"Angle constraint joint '{constraint.joint}' not found in model")
-            self._angle_qpos_ids.append(int(self.model.jnt_qposadr[joint_id]))
-            self._angle_dof_ids.append(int(self.model.jnt_dofadr[joint_id]))
-            low, high = self.model.jnt_range[joint_id]
-            self._angle_joint_ranges.append((float(low), float(high)))
-            self._angle_weights.append(constraint.weight)
-            self._angle_scales.append(float(constraint.scale))
-            self._angle_inverts.append(bool(constraint.invert))
-            resolved_angle_constraints.append(constraint)
-        self.config.angle_constraints = resolved_angle_constraints
 
         self._dist_human_pairs: list[tuple[int, int]] = []
         self._dist_site_ids: list[tuple[int, bool, int, bool]] = []
@@ -456,11 +423,6 @@ class VectorRetargeter:
         if self._target_distances is None:
             return None
         return self._target_distances.copy()
-
-    def get_target_angles(self) -> np.ndarray | None:
-        if self._target_angles is None:
-            return None
-        return self._target_angles.copy()
 
     def get_robot_scale(self) -> float:
         return float(self._robot_distance_scale)

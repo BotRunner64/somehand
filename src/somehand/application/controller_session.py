@@ -103,7 +103,6 @@ class ControlledRetargetingSession:
                         target_frame_primary_directions=getattr(target, "target_frame_primary_directions", None),
                         target_frame_secondary_directions=getattr(target, "target_frame_secondary_directions", None),
                         target_distances=getattr(target, "target_distances", None),
-                        target_angles=getattr(target, "target_angles", None),
                         backend=state.backend,
                     )
                     for sink in self.sinks:

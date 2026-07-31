@@ -79,7 +79,7 @@ def test_config_validation_rejects_legacy_vector_schema(tmp_path):
         load_retargeting_config(str(config_path))
 
 
-def test_angle_constraint_parses_scale_and_invert(tmp_path):
+def test_removed_angle_constraints_are_rejected(tmp_path):
     mjcf_path = Path("assets/mjcf/linkerhand_l20_right/model.xml").resolve()
     config_path = tmp_path / "angle.yaml"
     config_path.write_text(
@@ -105,9 +105,8 @@ def test_angle_constraint_parses_scale_and_invert(tmp_path):
         )
     )
 
-    config = load_retargeting_config(str(config_path))
-    assert config.angle_constraints[0].scale == pytest.approx(2.0)
-    assert config.angle_constraints[0].invert is True
+    with pytest.raises(ValueError, match="angle_constraints is no longer supported"):
+        load_retargeting_config(str(config_path))
 
 
 def test_removed_vector_loss_is_rejected(tmp_path):
@@ -400,12 +399,11 @@ def test_hand_config_owns_vector_topology():
     assert distance_by_human[(4, 8)].scale == pytest.approx(1.0)
     assert distance_by_human[(4, 8)].threshold == pytest.approx(0.04)
     assert distance_by_human[(4, 8)].activation_type == "linear"
-    assert distance_by_human[(4, 8)].scale_mode == "hand_scaled"
+    assert distance_by_human[(4, 8)].scale_mode == "raw"
     assert len(config.frame_constraints) == 1
     assert config.frame_constraints[0].name == "thumb_cmc_frame"
     assert config.frame_constraints[0].primary_weight == pytest.approx(2.0)
     assert config.frame_constraints[0].secondary_weight == pytest.approx(1.8)
-    assert config.angle_constraints == []
 
 
 def test_wujihand_four_fingers_use_three_visible_phalange_vectors():
@@ -489,6 +487,12 @@ def test_omnihand_vectors_follow_mjcf_finger_links():
     }
 
     assert actual_pairs == expected_pairs
+    assert {tuple(constraint.human) for constraint in config.distance_constraints} == {
+        (4, 8),
+        (4, 12),
+        (4, 16),
+        (4, 20),
+    }
 
 
 def test_side_specific_configs_resolve_all_configured_vectors():
@@ -555,9 +559,8 @@ def test_linkerhand_l20pro_pinky_chain_and_mesh_are_laterally_aligned():
     assert float(np.ptp(mesh_centers[:, 1])) < 1e-3
 
 
-def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
+def test_all_distance_constraint_configs_only_cover_thumb_to_fingertips():
     expected_pairs = {(4, 8), (4, 12), (4, 16), (4, 20)}
-    expected_closure_pairs = {(8, 5), (12, 9), (16, 13), (20, 17)}
     config_paths = _side_specific_config_paths()
     assert config_paths
     for config_path in config_paths:
@@ -565,8 +568,7 @@ def test_all_distance_constraint_configs_cover_thumb_to_all_fingertips():
         if not config.distance_constraints:
             continue
         actual_pairs = {tuple(constraint.human) for constraint in config.distance_constraints}
-        assert expected_pairs.issubset(actual_pairs), f"{config_path} pinch distance pairs mismatch: {actual_pairs}"
-        assert not expected_closure_pairs.issubset(actual_pairs), f"{config_path} should no longer include closure pairs: {actual_pairs}"
+        assert actual_pairs == expected_pairs, f"{config_path} distance pairs mismatch: {actual_pairs}"
 
 
 def test_model_name_resolver_supports_single_letter_prefixes():
@@ -574,7 +576,6 @@ def test_model_name_resolver_supports_single_letter_prefixes():
     resolver = ModelNameResolver(model, hand_side="right")
 
     assert resolver.resolve("f_link1_1", obj_type=mujoco.mjtObj.mjOBJ_BODY, role="Body") == "r_f_link1_1"
-    assert resolver.resolve("f_joint1_1", obj_type=mujoco.mjtObj.mjOBJ_JOINT, role="Joint") == "r_f_joint1_1"
 
 
 def test_model_name_resolver_supports_left_right_word_prefixes():

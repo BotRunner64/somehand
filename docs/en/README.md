@@ -1,34 +1,27 @@
 # somehand Documentation
 
-Use this index by entrypoint. CLI is for running the packaged tool; API is for embedding retargeting in Python.
+[中文文档](../zh/README.md)
 
----
+somehand converts 21-point human-hand landmarks into joint targets for configurable robot hands. Use the CLI for a complete input-to-output workflow, or use the Python API when your application already owns the input loop.
 
-## Start Here
+New users should complete [Installation](getting-started/installation.md), then follow either the CLI or API tutorial.
 
-| I want to... | Read |
-| --- | --- |
-| Install dependencies and verify one run | [Getting Started](getting-started.md) |
-| Run from the terminal | [CLI Usage](runtime-modes.md) |
-| Embed retargeting in Python | [API Usage](api.md) |
-| Select a hand model or change a YAML config | [Configuration](configuration.md) |
-| Download runtime assets or check model availability | [Assets & Models](assets-and-models.md) |
+## Installation
 
----
+- [Installation](getting-started/installation.md) — install the package, download the required assets, and verify one run.
+
+## Tutorials
+
+- [CLI](tutorials/cli.md) — webcam, video, recordings, PICO, hc_mocap, simulation, and real hardware.
+- [Python API](tutorials/api.md) — retarget one or two landmark streams from Python.
 
 ## Reference
 
-| Doc | What it covers |
-| --- | --- |
-| [Getting Started](getting-started.md) | Install, assets, first run, optional SDK setup |
-| [CLI Usage](runtime-modes.md) | Terminal commands for live, replay, export, and hardware use |
-| [API Usage](api.md) | Stable Python imports, one-step engines, and session hooks |
-| [Configuration](configuration.md) | Which config file to edit and the fields that usually matter |
-| [Assets & Models](assets-and-models.md) | Download commands, local paths, supported config families |
-| [Maintainer Guide](maintainer-guide.md) | Docs rules, verification commands, model-update workflow |
+- [Configuration](reference/configuration.md) — choose a hand model and edit retargeting YAML.
+- [Retargeting Algorithm](reference/retargeting.md) — objective terms, solver behavior, and parameter tuning.
+- [Assets and Models](reference/assets.md) — asset groups, download locations, and model coverage.
+- [Code Structure](reference/code-structure.md) — runtime data flow and repository layout.
 
----
+## Current Scope
 
-## Scope
-
-The common CLI path is single-hand retargeting. Bi-hand support is for `viewer` replay/render workflows, and real-hardware control is single-hand only. API users normally provide their own landmark frames and call the engine directly.
+The CLI supports one or two hands with the viewer backend. Simulation and real-hardware backends are single-hand only. The stable embedding surface is `somehand.api`.

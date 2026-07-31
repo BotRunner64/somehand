@@ -1,7 +1,6 @@
 """Domain-layer models and pure transformations."""
 
 from .config import (
-    AngleConstraint,
     BiHandRetargetingConfig,
     BiHandViewerConfig,
     ControllerConfig,
@@ -35,7 +34,6 @@ from .models import (
 from .preprocessing import compute_target_directions, preprocess_landmarks
 
 __all__ = [
-    "AngleConstraint",
     "BiHandFrame",
     "BiHandFrameSink",
     "BiHandOutputSink",
