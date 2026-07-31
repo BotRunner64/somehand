@@ -1,34 +1,26 @@
 # somehand 文档
 
-按入口找文档。CLI 用于运行打包好的工具，API 用于在 Python 里嵌入 retargeting。
+[English documentation](../en/README.md)
 
----
+somehand 把 21 点人手 landmark 转换为可配置机器人手的关节目标。需要完整的输入到输出流程时使用 CLI；已有程序自己管理输入循环时使用 Python API。
 
-## 从这里开始
+第一次使用请先完成[安装](getting-started/installation.md)，再选择 CLI 或 API 教程。
 
-| 我想做什么 | 阅读 |
-| --- | --- |
-| 安装依赖并验证一次运行 | [快速开始](getting-started.md) |
-| 从终端运行 | [CLI 用法](runtime-modes.md) |
-| 在 Python 中嵌入 retargeting | [API 用法](api.md) |
-| 选择手模型或修改 YAML 配置 | [配置说明](configuration.md) |
-| 下载运行时资产或查看模型覆盖 | [资产与模型](assets-and-models.md) |
+## 安装
 
----
+- [安装](getting-started/installation.md) — 安装软件包、下载所需资产并验证一次运行。
 
-## 参考
+## 教程
 
-| 文档 | 内容 |
-| --- | --- |
-| [快速开始](getting-started.md) | 安装、资产、首次运行、可选 SDK 配置 |
-| [CLI 用法](runtime-modes.md) | 直播、回放、导出和硬件用途的终端命令 |
-| [API 用法](api.md) | 稳定 Python import、单步 engine、session hook |
-| [配置说明](configuration.md) | 该改哪个配置文件，以及通常需要关注的字段 |
-| [资产与模型](assets-and-models.md) | 下载命令、本地路径、已覆盖的配置家族 |
-| [维护指南](maintainer-guide.md) | 文档规则、验证命令、模型更新流程 |
+- [CLI](tutorials/cli.md) — 摄像头、视频、录制、PICO、hc_mocap、仿真和真机。
+- [Python API](tutorials/api.md) — 在 Python 中重定向单手或双手 landmark 流。
 
----
+## 参考资料
 
-## 项目范围
+- [配置](reference/configuration.md) — 选择手模型并修改 retargeting YAML。
+- [资产与模型](reference/assets.md) — 资产分组、下载位置和模型覆盖。
+- [代码结构](reference/code-structure.md) — 运行时数据流和仓库布局。
 
-CLI 常用路径是单手 retargeting。双手能力主要用于 `viewer` 回放/渲染，真机控制当前仅支持单手。API 用户通常自己提供 landmark frame，并直接调用 engine。
+## 当前范围
+
+CLI 的 viewer backend 支持单手和双手；仿真和真机 backend 仅支持单手。稳定的嵌入入口是 `somehand.api`。
