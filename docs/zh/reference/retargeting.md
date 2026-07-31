@@ -65,7 +65,7 @@ hand_scaled: target = scale * human_distance
                       / human_middle_finger_length
 ```
 
-`hand_scaled` 用于补偿人手与机器人手的尺寸差异。人手中指长度为 `9 → 10 → 11 → 12` 三段之和，机器人长度使用解析出的中指关节链。
+仓库内置的 retargeting 配置使用 `raw`，直接应用输入 landmark 距离，不做手部尺寸补偿。需要补偿时仍可使用 `hand_scaled`；人手中指长度为 `9 → 10 → 11 → 12` 三段之和，机器人长度使用解析出的中指关节链。
 
 距离激活值由人手距离 `d` 和 `threshold` 决定：
 
@@ -128,7 +128,7 @@ filtered_t = alpha * current_t + (1 - alpha) * filtered_(t-1)
 | `scale` | 把人手距离转换为机器人目标距离时使用的倍率。 |
 | `threshold` | 控制人手两点相距多远时 distance 约束停止激活，单位与输入 landmark 距离一致。值越大，捏合约束越早启用。 |
 | `activation_type` | 选择 `linear` 或 `gaussian` 距离激活函数。 |
-| `scale_mode` | `raw` 直接使用输入距离；`hand_scaled` 会补偿人手与机器人手的尺寸差异。 |
+| `scale_mode` | `raw`（默认）直接使用输入距离；`hand_scaled` 会补偿人手与机器人手的尺寸差异。 |
 
 单条约束中填写的值会覆盖 `constraint_defaults`。Vector 的 `terminal_weight` 用于机器人第二个点为 site 的约束；distance 的 `weights_by_human` 根据 landmark 对选择默认权重。
 

@@ -65,7 +65,7 @@ hand_scaled: target = scale * human_distance
                       / human_middle_finger_length
 ```
 
-`hand_scaled` compensates for different human and robot hand sizes. The middle-finger length is the sum of the `9 → 10 → 11 → 12` human segments and the resolved robot middle-finger chain.
+The checked-in retargeting configs use `raw`, so the input landmark distance is applied without hand-size compensation. `hand_scaled` remains available when compensation is needed; the middle-finger length is the sum of the `9 → 10 → 11 → 12` human segments and the resolved robot middle-finger chain.
 
 Distance activation depends on the human distance `d` and `threshold`:
 
@@ -128,7 +128,7 @@ The first frame uses the current value directly.
 | `scale` | Multiplies the human distance when producing the robot target distance. |
 | `threshold` | Controls how far apart human points may be before a distance constraint deactivates. It uses the input landmark distance unit. A larger value activates pinch constraints earlier. |
 | `activation_type` | Selects `linear` or `gaussian` distance activation. |
-| `scale_mode` | `raw` uses the input distance directly; `hand_scaled` compensates for human/robot hand size. |
+| `scale_mode` | `raw` (the default) uses the input distance directly; `hand_scaled` compensates for human/robot hand size. |
 
 Values in an individual constraint override `constraint_defaults`. Vector `terminal_weight` applies when the second robot point is a site; distance `weights_by_human` selects defaults by landmark pair.
 

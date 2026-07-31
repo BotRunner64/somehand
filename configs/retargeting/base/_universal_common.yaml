@@ -13,7 +13,7 @@ retargeting:
       scale: 1.0
       threshold: 0.04
       activation_type: "linear"
-      scale_mode: "hand_scaled"
+      scale_mode: "raw"
     frame:
       primary_weight: 2.0
       secondary_weight: 1.8
