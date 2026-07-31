@@ -18,6 +18,7 @@ New users should complete [Installation](getting-started/installation.md), then 
 ## Reference
 
 - [Configuration](reference/configuration.md) — choose a hand model and edit retargeting YAML.
+- [Retargeting Algorithm](reference/retargeting.md) — objective terms, solver behavior, and parameter tuning.
 - [Assets and Models](reference/assets.md) — asset groups, download locations, and model coverage.
 - [Code Structure](reference/code-structure.md) — runtime data flow and repository layout.
 

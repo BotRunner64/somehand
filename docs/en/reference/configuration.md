@@ -4,6 +4,8 @@
 
 Retargeting configs select the robot model, hand side, constraints, and optional controller metadata.
 
+This page describes the YAML structure. See [Retargeting Algorithm](retargeting.md) for the objective function, solver parameters, and tuning guidance.
+
 ## Config Tree
 
 ```text
@@ -70,7 +72,7 @@ right:
 | `retargeting.distance_constraints` | Match distances, normally between fingertips. |
 | `retargeting.frame_constraints` | Align a frame built from three human and three robot points. |
 | `retargeting.preprocess` | Input smoothing through `temporal_filter_alpha`. |
-| `retargeting.solver` | Iteration, tolerance, activation smoothing, and output smoothing settings. |
+| `retargeting.solver` | Iteration, temporal regularization, activation smoothing, and output smoothing settings. |
 | `controller` | Real-backend model family and default speed/torque metadata. CLI flags select the runtime backend and transport. |
 | `viewer` | Bi-hand window size, model poses, and camera target. |
 

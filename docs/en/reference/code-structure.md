@@ -22,6 +22,8 @@ webcam / video / PICO / hc_mocap / recording
 
 Input adapters normalize data into domain frames. The application engine preprocesses landmarks, updates solver targets, and returns robot joint positions. Runtime sinks then display, save, simulate, or send those results to hardware.
 
+See [Retargeting Algorithm](retargeting.md) for the objective and per-frame solve.
+
 ## Python Package
 
 Core code lives under `src/somehand/`:

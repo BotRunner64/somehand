@@ -4,6 +4,8 @@
 
 Retargeting 配置用于选择机器人模型、手别、约束和可选控制器元数据。
 
+本页说明 YAML 结构；目标函数、求解参数和调参方法见[重定向算法](retargeting.md)。
+
 ## 配置目录
 
 ```text
@@ -70,7 +72,7 @@ right:
 | `retargeting.distance_constraints` | 匹配距离，通常用于指尖。 |
 | `retargeting.frame_constraints` | 对齐由三个人手点和三个机器人点构成的坐标系。 |
 | `retargeting.preprocess` | 通过 `temporal_filter_alpha` 平滑输入。 |
-| `retargeting.solver` | 迭代、容差、激活平滑和输出平滑设置。 |
+| `retargeting.solver` | 迭代、时序正则、激活平滑和输出平滑设置。 |
 | `controller` | 真机 backend 的型号族和默认速度/力矩元数据。运行 backend 和 transport 由 CLI 参数选择。 |
 | `viewer` | 双手窗口尺寸、模型 pose 和相机目标。 |
 

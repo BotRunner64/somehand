@@ -18,6 +18,7 @@ somehand 把 21 点人手 landmark 转换为可配置机器人手的关节目标
 ## 参考资料
 
 - [配置](reference/configuration.md) — 选择手模型并修改 retargeting YAML。
+- [重定向算法](reference/retargeting.md) — 目标函数、求解过程和参数调节。
 - [资产与模型](reference/assets.md) — 资产分组、下载位置和模型覆盖。
 - [代码结构](reference/code-structure.md) — 运行时数据流和仓库布局。
 

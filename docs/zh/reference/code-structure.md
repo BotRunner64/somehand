@@ -22,6 +22,8 @@ RetargetingStepResult 或 BiHandRetargetingResult
 
 输入适配器先把数据统一为 domain frame。application engine 预处理 landmark、更新求解目标并返回机器人关节位置；runtime sink 再显示、保存、仿真或把结果发送到硬件。
 
+目标函数和单帧求解过程见[重定向算法](retargeting.md)。
+
 ## Python 包
 
 核心代码位于 `src/somehand/`：
