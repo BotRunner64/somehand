@@ -1,3 +1,5 @@
 include CHANGELOG.md
 recursive-include configs/retargeting *.yaml
+recursive-include configs/experiments *.yaml
 recursive-include docs *.md *.png
+recursive-include scripts/experiments *.py

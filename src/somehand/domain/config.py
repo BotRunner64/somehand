@@ -10,6 +10,7 @@ from .hand_side import HAND_SIDES, normalize_hand_side
 @dataclass
 class SolverConfig:
     max_iterations: int = 30
+    ftol: float = 1e-6
     norm_delta: float = 0.01
     output_alpha: float = 0.70
     activation_alpha: float = 0.3
@@ -162,6 +163,8 @@ class RetargetingConfig:
             raise ValueError("temporal_filter_alpha must be in (0, 1]")
         if not 0.0 < self.solver.output_alpha <= 1.0:
             raise ValueError("solver.output_alpha must be in (0, 1]")
+        if self.solver.ftol <= 0.0:
+            raise ValueError("solver.ftol must be > 0")
         if self.hand.side not in HAND_SIDES:
             raise ValueError("hand.side must only contain 'left' or 'right'")
         if self.controller.backend not in {"viewer", "sim", "real"}:

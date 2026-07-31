@@ -11,6 +11,7 @@ MJCF_REQUIRED_MODULES = {
     "test_bihand.py",
     "test_config_model.py",
     "test_controller.py",
+    "test_quantitative_experiment.py",
 }
 
 

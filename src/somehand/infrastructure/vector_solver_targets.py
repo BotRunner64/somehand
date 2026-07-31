@@ -50,6 +50,7 @@ def build_target_state(retargeter, landmarks_3d: np.ndarray, *, hand_side: str) 
         hand_side=hand_side,
     )
     landmarks = retargeter.landmark_filter.filter(landmarks)
+    retargeter._target_landmarks = landmarks.copy()
 
     directions = np.empty((len(retargeter.human_vector_pairs), 3), dtype=np.float64)
     distance_scale = retargeter._robot_distance_scale / max(human_distance_scale(landmarks), 1e-6)

@@ -50,3 +50,11 @@ retargeting:
     - human: [4, 20]
       robot: ["thumb_dip_link_tip", "pinky_dip_link_tip"]
       robot_types: ["site", "site"]
+  frame_constraints:
+    - name: "thumb_cmc_frame"
+      human_origin: 1
+      human_primary: 2
+      human_secondary: 5
+      robot_origin: "thumb_abad_link"
+      robot_primary: "thumb_mcp_link"
+      robot_secondary: "index_abad_link"

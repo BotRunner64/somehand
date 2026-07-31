@@ -13,6 +13,7 @@
 | 在 Python 中嵌入 retargeting | [API 用法](api.md) |
 | 选择手模型或修改 YAML 配置 | [配置说明](configuration.md) |
 | 下载运行时资产或查看模型覆盖 | [资产与模型](assets-and-models.md) |
+| 运行论文定量实验 | [定量实验](quantitative-experiment.md) |
 
 ---
 
@@ -25,6 +26,7 @@
 | [API 用法](api.md) | 稳定 Python import、单步 engine、session hook |
 | [配置说明](configuration.md) | 该改哪个配置文件，以及通常需要关注的字段 |
 | [资产与模型](assets-and-models.md) | 下载命令、本地路径、已覆盖的配置家族 |
+| [定量实验](quantitative-experiment.md) | 冻结的 PICO 协议、跨手型矩阵、消融、表格和图片 |
 | [维护指南](maintainer-guide.md) | 文档规则、验证命令、模型更新流程 |
 
 ---

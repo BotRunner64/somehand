@@ -19,6 +19,7 @@ cli = [
 ]
 dev = [
     "build>=1.0",
+    "matplotlib>=3.8.0",
     "mediapipe>=0.10.0",
     "opencv-python>=4.8.0",
     "pico-bridge @ https://github.com/BotRunner64/pico-bridge/releases/download/v0.2.1/pico_bridge-0.2.1-py3-none-any.whl",

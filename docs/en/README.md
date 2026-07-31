@@ -13,6 +13,7 @@ Use this index by entrypoint. CLI is for running the packaged tool; API is for e
 | Embed retargeting in Python | [API Usage](api.md) |
 | Select a hand model or change a YAML config | [Configuration](configuration.md) |
 | Download runtime assets or check model availability | [Assets & Models](assets-and-models.md) |
+| Run the paper quantitative experiment | [Quantitative Experiment](quantitative-experiment.md) |
 
 ---
 
@@ -25,6 +26,7 @@ Use this index by entrypoint. CLI is for running the packaged tool; API is for e
 | [API Usage](api.md) | Stable Python imports, one-step engines, and session hooks |
 | [Configuration](configuration.md) | Which config file to edit and the fields that usually matter |
 | [Assets & Models](assets-and-models.md) | Download commands, local paths, supported config families |
+| [Quantitative Experiment](quantitative-experiment.md) | Frozen PICO protocol, cross-hand matrix, ablations, tables and figures |
 | [Maintainer Guide](maintainer-guide.md) | Docs rules, verification commands, model-update workflow |
 
 ---

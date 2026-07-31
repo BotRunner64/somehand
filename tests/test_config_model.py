@@ -399,7 +399,7 @@ def test_hand_config_owns_vector_topology():
     assert distance_by_human[(4, 8)].scale == pytest.approx(1.0)
     assert distance_by_human[(4, 8)].threshold == pytest.approx(0.04)
     assert distance_by_human[(4, 8)].activation_type == "linear"
-    assert distance_by_human[(4, 8)].scale_mode == "hand_scaled"
+    assert distance_by_human[(4, 8)].scale_mode == "raw"
     assert len(config.frame_constraints) == 1
     assert config.frame_constraints[0].name == "thumb_cmc_frame"
     assert config.frame_constraints[0].primary_weight == pytest.approx(2.0)

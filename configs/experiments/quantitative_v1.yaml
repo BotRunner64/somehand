@@ -1,0 +1,38 @@
+experiment_id: "dex_retargeting_quantitative_v1"
+recording: "recordings/quantitative/pico_right_v1.pkl"
+annotations: "recordings/quantitative/pico_right_v1.annotations.json"
+output_dir: "recordings/quantitative/results/v1"
+
+sample_rate_hz: 80
+warmup_frames: 80
+contact_threshold_m: 0.001
+human_pinch_threshold_m: 0.020
+minimum_contact_duration_s: 0.1
+reference_hand: "linkerhand_l20_right"
+
+hands:
+  - config: "configs/retargeting/right/dex5_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/dexhand021_right.yaml"
+  - config: "configs/retargeting/right/inspire_dfq_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/inspire_ftp_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l10_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l20_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/linkerhand_l20pro_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l21_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l25_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l30_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_l6_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/linkerhand_o6_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_o7_right.yaml"
+  - config: "configs/retargeting/right/linkerhand_t12_right.yaml"
+  - config: "configs/retargeting/right/omnihand_right.yaml"
+  - config: "configs/retargeting/right/revo2_right.yaml"
+  - config: "configs/retargeting/right/rohand_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/sharpa_wave_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/wujihand_right.yaml"

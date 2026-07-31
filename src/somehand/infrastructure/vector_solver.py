@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from time import perf_counter_ns
+
 import mujoco
 import numpy as np
 from scipy.optimize import minimize
@@ -13,6 +16,20 @@ from .model_name_resolver import ModelNameResolver
 from .vector_solver_objective import accumulate_direction_loss, compute_loss, compute_loss_and_grad, rotation_jacobian_to_axis_jacobian
 from .vector_solver_primitives import TemporalFilter
 from .vector_solver_targets import build_target_state, dist_activation, human_distance_scale, orthonormalize_frame_axes
+
+
+@dataclass(frozen=True, slots=True)
+class SolveDiagnostics:
+    """Diagnostics for the most recent SLSQP solve."""
+
+    optimizer_time_ns: int
+    success: bool
+    status: int
+    message: str
+    iterations: int
+    function_evaluations: int
+    jacobian_evaluations: int
+    objective: float
 
 
 class VectorRetargeter:
@@ -30,14 +47,17 @@ class VectorRetargeter:
 
         self._norm_delta = config.solver.norm_delta
         self._max_iterations = config.solver.max_iterations
+        self._ftol = config.solver.ftol
         self._output_alpha = config.solver.output_alpha
 
+        self._target_landmarks: np.ndarray | None = None
         self._target_directions: np.ndarray | None = None
         self._target_frame_primary_directions: np.ndarray | None = None
         self._target_frame_secondary_directions: np.ndarray | None = None
         self._target_distances: np.ndarray | None = None
         self._raw_human_distances: np.ndarray | None = None
         self._last_qpos: np.ndarray | None = None
+        self._last_solve_diagnostics: SolveDiagnostics | None = None
         self._robot_distance_scale = 0.0
 
         self._forward()
@@ -375,11 +395,13 @@ class VectorRetargeter:
 
     def solve(self) -> np.ndarray:
         if self._target_directions is None:
+            self._last_solve_diagnostics = None
             return self.hand_model.apply_mimic_constraints(self.data.qpos.copy())
 
         x0 = self._reduce_qpos(self.data.qpos.copy())
         previous_qpos = None if self._last_qpos is None else self._last_qpos.copy()
 
+        optimizer_started_ns = perf_counter_ns()
         result = minimize(
             fun=self._compute_loss_and_grad,
             x0=x0,
@@ -388,8 +410,19 @@ class VectorRetargeter:
             bounds=self._reduced_bounds,
             options={
                 "maxiter": self._max_iterations,
-                "ftol": 1e-6,
+                "ftol": self._ftol,
             },
+        )
+        optimizer_time_ns = perf_counter_ns() - optimizer_started_ns
+        self._last_solve_diagnostics = SolveDiagnostics(
+            optimizer_time_ns=optimizer_time_ns,
+            success=bool(result.success),
+            status=int(result.status),
+            message=str(result.message),
+            iterations=int(getattr(result, "nit", 0)),
+            function_evaluations=int(getattr(result, "nfev", 0)),
+            jacobian_evaluations=int(getattr(result, "njev", 0)),
+            objective=float(result.fun),
         )
 
         qpos = self._expand_qpos(result.x.copy())
@@ -412,6 +445,15 @@ class VectorRetargeter:
             return None
         return self._target_directions.copy()
 
+    def get_robot_vectors(self) -> np.ndarray:
+        return self._get_robot_vectors().copy()
+
+    def get_target_landmarks(self) -> np.ndarray | None:
+        """Return the preprocessed, temporally filtered landmarks used by the objective."""
+        if self._target_landmarks is None:
+            return None
+        return self._target_landmarks.copy()
+
     def get_frame_target_directions(self) -> tuple[np.ndarray | None, np.ndarray | None]:
         primary = None if self._target_frame_primary_directions is None else self._target_frame_primary_directions.copy()
         secondary = (
@@ -426,3 +468,9 @@ class VectorRetargeter:
 
     def get_robot_scale(self) -> float:
         return float(self._robot_distance_scale)
+
+    def get_independent_dof(self) -> int:
+        return len(self._independent_qpos_indices)
+
+    def get_last_solve_diagnostics(self) -> SolveDiagnostics | None:
+        return self._last_solve_diagnostics

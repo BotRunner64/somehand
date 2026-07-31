@@ -1,0 +1,27 @@
+experiment_id: "dex_retargeting_existing_pico_v1"
+recording: "recordings/pico_right.pkl"
+output_dir: "recordings/quantitative/results/existing_pico_right"
+
+# Exploratory pass over the recording that already exists in the repository
+# workspace. Pinch bouts are discovered from the human fingertip distances;
+# no fixed action count or duration is assumed.
+sample_rate_hz: 80
+warmup_frames: 80
+contact_threshold_m: 0.001
+human_pinch_threshold_m: 0.020
+minimum_contact_duration_s: 0.1
+reference_hand: "linkerhand_l20_right"
+
+hands:
+  - config: "configs/retargeting/right/dex5_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/inspire_dfq_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/linkerhand_l20_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/linkerhand_l6_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/rohand_right.yaml"
+    main_table: true
+  - config: "configs/retargeting/right/sharpa_wave_right.yaml"
+    main_table: true

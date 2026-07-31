@@ -13,7 +13,7 @@ retargeting:
       scale: 1.0
       threshold: 0.04
       activation_type: "linear"
-      scale_mode: "hand_scaled"
+      scale_mode: "raw"
     frame:
       primary_weight: 2.0
       secondary_weight: 1.8
@@ -21,5 +21,7 @@ retargeting:
     temporal_filter_alpha: 0.65
   solver:
     max_iterations: 60
+    ftol: 1.0e-6
     norm_delta: 0.001
     output_alpha: 0.92
+    activation_alpha: 0.3
